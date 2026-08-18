@@ -1,4 +1,11 @@
 # Applied on top of the stock DeepSeek Harness web profile.
+# `insert` in an overlay is anchored by the preceding matched row. Restate the
+# pinned web profile's `tools` config so the insertion point is deterministic
+# without changing its behavior.
+- id: tools
+  config:
+    mode: !!js process.env.DSH_TOOLS_MODE
+
 - insert:
     - id: ai-editorial-desk-spike
       name: '@ai-editorial-desk/harness-spike'
