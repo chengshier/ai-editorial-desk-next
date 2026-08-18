@@ -20,7 +20,7 @@ on:
 jobs:
   exact-pin-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout AI Editorial Desk Next
         uses: actions/checkout@v4
@@ -54,6 +54,10 @@ jobs:
       - name: Install Harness workspace
         working-directory: .harness-upstream
         run: pnpm install --no-frozen-lockfile
+
+      - name: Build pinned Harness host contracts
+        working-directory: .harness-upstream
+        run: pnpm run build:lib:host
 
       - name: Typecheck spike and referenced contracts
         working-directory: .harness-upstream
