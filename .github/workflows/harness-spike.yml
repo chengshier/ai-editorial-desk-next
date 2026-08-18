@@ -75,10 +75,35 @@ jobs:
           test -f packages/client/editorial-spike/lib/types/index.d.ts
           test -f packages/client/editorial-spike/lib/types/client/index.d.ts
 
+      - name: Install spike through official Harness profile plugin seam
+        working-directory: .harness-upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DSH_HOME="$PWD/.dsh-spike-home"
+          pnpm dsh plugin --profile web add ./packages/client/editorial-spike
+
+          PROFILE_MANIFEST="$DSH_HOME/profiles/web/package.json"
+          test -f "$PROFILE_MANIFEST"
+          node - "$PROFILE_MANIFEST" <<'NODE'
+          const fs = require('node:fs')
+          const manifestPath = process.argv[2]
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+          const packageName = '@ai-editorial-desk/harness-spike'
+          if (!manifest.dependencies?.[packageName]) {
+            throw new Error(`${packageName} was not installed into the web profile`)
+          }
+          if (!manifest.dsh?.profile?.bundles?.includes(packageName)) {
+            throw new Error(`${packageName} was not activated as a profile bundle`)
+          }
+          console.log(`profile dependency: ${manifest.dependencies[packageName]}`)
+          console.log(`profile bundles: ${manifest.dsh.profile.bundles.join(', ')}`)
+          NODE
+
       - name: Install Editorial API
         run: python -m pip install -e .
 
-      - name: Boot Editorial API and Harness web overlay
+      - name: Boot Editorial API and Harness web profile
         shell: bash
         run: |
           set -euo pipefail
@@ -86,9 +111,9 @@ jobs:
           API_PID=$!
           (
             cd .harness-upstream
+            export DSH_HOME="$PWD/.dsh-spike-home"
             EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 \
-              pnpm dsh web --patch packages/client/editorial-spike/cordis.patch.yml \
-              > /tmp/harness-web.log 2>&1
+              pnpm dsh web > /tmp/harness-web.log 2>&1
           ) &
           HARNESS_PID=$!
           cleanup() {
