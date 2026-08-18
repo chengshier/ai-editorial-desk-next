@@ -55,6 +55,12 @@ interface ResearchProgress {
   open_unknown_count: number
 }
 
+interface ResearchStartMeta {
+  research_case_id: string
+  opportunity_id: string
+  job_id: string
+}
+
 const SUBJECT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -114,6 +120,11 @@ function genericResult(title: string, text: string): GenericResultView {
     title,
     content: [{ type: 'text', text }],
   }
+}
+
+function presentationMeta<T>(result: ToolResult): T | undefined {
+  if (result.meta === undefined || result.meta === null || typeof result.meta !== 'object') return undefined
+  return result.meta as T
 }
 
 async function fetchJson<T>(path: string, init: RequestInit, outerSignal: AbortSignal): Promise<T> {
@@ -231,8 +242,6 @@ export const name = 'ai-editorial-desk-harness-spike'
 export const inject = ['tools', 'jobs']
 
 export function apply(ctx: Context): void {
-  // A producer needs an attached jobs controller. This disposer keeps the
-  // registration scoped to the plugin lifecycle.
   ctx.effect(() => ctx.jobs.attachController('ai-editorial-desk-harness-spike'))
 
   ctx.tools.register(defineTool({
@@ -252,6 +261,10 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: value.items.map((item, index) => `${index + 1}. ${opportunityText(item)}`).join('\n\n'),
       }],
+      presentationMeta: (_args, value) => ({
+        count: value.count,
+        items: value.items,
+      }),
     },
     async execute(_args, exec) {
       return fetchJson<OpportunityList>('/api/v1/spike/opportunities', { method: 'GET' }, exec.signal)
@@ -259,7 +272,8 @@ export function apply(ctx: Context): void {
     presentCall: () => ({ card: 'generic', title: '读取编辑机会', kind: 'read' }),
     presentResult(_args, result: ToolResult): GenericResultView | undefined {
       if (result.isError) return undefined
-      const value = result.value as unknown as OpportunityList
+      const value = presentationMeta<OpportunityList>(result)
+      if (value === undefined) return undefined
       const text = value.items
         .map(item => `• ${item.headline}\n  ${item.angle}\n  → ${item.recommendation}`)
         .join('\n\n')
@@ -273,7 +287,11 @@ export function apply(ctx: Context): void {
     parameters: {
       opportunity_id: { type: 'string', required: true, description: 'Stable opportunity id.' },
     },
-    output: { schema: OPPORTUNITY_SCHEMA, render: (_args, value) => [{ type: 'text', text: opportunityText(value) }] },
+    output: {
+      schema: OPPORTUNITY_SCHEMA,
+      render: (_args, value) => [{ type: 'text', text: opportunityText(value) }],
+      presentationMeta: (_args, value) => value,
+    },
     async execute(args, exec) {
       if (args.opportunity_id.trim().length === 0) throw new Error('opportunity_id must be non-empty')
       return fetchJson<OpportunitySummary>(
@@ -285,7 +303,8 @@ export function apply(ctx: Context): void {
     presentCall: args => ({ card: 'generic', title: '查看编辑机会', kind: 'read', rawInput: args.opportunity_id }),
     presentResult(_args, result: ToolResult): GenericResultView | undefined {
       if (result.isError) return undefined
-      const item = result.value as unknown as OpportunitySummary
+      const item = presentationMeta<OpportunitySummary>(result)
+      if (item === undefined) return undefined
       return genericResult(item.headline, opportunityText(item))
     },
   }))
@@ -312,6 +331,11 @@ export function apply(ctx: Context): void {
         type: 'text',
         text: `Research ${value.research_case_id} started as background job ${value.job_id}.`,
       }],
+      presentationMeta: (_args, value) => ({
+        research_case_id: value.research_case_id,
+        opportunity_id: value.opportunity_id,
+        job_id: value.job_id,
+      }),
     },
     async execute(args, exec) {
       if (!exec.agent) throw new Error('start_editorial_research requires an owning agent session')
@@ -345,8 +369,12 @@ export function apply(ctx: Context): void {
     presentCall: args => ({ card: 'generic', title: '启动研究', kind: 'execute', rawInput: args.opportunity_id }),
     presentResult(_args, result: ToolResult): GenericResultView | undefined {
       if (result.isError) return undefined
-      const value = result.value as unknown as { research_case_id: string; job_id: string }
-      return genericResult('研究已启动', `Research Case: ${value.research_case_id}\nHarness Job: ${value.job_id}`)
+      const value = presentationMeta<ResearchStartMeta>(result)
+      if (value === undefined) return undefined
+      return genericResult(
+        '研究已启动',
+        `Research Case: ${value.research_case_id}\nHarness Job: ${value.job_id}`,
+      )
     },
   }))
 }
