@@ -21,6 +21,8 @@ interface ResearchState extends ResearchNodeData {
   opportunityId: string
 }
 
+type ResearchNodeViewProps = Pick<ChatNodeViewProps<'editorial-research'>, 'node'>
+
 declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
   interface ChatNodeDataMap {
     'editorial-research': ResearchNodeData
@@ -110,7 +112,7 @@ const researchDefinition: ConversationNodeDefinition<ResearchState> = {
   },
 }
 
-function ResearchNodeView({ node }: ChatNodeViewProps<'editorial-research'>) {
+function ResearchNodeView({ node }: ResearchNodeViewProps) {
   const data = node.data
   const title = `${data.status === 'completed' ? '✓' : '⌕'} ${data.title}`
   const meta = `${data.progress}% · 证据 ${data.newEvidenceCount} · 未知项 ${data.openUnknownCount}`
