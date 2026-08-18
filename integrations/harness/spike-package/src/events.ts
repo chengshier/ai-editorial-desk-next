@@ -1,3 +1,5 @@
+import type {} from '@deepseek-ai/dsh-jobs'
+
 export interface EditorialResearchStartEvent {
   researchCaseId: string
   opportunityId: string
@@ -36,7 +38,7 @@ declare module '@deepseek-ai/dsh-session/types' {
   }
 }
 
-declare module '@deepseek-ai/dsh-jobs/types' {
+declare module '@deepseek-ai/dsh-jobs' {
   interface JobKindMap {
     'editorial-research': 'editorial-research'
   }
