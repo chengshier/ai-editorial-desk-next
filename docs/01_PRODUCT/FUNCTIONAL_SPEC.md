@@ -28,17 +28,22 @@ AI Editorial Desk Next 不是平台内容管理后台，也不是单纯热点监
 ### F-01 情报感知与主动发现
 - 常驻 Feed / RSS / API / Platform Connector 感知新信息。
 - Discovery Scout 按 Mission 主动搜索，而不是只按固定平台关键词抓取。
-- 支持 SearchProvider、FetchProvider、FeedProvider、PlatformProvider 可替换。
-- 每条进入系统的资料必须记录 acquisition provenance。
+- 同时支持两类核心发现：
+  - **Potential-driven**：即使尚未升温，只要内容本身有趣、有用、反常识、有故事性、保护价值、再解释价值或潜在受众连接，就可以收集、观察和评价。
+  - **Momentum-driven**：发现搜索、社区、平台或跨平台注意力正在快速变化的内容。
+- 支持 SearchProvider、FetchProvider、FeedProvider、PlatformProvider、TrendProvider 可替换。
+- Reddit/论坛/社区等非官方来源允许作为 Discovery/Audience/Trend Signal，但不自动作为 Confirmed Evidence。
+- 每条进入系统的资料必须记录 acquisition provenance、discovery lane 与 source role。
+- 热度不是 Discovery、Opportunity 或 Candidate 的硬门槛。
 
 ### F-02 Subject / Discovery
 - 将 RawSignal 关联到长期存在的 Subject。
-- 记录“为什么现在值得注意”的 Discovery，而不是把所有对象都强行解释成 Event。
+- 记录“为什么值得注意”的 Discovery；该原因既可以是“正在升温”，也可以是“本身有价值/有潜力”，而不是把所有对象都强行解释成 Event。
 - 一个 Subject 可以在不同时间产生多个 Discovery。
 
 ### F-03 Editorial Opportunity
 - 从 Discovery 生成一个或多个编辑机会。
-- Opportunity 必须显式描述 `Angle / Theme / Audience Promise / Why Now`。
+- Opportunity 必须显式描述 `Angle / Theme / Audience Promise / Why Now`；对于 Evergreen / Potential Discovery，`Why Now` 可以是“当前无强时效、适合长期储备”，不能为了格式完整伪造热点理由。
 - 允许同一 Subject/Discovery 因不同 Angle 形成多个 Opportunity。
 
 ### F-04 Editorial Value Evaluation
@@ -55,7 +60,7 @@ AI Editorial Desk Next 不是平台内容管理后台，也不是单纯热点监
 
 ### F-06 Candidate & Programming
 - Candidate V2 绑定 Opportunity，而不是 Event。
-- 支持 Today Main、Series、Evergreen、Watch 等不同 Programming Context。
+- 支持 Today Main、Series、Evergreen、Watch、Potential 等不同 Programming Context。
 - 同一 Candidate 在不同 Context 中可有不同优先级。
 - 允许 Pairwise Compare，不要求一个全局统一榜单。
 
@@ -84,25 +89,35 @@ AI Editorial Desk Next 不是平台内容管理后台，也不是单纯热点监
 ## 3. V1 必须可完成的用户任务
 
 1. 打开工作台即可看到系统此前已经发现的编辑机会，而不是先手动发起一次抓取。
-2. 查看“为什么值得讲”、当前 Angle、Theme、Audience Promise、证据与未知项。
-3. 要求 AI 更换 Angle、补充研究、比较多个候选。
-4. 将机会 Adopt / Watch / Drop，并说明原因。
-5. 按 Today / Series / Evergreen 等 Context 组织内容 Slate。
-6. 对 Adopt 项继续产生可追溯 Draft，并记录真实发布和表现。
+2. 同时看到“正在升温”和“尚未升温但值得一看”的机会，不让热点挤掉 Evergreen / Curiosity / Story / Utility 内容。
+3. 查看“为什么值得讲”、当前 Angle、Theme、Audience Promise、证据与未知项。
+4. 要求 AI 更换 Angle、补充研究、比较多个候选。
+5. 将机会 Adopt / Watch / Drop，并说明原因。
+6. 按 Today / Series / Evergreen / Potential 等 Context 组织内容 Slate。
+7. 对 Adopt 项继续产生可追溯 Draft，并记录真实发布和表现。
 
 ## 4. V1 非目标
 
 - 不追求一次支持所有社交平台的完整爬取能力。
-- 不以抓取数量、平台数量作为核心成功指标。
+- 不以抓取数量、平台数量、热点数量作为核心成功指标。
+- 不要求一条内容必须有显著 Trend 才能进入 Editorial Opportunity。
 - 不让 Harness Session Log 或 WeKnora 成为业务事实数据库。
 - 不做 silent self-evolution；任何 policy/rubric/prompts 的升级必须版本化、可回放、可审批。
 
 ## 5. 验收原则
 
-V1 的核心验收不是“抓了多少条”，而是能否稳定完成：
+V1 的核心验收不是“抓了多少条”或“追到了多少热点”，而是能否稳定完成：
 
 ```text
 真实资料 → 可解释 Discovery → 有价值 Opportunity → 可研究 → 可人工决策 → 可发布 → 可回看结果
 ```
 
-并且每一步都能回答：数据从哪里来、AI 为什么这么判断、人做过什么决定、后来结果如何。
+并且不同价值入口都能工作：
+
+```text
+正在升温 → Discovery
+尚未升温但很有趣/有用/有故事 → Discovery
+社区真实经历/争论 → Discovery Signal → Research → Evidence
+```
+
+每一步都必须回答：数据从哪里来、为什么被发现、AI 为什么这么判断、人做过什么决定、后来结果如何。
