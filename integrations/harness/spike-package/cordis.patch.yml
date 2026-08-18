@@ -1,0 +1,4 @@
+# Applied on top of the stock DeepSeek Harness web profile.
+- insert:
+    - id: ai-editorial-desk-spike
+      name: '@ai-editorial-desk/harness-spike'
