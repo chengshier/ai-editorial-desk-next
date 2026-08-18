@@ -27,12 +27,6 @@ declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
   }
 }
 
-declare module '@deepseek-ai/dsh-client-runtime/client' {
-  interface ConversationStepDataMap {
-    'editorial-research': ResearchNodeData
-  }
-}
-
 function locationOf(context: ConversationNodeContext): ConversationLocation {
   return context.start?.location ?? context.matches[0]?.location ?? { kind: 'unresolved' }
 }
@@ -101,14 +95,6 @@ const researchDefinition: ConversationNodeDefinition<ResearchState> = {
   publication: match => match.event.type === 'editorial/research-progress'
     ? 'animation-frame'
     : 'immediate',
-  buildLocationData(context, scope) {
-    if (scope !== 'step' || context.state === undefined) return null
-    return {
-      kind: 'step',
-      key: 'editorial-research',
-      value: viewData(context.state),
-    }
-  },
   buildViewNode(context) {
     if (context.state === undefined) return null
     return {
