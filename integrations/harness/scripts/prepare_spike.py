@@ -67,11 +67,19 @@ def main() -> int:
     print(f"Target: {target}")
     print("Next commands from the Harness root:")
     print("  pnpm install --no-frozen-lockfile")
+    print("  pnpm run build:lib:host")
     print("  pnpm exec tsc -b packages/client/editorial-spike/tsconfig.json")
     print("  pnpm --filter @ai-editorial-desk/harness-spike run bundle")
+    print("  export DSH_HOME=\"$PWD/.dsh-spike-home\"")
+    print("  pnpm dsh plugin --profile web add ./packages/client/editorial-spike")
     print(
         "  EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 "
-        "pnpm dsh web --patch packages/client/editorial-spike/cordis.patch.yml"
+        "pnpm dsh web"
+    )
+    print(
+        "The plugin must be installed into the active Harness profile. "
+        "Copying it into the upstream workspace is only for exact-pin build compatibility; "
+        "runtime resolution is profile-relative."
     )
     return 0
 
