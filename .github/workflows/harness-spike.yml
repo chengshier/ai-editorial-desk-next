@@ -1,0 +1,118 @@
+name: Harness Spike
+
+on:
+  pull_request:
+    paths:
+      - "integrations/harness/**"
+      - "apps/editorial_api/spike_harness.py"
+      - "apps/editorial_api/main.py"
+      - "tests/test_harness_spike_api.py"
+      - ".github/workflows/harness-spike.yml"
+  push:
+    branches: ["spike/harness-integration"]
+    paths:
+      - "integrations/harness/**"
+      - "apps/editorial_api/spike_harness.py"
+      - "apps/editorial_api/main.py"
+      - "tests/test_harness_spike_api.py"
+      - ".github/workflows/harness-spike.yml"
+
+jobs:
+  exact-pin-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout AI Editorial Desk Next
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned DeepSeek Harness
+        uses: actions/checkout@v4
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+          path: .harness-upstream
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm --version
+
+      - name: Prepare out-of-tree spike package
+        run: python integrations/harness/scripts/prepare_spike.py .harness-upstream
+
+      - name: Install Harness workspace
+        working-directory: .harness-upstream
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Typecheck spike and referenced contracts
+        working-directory: .harness-upstream
+        run: pnpm exec tsc -b packages/client/editorial-spike/tsconfig.json
+
+      - name: Bundle host and web client faces
+        working-directory: .harness-upstream
+        run: pnpm --filter @ai-editorial-desk/harness-spike run bundle
+
+      - name: Assert expected Harness artifacts
+        working-directory: .harness-upstream
+        run: |
+          test -f packages/client/editorial-spike/lib/index.js
+          test -f packages/client/editorial-spike/lib/client.js
+          test -f packages/client/editorial-spike/lib/types/index.d.ts
+          test -f packages/client/editorial-spike/lib/types/client/index.d.ts
+
+      - name: Install Editorial API
+        run: python -m pip install -e .
+
+      - name: Boot Editorial API and Harness web overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 8000 > /tmp/editorial-api.log 2>&1 &
+          API_PID=$!
+          (
+            cd .harness-upstream
+            EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 \
+              pnpm dsh web --patch packages/client/editorial-spike/cordis.patch.yml \
+              > /tmp/harness-web.log 2>&1
+          ) &
+          HARNESS_PID=$!
+          cleanup() {
+            kill "$HARNESS_PID" "$API_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for _ in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:8000/healthz >/tmp/api-health.json \
+              && curl --fail --silent http://127.0.0.1:3080/ >/tmp/harness-index.html; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl --fail --silent http://127.0.0.1:8000/api/v1/spike/opportunities >/tmp/opportunities.json
+          curl --fail --silent http://127.0.0.1:3080/ >/dev/null
+          test -s /tmp/opportunities.json
+          test -s /tmp/harness-index.html
+
+          if ! kill -0 "$HARNESS_PID" 2>/dev/null; then
+            echo "Harness web exited before validation completed"
+            cat /tmp/harness-web.log
+            exit 1
+          fi
+
+          echo "--- Editorial API health ---"
+          cat /tmp/api-health.json
+          echo
+          echo "--- Harness boot tail ---"
+          tail -n 80 /tmp/harness-web.log
