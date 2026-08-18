@@ -1,8 +1,10 @@
 {
-  "extends": "../../../tsconfig.base.client.json",
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "lib/types"
+    "outDir": "lib/types",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node"]
   },
   "include": ["src"],
   "references": [
