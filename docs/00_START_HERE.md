@@ -59,14 +59,34 @@ Acquisition Network
 ## Acquisition 基线
 
 ```text
-Ambient Feed Sensing
-+ Mission-driven Discovery Scout
+Ambient Coverage
++ Potential Scouts
++ Momentum Radar
 + Search-first Discovery
 + Targeted Fetch
 + Targeted Platform Research
 ```
 
+四类 discovery lane：
+
+```text
+ambient   持续覆盖“有什么新东西”
+potential 主动寻找“还没火，但可能值得讲”
+momentum  发现“什么正在突然变热”
+research  围绕已知 Opportunity 定向补证/补素材
+```
+
 固定平台 crawler 是 Provider，不是 Acquisition Core。
+
+关键不变量：
+
+> **热度不是 Discovery Gate。**
+
+一个没有明显 Trend 的内容，只要足够有趣、有用、反常识、有故事性、具有保护价值、再解释价值或栏目潜力，也可以进入 Discovery / Opportunity。
+
+同样，一个很热的内容也可能没有足够 Editorial Value。
+
+发现来源与事实证据来源必须分开。社区/非官方来源可以承担 `DISCOVERY_SIGNAL / TREND_SIGNAL / AUDIENCE_SIGNAL`，后续再通过 `PRIMARY_SOURCE / EVIDENCE_SOURCE / CONTRADICTION_SOURCE` 完成事实核验。
 
 ## Harness 基线
 
@@ -80,6 +100,22 @@ DeepSeek Harness (Node / TypeScript)
 
 Harness 是首选 Agent Workbench，但复杂 Radar / Programming / Performance UI 是否完全由 Harness 承担，必须通过 Harness Integration Spike。
 
+## 下一 Gate
+
+PR #1 合并后先执行：
+
+```text
+Phase 0.5-A Harness Integration Spike
+Phase 0.5-B Acquisition Provider Spike
+```
+
+Acquisition Spike 必须同时验证：
+- high-momentum discovery；
+- low/no-momentum but high-potential discovery；
+- community/non-official first discovery → reliable evidence follow-up。
+
+两个 Spike 的结论冻结后才进入 **Phase 1 — Foundation Contracts**。
+
 ## 一句话边界
 
-**持续发现“值得讲的东西”，并把它转化为可解释、可研究、可人工决策的编辑机会，而不是持续给热点 Event 排一个总分。**
+**持续发现“值得讲的东西”，既不局限于热点，也不把社区噪声直接当事实。**
