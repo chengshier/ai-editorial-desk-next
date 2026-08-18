@@ -2,73 +2,111 @@
 
 ## 状态
 
-`ARCHITECTURE_FUNCTIONAL_BASELINE_V1_IN_PROGRESS`
+`PHASE_0_5_A_HARNESS_INTEGRATION_SPIKE_IN_PROGRESS`
 
-当前分支 `docs/architecture-baseline-v1` 正在冻结：
-- Architecture Baseline v1；
-- Functional/Product Baseline v1；
-- Harness Integration Contract v1；
-- Mission-driven Acquisition v1；
-- 项目骨架与执行规则。
+Architecture + Functional Baseline v1 已通过 PR #1 合并到 `main`。
 
-## 已确认
+当前分支：
+
+```text
+spike/harness-integration
+```
+
+本分支只执行 **Phase 0.5-A Harness Integration Spike**，验证 DeepSeek Harness 与 Editorial API 的真实集成边界；不进入正式 Subject/Discovery/Opportunity 持久化实现。
+
+## Baseline 已冻结
 
 - 新仓库独立演化，旧 `ai-editorial-desk` 冻结为 Legacy MVP/reference。
 - 新核心以 Subject / Discovery / Editorial Opportunity 为中心。
 - Editorial Opportunity 是 Value Evaluation 与 Candidate V2 的直接业务对象。
 - Editorial Value 采用版本化 Profile，不以单个 0–100 总分作为业务真相。
-- Trend 从前置必需步骤降级为可选 Feature Provider。
-- Acquisition 改为 Mission-driven：Ambient Coverage + Potential Scouts + Momentum Radar + Search-first + Targeted Fetch + Targeted Platform Research。
-- **热度不是 Discovery Gate**：未升温但本身有趣、有用、有故事、反常识、保护价值或再解释潜力的内容可以进入 Discovery/Opportunity。
-- Reddit/论坛/社区等非官方来源允许作为 Discovery/Audience/Trend Signal；事实确认仍遵守 Evidence/Primary Source 规则。
-- 固定平台 crawler/Legacy MediaCrawler 只允许作为 PlatformProvider/Adapter，不是 Acquisition Core。
-- DeepSeek Harness 作为首选 Product Runtime / Agent Workbench，通过插件/工具/HTTPS API 接入 Core。
-- Harness 是否承担全部复杂 Radar/Programming/Performance UI，须通过 Harness Integration Spike 决定。
+- Trend 是可选 Feature Provider；热度不是 Discovery Gate。
+- Acquisition = Ambient Coverage + Potential Scouts + Momentum Radar + Search-first + Targeted Fetch + Targeted Platform Research。
+- Reddit/论坛/社区等非官方来源可以承担 Discovery/Audience/Trend Signal；事实确认仍走 Evidence/Primary Source。
 - PostgreSQL 是 System of Record。
-- WeKnora 是 Knowledge Provider，通过 Knowledge Gateway 接入。
-- Evidence、Decision、Publication、Performance 的审计语义尽量继承旧版成熟原则。
+- WeKnora 是 Knowledge Provider，经 Knowledge Gateway 接入。
+- DeepSeek Harness 是首选 Product Runtime / Agent Workbench，但是否承担全部复杂业务 UI 必须由本 Spike 验证。
 
-## 此阶段允许
+## Phase 0.5-A 当前范围
 
-- 文档、ADR、Use Case、数据契约、状态机、项目结构。
-- `/healthz`、mock endpoint 等最小运行骨架。
-- Legacy 读取与迁移方案设计。
-- Harness/WeKnora compatibility interface 设计。
-- Acquisition/Harness Spike 的设计文档与最小验证代码。
+允许：
+- pinned DeepSeek Harness checkout / compatibility validation；
+- out-of-tree Harness package；
+- Editorial Tools；
+- FastAPI mock Opportunity / Research API；
+- structured Tool Card；
+- Harness Job；
+- durable Session event；
+- Research Conversation Node；
+- exact-pin build/boot CI；
+- 浏览器手工 runtime/replay 验证；
+- Spike Validation Report / UI capability matrix / ADR proposal。
 
-## 此阶段禁止
+禁止：
+- 正式建立 Subject / Discovery / Opportunity 数据库和完整 Service；
+- 为通过 Spike 而 fork/patch DeepSeek Harness core；
+- Harness Tool 直接访问 PostgreSQL / WeKnora；
+- 将 Harness Session 当成 canonical business database；
+- 用 mock 结果冒充真实 Editorial Intelligence；
+- 在未实测前宣称 Harness Full Workbench 已通过；
+- 同时开始 Acquisition Provider Spike 的正式实现。
 
-- 提前完整实现 Subject/Discovery/Opportunity 业务表与服务。
-- 把旧 Event/Trend/Score 模型复制到新仓库后继续作为主链。
-- 把固定平台每天抓 N 条作为 V1 核心发现方式。
-- 把“快速升温”设成所有 Discovery 的必要条件。
-- 因来源非官方就直接丢弃 Community Signal，或把社区热帖直接当作 Confirmed Fact。
-- 在 Provider Spike 前把 Exa/Firecrawl/Crawl4AI/MediaCrawler/Trend Provider 等具体实现锁死为不可替换基础设施。
-- 直接 fork/魔改 DeepSeek Harness core 来满足复杂 UI。
-- 将 Candidate/Decision/Publication 真相写到 WeKnora 或 Harness Session。
-- 为了“先跑起来”跳过 provenance/versioning。
+## Harness Pin
 
-## Baseline Exit Gate
+```text
+Repository: deepseek-ai/deepseek-harness
+Commit:     99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+Release:    dsh@0.1.0-rc.7
+```
 
-PR #1 合并前至少应具备：
-- Product Vision / Functional Spec / User Journeys / Workbench UX；
-- Domain / Value / State / Provenance contracts；
-- Harness runtime/API/UI strategy；
-- Acquisition architecture/provider contract，明确 Potential/Momentum 双通道与 Source Role；
-- Legacy reuse audit；
-- Implementation Roadmap / Acceptance / Spike specs；
-- AGENTS/ADR 执行约束。
+见 `integrations/harness/HARNESS_PIN.json`。
+
+## 当前实现状态
+
+```text
+FastAPI mock Opportunity API             IMPLEMENTED
+FastAPI mock Research Case               IMPLEMENTED
+Harness list/inspect Tools               IMPLEMENTED
+Harness start research Tool              IMPLEMENTED
+Harness Job bridge                       IMPLEMENTED
+Durable research Session events          IMPLEMENTED
+Research Conversation Node               IMPLEMENTED
+Exact-pin TypeScript/build CI             RUNNING/PENDING
+Harness Web overlay boot smoke           RUNNING/PENDING
+Manual browser Tool/Card validation       PENDING
+Manual live research progress             PENDING
+Manual refresh/replay validation          PENDING
+Complex Radar/UI capability test          PENDING
+```
+
+任何 `PENDING` 项不得在报告中写成 PASS。
+
+## 本阶段 Exit Gate
+
+至少需要：
+
+1. Python exact-head CI success；
+2. pinned Harness typecheck/build success；
+3. Harness Web overlay boot success；
+4. 浏览器内真实 Tool → FastAPI 调用成功；
+5. Opportunity Card 可用性确认；
+6. Research Job live progress 成功；
+7. refresh/replay 成功；
+8. 输出 compatibility risk list 和 UI capability matrix；
+9. 对 `HARNESS_FULL_WORKBENCH` / `HYBRID_WEB_HARNESS` 给出基于实测的阶段性结论。
+
+若复杂 Radar/UI 仍需更独立的第二层验证，可将 A/B/C 核心链路先收口为 PASS，同时明确 UI Strategy Decision 仍为 `DEFERRED_TO_UI_SPIKE`，不得强行下结论。
 
 ## 下一 Gate
 
-Baseline 合并后先进入 **Phase 0.5 — Validation Spikes**：
+Phase 0.5-A 收口后，从最新 `main` 新建独立分支执行：
 
-1. Harness Integration Spike；
-2. Acquisition Provider Spike。
+```text
+Phase 0.5-B — Acquisition Provider Spike
+```
 
-Acquisition Spike 必须同时验证：
-- high-momentum discovery；
-- low/no-momentum but high-potential discovery；
-- community/non-official first discovery → reliable evidence follow-up。
+只有两个 Spike 的关键结论冻结后，才进入：
 
-Spike 输出用于冻结 UI 形态与 V1 Provider 组合。随后再进入 **Phase 1 — Foundation Contracts**，实现核心 schema/value objects/repository ports/provenance primitives。
+```text
+Phase 1 — Foundation Contracts
+```
