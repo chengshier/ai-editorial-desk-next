@@ -55,9 +55,9 @@ jobs:
         working-directory: .harness-upstream
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build pinned Harness host contracts
+      - name: Build complete pinned Harness runtime
         working-directory: .harness-upstream
-        run: pnpm run build:lib:host
+        run: pnpm run build
 
       - name: Typecheck spike and referenced contracts
         working-directory: .harness-upstream
