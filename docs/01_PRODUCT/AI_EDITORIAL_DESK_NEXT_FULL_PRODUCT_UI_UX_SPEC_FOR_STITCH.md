@@ -5,6 +5,8 @@
 > 目标：设计 AI Editorial Desk Next 的完整目标产品 UI，而不是只设计 MVP / V1 页面。
 >
 > 工程实现可以分阶段，但设计范围必须覆盖完整产品信息架构、跨模块流程、核心状态与配置体系。
+>
+> **页面编号、页面状态、Overlay 与 Stitch 生成顺序以 `UI_PAGE_STATE_AND_GENERATION_MAP.md` 为准。** 本文中的功能章节不是“一章对应一张独立页面”。例如 Opportunity Detail / Inspector、Evidence、Timeline、Human Submission 均可能是页面内部状态或 Overlay，而不是新的一级页面。
 
 ---
 
@@ -144,6 +146,8 @@ AI Agent / Harness Workspace
 个人 / 团队
 ```
 
+> “采集”属于管理侧，不作为日常编辑主导航中的独立第九步。进入方式与页面编号见 `UI_PAGE_STATE_AND_GENERATION_MAP.md`。
+
 ---
 
 # 4. 全局 Shell
@@ -199,6 +203,16 @@ Evergreen
 
 系统视图与用户栏目必须视觉分组，不能混为一类。
 
+管理侧入口建议独立成：
+
+```text
+采集与配置
+├─ 采集任务
+├─ 数据源 / Provider
+├─ 配置中心
+└─ 系统设置
+```
+
 ## 4.3 右侧 Inspector
 
 在列表页中点击 Opportunity 后打开右侧详情，不强制跳转整页。
@@ -214,6 +228,8 @@ Inspector 顶部 Tabs：
 ```
 
 支持：固定、展开全屏、关闭。
+
+**Opportunity Detail / Inspector 不是独立一级页面。** 它是 Today / Opportunities Library 中可复用的页面状态。
 
 ---
 
@@ -286,6 +302,8 @@ Editorial Advantage 简述
 
 # 6. Opportunity Detail / Inspector
 
+> 本章描述 **P01 / P02 内部 Inspector 状态**，不是新的独立页面。
+
 ## 6.1 Overview
 
 展示：
@@ -317,6 +335,8 @@ Angle 强度
 ```
 
 用等级 / 点阵 / 标签表示，不做唯一总分。
+
+首屏不应把全部 Evaluation 维度都以等权小卡同时铺满；优先展示最关键的 4–6 项，其余进入“完整评价”。
 
 ## 6.2 Evidence Tab
 
@@ -383,7 +403,7 @@ Claim / 状态变化
 AI / Human action
 ```
 
-视觉可借鉴用户提供的深色高密度方案，但默认产品主视觉仍保持浅色。
+默认产品主视觉保持浅色；高密度不等于所有信息同时展开。
 
 ## 6.5 History Tab
 
@@ -406,17 +426,90 @@ Performance snapshot
 
 这是完整产品中的高密度专业工作区，可以明显区别于轻量 Today 页面。
 
-## 页面布局建议
+## 7.1 页面职责
+
+Research Workspace 的核心不是再次做“选题审批”，而是回答：
 
 ```text
-左：Research Cases / Unknowns / Sources
-中：Timeline / Evidence / Documents / Claims
-右：Research Goal / Agent Progress / Actions
+已经知道什么？
+哪些 Claim 已证实？
+哪些仍在调查？
+哪些存在争议或反证？
+还有什么 Unknown？
+事件如何演进？
+Agent 当前在执行什么可观察任务？
+本轮研究新增了什么？
 ```
 
-或全屏工作台。
+## 7.2 推荐布局
 
-## 核心模块
+```text
+左 260–280px：Research Plan
+中 flexible：Claim & Evidence Workspace
+右 360–400px：Context Inspector
+```
+
+### 左侧
+
+不要同时纵向堆满 Goals / Unknowns / Jobs。
+
+优先采用：
+
+```text
+研究计划 | Unknowns | Jobs
+```
+
+或同等层级的渐进式展开。
+
+### 中间 Claim Workspace
+
+所有 Claim 默认使用紧凑行，只展开当前选中的一条。
+
+```text
+✓ Confirmed
+◐ Investigating
+! Disputed
+◇ Single Source
+? Unknown
+× False
+```
+
+被选中的 Claim 才展开：
+
+```text
+Supporting Evidence
+Contradicting Evidence
+Primary Source
+Notes / verification actions
+```
+
+### 右侧 Context Inspector
+
+不要同时纵向堆满 Timeline + Sources + Materials + Agent Activity。
+
+采用 Tabs：
+
+```text
+Timeline | Sources | Materials | Agent
+```
+
+默认只展开一个。
+
+## 7.3 顶部信息密度
+
+顶部只保留：
+
+```text
+← 返回机会
+Opportunity 标题
+研究状态 + Progress
+追加研究目标
+完成研究
+```
+
+Claim 状态统计放回 Claim Workspace，不要全部塞在顶栏。
+
+## 7.4 核心模块
 
 ```text
 Research Goal
@@ -432,15 +525,26 @@ Agent Activity
 Research Result Diff
 ```
 
-## 视觉风格
+## 7.5 主操作
 
-允许比主工作台更深、更高密度、更“指挥中心”，但保持产品设计语言一致。
+```text
+继续研究
+追加研究目标
+完成研究
+返回机会
+```
+
+`采纳 / 放弃 / 发布` 不应成为 Research Workspace 最强主按钮。
+
+## 7.6 视觉风格
+
+允许比主工作台更高密度，但保持浅色 Design System 和足够留白。专业感来自信息结构与证据关系，不来自把所有字段同时塞进一屏。
 
 ---
 
 # 8. Opportunities Library
 
-用于长期浏览全部 Opportunity。
+用于长期浏览全部 Opportunity，也是顶部“机会”的独立目标页。
 
 ## 功能
 
@@ -470,11 +574,25 @@ Source type
 
 列表允许：卡片视图 / 紧凑列表视图。
 
+点击一条机会默认复用右侧 Opportunity Inspector，而不是再跳一个重复的 Opportunity Detail 独立页。
+
 ---
 
 # 9. Programming / 编排
 
+页面产品名统一为 **编排 / 编排看板**，不要叫“编辑看板”。
+
 Programming 不是 TOP 榜，而是把 Candidate 放到不同 Context / Series / 日期中做人工编排。
+
+Programming 解决的是：
+
+```text
+已经决定值得做之后
+什么时候做？
+放哪个栏目？
+优先级是什么？
+Today Main / Watch / Evergreen 如何安排？
+```
 
 ## 页面子模块
 
@@ -500,7 +618,7 @@ Calendar / 排期
 暂缓
 ```
 
-支持拖拽，但 Human Decision /历史必须保留。
+支持拖拽，但 Human Decision / 历史必须保留。
 
 ## Series View
 
@@ -546,7 +664,14 @@ Risk
 
 完整配置规范见 `EDITORIAL_SERIES_CONFIGURATION_SPEC.md`。
 
-主入口：
+主入口属于管理侧：
+
+```text
+采集与配置 / 管理
+→ 配置中心
+```
+
+配置范围：
 
 ```text
 栏目 Series
@@ -582,7 +707,7 @@ Rollback
 
 这是全局入口，应始终容易找到。
 
-点击后使用轻量 Modal / Command Palette，而不是传统表单。
+它是 Overlay / Modal / Command Palette，不是独立主页面。
 
 ## 输入
 
@@ -624,7 +749,11 @@ Observation
 
 # 12. Draft Studio / 创作
 
-只对 Adopt 后的对象开放。
+页面产品名统一为 **创作 / 创作工作室**。
+
+只对 Adopt 后并进入制作流程的对象开放。
+
+Programming 决定“做什么 / 放哪 / 什么时候做”；Creation 决定“内容具体怎么写、怎么改”。
 
 ## 页面结构
 
@@ -672,7 +801,22 @@ AI 功能：
 
 ---
 
-# 13. Publication
+# 13. Publication / 发布中心
+
+页面产品名统一为 **发布 / 发布中心**。
+
+优先使用：
+
+```text
+发布审阅
+发布队列
+待发布
+已排期
+已发布
+已退回
+```
+
+避免把“出版审阅”作为通用一级命名。
 
 ## 模块
 
@@ -695,7 +839,7 @@ Target channel
 Scheduled time
 ```
 
-支持人工确认。
+支持人工确认与退回修改。
 
 ---
 
@@ -749,252 +893,289 @@ UI 以知识浏览 / 搜索为主，不做数据库管理感。
 
 ---
 
-# 16. Acquisition
+# 16. Acquisition / 采集任务中心
 
-这个模块面向高级用户 / 管理者，不作为产品首页。
+这个模块面向高级用户 / 管理者，**不作为顶部日常业务导航**。
+
+进入路径：
+
+```text
+采集与配置 / 管理
+→ 采集任务
+```
+
+Today / Radar 不要求用户先进入采集页执行抓取；采集与发现应作为后台持续能力。
 
 ## 页面
 
 ```text
-Mission Runs
-Search Coverage
-Feed Sources
-Platform Research
-Trend Observations
+Search Missions / Tasks
+Feed subscriptions
+Momentum / Trend Radar
+Targeted Platform Research
+Source Coverage
 Provider Health
-Coverage / Failure Audit
+Coverage Gaps
 ```
 
-展示“系统为什么看到 / 没看到”某类信息。
+## 核心目标
 
-不要把产品退化成“微博抓取任务后台”。
+```text
+系统现在在主动寻找什么？
+覆盖了哪些来源？
+哪些领域存在 coverage gap？
+哪些 Provider 能力健康 / unavailable？
+哪些任务正在运行？
+```
+
+Provider 数值不等于 Editorial Value。
 
 ---
 
-# 17. AI Agent / Harness Workspace
+# 17. System / Providers
 
-Agent 是横跨产品的能力，不应只存在一个孤立“AI 页面”。
+管理侧页面。
 
-各模块都可以唤起：
-
-```text
-换 Angle
-比较两个 Candidate
-继续研究 Unknown
-查原始来源
-生成 Research Plan
-根据 Evidence 修改 Draft
-解释 Performance 偏差
-```
-
-如果需要独立 Harness Workspace，建议包含：
+显示：
 
 ```text
-Conversation
-Structured Tool Cards
-Research Jobs
-Approval
-Replay
-Task History
-```
-
----
-
-# 18. System Management
-
-低频管理区：
-
-```text
-Providers
+Provider health
 Models
 Budget
-Risk
-Audit
-Users / Team
-Settings
+Risk Policy
+Runtime Status
+System Settings
 ```
 
-与普通编辑工作区明确分开。
+密钥不得明文展示。
 
 ---
 
-# 19. 全局状态规范
+# 18. Agent / Harness Workspace
 
-任何页面必须设计：
+Agent / Harness 是跨产品能力，不一定作为孤立一级业务页面。
 
-```text
-Loading
-Empty
-Unavailable + reason
-Partial data
-Error
-Retry
-Permission denied
-Risk blocked
-Stale data
-Researching
-Completed
-Cancelled
-```
-
-关键语义：
+适合出现在：
 
 ```text
-Unavailable ≠ 0
-Unknown ≠ Fact
-Single Source ≠ Confirmed
-Human Seed ≠ Adopt
-Adopt ≠ Draft
-Draft ≠ Publication
+Research Job
+Opportunity Compare
+Draft Assistant
+Tool / Approval Card
+Session / Replay
 ```
+
+业务状态必须来自 Editorial API，而不是聊天文本反解析。
 
 ---
 
-# 20. 视觉语言
+# 19. 完整页面 / 状态关系
 
-## 主视觉
+正式页面代码与生成规则见 `UI_PAGE_STATE_AND_GENERATION_MAP.md`。
 
-整体推荐：Modern Clean Editorial Intelligence。
+摘要：
 
-关键词：
+```text
+P01 今日 / Today Radar
+P02 机会 / Opportunities Library
+P03 研究 / Research Workspace
+P04 编排 / Programming Slate
+P05 创作 / Draft Studio
+P06 发布 / Publication Center
+P07 表现 / Performance & Learning
+P08 知识 / Knowledge Workspace
+
+M01 采集任务中心
+M02 编辑配置中心
+M03 System / Providers
+
+O01 交给编辑部
+```
+
+Opportunity Detail / Inspector、Evidence、Timeline、History、Compare 等根据上下文属于 Page State，不应机械生成成新的一级页面。
+
+---
+
+# 20. 视觉系统
+
+## 主方向
 
 ```text
 浅色
-清晰
 现代
-专业但不过度企业后台
-高可读性
-信息密度可切换
-少卡片堆砌
-蓝紫主色
-状态色克制
+高信息清晰度
+专业编辑工具
+AI 原生
+非传统 ERP 后台
 ```
 
-## 颜色语义
+## 颜色
 
 ```text
-Purple / Indigo：主操作 / AI / Selected
-Green：Confirmed / Healthy / Ready
-Orange：Investigating / Attention / Warning
-Red：Integrity Risk / Blocked
-Blue：Information / Research
-Gray：Unavailable / Archived / Secondary
+背景：白 / 极浅灰
+主色：蓝紫
+Confirmed / Healthy：绿
+Investigating / Attention：橙
+Risk / False：红
+Unknown：灰 / 中性
 ```
 
-## 卡片
+避免所有颜色同时高饱和出现。
 
-- 轻边框；
-- 小圆角；
-- 少阴影；
-- 避免所有内容都是独立 Card；
-- 允许分区线与留白组织信息。
+## Typography
 
-## 字体与层级
+中文为主；英文主要作为术语辅助：
 
-优先中文可读性，标题和业务判断高于技术元数据。
+```text
+为什么值得讲
+受众承诺
+编辑优势
+研究中
+证据
+```
 
-ID、版本号、Provider 名称应弱化。
+而不是大量纯英文后台字段。
+
+## Density
+
+不同工作区允许不同密度：
+
+```text
+Today / Opportunity：中低密度
+Research：中高密度 + 渐进披露
+Programming：看板 / 排期密度
+Creation：大画布编辑器
+Publication：审阅 / 队列密度
+Performance：分析 Dashboard
+Knowledge：阅读 / 浏览密度
+Management：结构化配置 / 运维密度
+```
+
+专业感不等于把所有字段同时展示。
 
 ---
 
-# 21. Stitch 设计稿生成优先级
+# 21. Stitch / 设计生成规则
 
-建议按以下批次生成，每页必须单独设计，不要将多个页面拼在一张总览图中。
+**不要把本文每个编号章节理解为一张独立页面。**
 
-## 第一批：核心日常工作流
+设计工具必须先读取 `UI_PAGE_STATE_AND_GENERATION_MAP.md`。
+
+每一次生成任务都必须明确：
 
 ```text
-1. Today / Editorial Radar
-2. Opportunity Detail / Inspector
-3. Research Workspace
-4. Human Submission Modal
+目标 Page Code
+从哪个页面进入
+这一张页面要回答的核心问题
+必须出现的模块
+哪些信息需要折叠 / Tab
+主操作
+禁止成为主操作的按钮
+参考图 / Design System
 ```
 
-## 第二批：编排与配置
+例如：
 
 ```text
-5. Programming / Today Slate
-6. Series Detail
-7. Pairwise Compare
-8. Editorial Configuration Center
-9. Series Configuration Editor
-10. Mission Builder
-```
-
-## 第三批：创作发布
-
-```text
-11. Draft Studio
-12. Draft Review
-13. Publication Queue
-14. Publication Detail
-```
-
-## 第四批：长期闭环
-
-```text
-15. Performance Dashboard
-16. Decision Review
-17. Calibration Suggestions
-18. Knowledge Home
-19. Acquisition / Provider Health
-20. System Settings
-```
-
----
-
-# 22. Stitch 生成时的关键约束
-
-每一张设计稿都必须遵守：
-
-```text
-不要设计成传统 Admin Dashboard
-不要以 VIRAL / 综合总分作为核心
-不要把热度等于价值
-不要把 AI 脚本直接放在未 Adopt Opportunity 上
-不要在 Opportunity 页面出现“立即发布”
-不要把 System Views 与 Series 混为一类
-不要把 Provider / 爬虫任务放在首页主导航中心
-不要只给 Summary，要能下钻 Evidence / Research / Timeline
-不要暴露模型隐藏推理链
-不要让所有页面都采用同一种三栏布局
-```
-
-必须体现：
-
-```text
-Why worth telling
-Angle
-Audience Promise
-Editorial Advantage
-Evidence / Unknown
-Research
-Human Decision
-Programming
-Version / Provenance
+Generate ONLY P03 Research Workspace.
+Reference P01 as the visual system.
+Do not regenerate P01.
+Do not generate Opportunity Inspector as another page.
+Do not generate Human Submission unless O01 is requested.
 ```
 
 ---
 
-# 23. 推荐的总体布局关系
+# 22. 参考设计图生成顺序
+
+建议按“独立页面 + 必要 Overlay”生成，而不是按功能章节编号生成。
+
+## 第一批：日常核心链路
 
 ```text
-AI Editorial Desk NEXT
-│
-├─ Today / Radar        ← 轻量发现与判断
-├─ Opportunity          ← 业务详情
-├─ Research Focus       ← 高密度事实核验
-├─ Programming          ← 栏目 / 排期 / 比较
-├─ Draft Studio         ← 创作
-├─ Publication          ← 发布审核
-├─ Performance          ← 结果与复盘
-├─ Knowledge            ← 方法论 / 长期知识
-│
-├─ Acquisition          ← 高级采集能力管理
-├─ Configuration        ← 栏目 / Mission / Rubric / Policy
-└─ System               ← Provider / Model / Risk / Audit
+P01 Today / Radar — Inspector open state
+P02 Opportunities Library
+P03 Research Workspace
+P04 Programming / Editorial Slate
 ```
 
-最终产品应形成：
+## 第二批：制作与结果
 
-**轻量 Editorial Desk + 深度 Research Console + Programming Studio + Creation Studio + Learning Loop**。
+```text
+P05 Creation / Draft Studio
+P06 Publication Center
+P07 Performance & Learning
+P08 Knowledge Workspace
+```
+
+## 第三批：管理与配置
+
+```text
+M01 Acquisition Task Center
+M02 Editorial Configuration Center
+M03 System / Providers
+```
+
+## Overlay / 状态补充
+
+```text
+O01 Human Submission
+P01 Compare Mode
+P03 expanded disputed Claim
+P04 Pairwise Compare
+P05 Script mode
+P06 frozen provenance / publication detail
+M02 Mission Builder / Rubric Editor
+```
+
+---
+
+# 23. Stitch 禁止事项
+
+不要生成：
+
+```text
+深色 SOC 风格首页
+VIRAL 9.6 主导布局
+TOP 榜作为唯一发现机制
+一个综合分决定一切
+大面积密集表格后台
+所有模块都套卡片
+首页直接生成稿件
+Opportunity 直接立即发布
+所有 Research 信息同时展开
+将每个功能章节机械生成成独立页面
+把采集任务中心放进顶部日常业务主导航
+把“编辑看板”与“编排 / 创作”并列造成语义冲突
+```
+
+不要使用：
+
+```text
+传统 ERP 蓝灰色
+舆情监控大屏
+纯黑赛博朋克
+大量荧光渐变
+过度 Glassmorphism
+```
+
+---
+
+# 24. 最终产品感觉
+
+设计完成后，用户应该感觉：
+
+> “这不是一个数据后台，也不是一个自动写稿器，而是一个真正懂编辑判断、会主动找东西、会查证、会解释、会帮助我安排内容并且能够和我一起工作的 AI 编辑部。”
+
+产品长期视觉关键词：
+
+```text
+Calm
+Editorial
+Intelligent
+Trustworthy
+Explainable
+Human-in-control
+Dense when needed
+Quiet by default
+```
