@@ -11,6 +11,7 @@
 | ADR-0005 | Editorial Opportunity = 主要评价/候选单位 | Accepted |
 | ADR-0006 | Acquisition Core 采用 Mission-driven；Potential 与 Momentum 双通道，热度不是前置条件 | Accepted |
 | ADR-0007 | Harness 复杂 UI 必须经过 Spike，再决定 Full Workbench 或 Hybrid | Accepted |
+| ADR-0008 | Human Acquisition 是一等发现入口；HumanSubmission 统一归一化进入 RawSignal / Provenance 主链 | Accepted |
 
 ## 业务不变量
 
@@ -32,6 +33,11 @@
 16. 固定平台 crawler 是 Provider，不是产品核心发现逻辑。
 17. Harness Session / WeKnora 不得成为 canonical business truth。
 18. UI 形态可以演化，但 Domain/API 业务语义不得复制或分叉。
+19. **Human Submission 是线索入口，不等于 Confirmed Fact、正偏好标签、Opportunity、Candidate 或 Adopt。**
+20. 必须区分 `source_origin` 与 `acquisition_origin`；用户提交第三方 URL 不改变第三方作为原始来源的事实。
+21. Machine Acquisition 与 Human Acquisition 共享统一 RawSignal / Subject / Discovery / Opportunity 主链，不建立第二套 HumanSignal 业务模型。
+22. **Editorial Advantage invariant**：进入 Candidate 的 Opportunity 必须说明相对原始信息新增了什么编辑价值；不要求信息具有排他性。
+23. Human Submission 只有与后续 Evaluation + Adopt/Watch/Drop + reason 结合后，才可作为 Rubric calibration evidence。
 
 ## 当前待 Spike 后冻结的决定
 
