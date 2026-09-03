@@ -57,7 +57,10 @@ jobs:
 
       - name: Build complete pinned Harness runtime
         working-directory: .harness-upstream
-        run: pnpm run build
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm run build 2>&1 | tee /tmp/harness-build.log
 
       - name: Typecheck spike and referenced contracts
         working-directory: .harness-upstream
@@ -203,6 +206,7 @@ jobs:
         run: |
           set -u
           mkdir -p harness-spike-diagnostics
+          cp /tmp/harness-build.log harness-spike-diagnostics/harness-build.log 2>/dev/null || true
           cp /tmp/editorial-api.log harness-spike-diagnostics/editorial-api.log 2>/dev/null || true
           cp /tmp/harness-web.log harness-spike-diagnostics/harness-web.log 2>/dev/null || true
           cp /tmp/api-health.json harness-spike-diagnostics/api-health.json 2>/dev/null || true
