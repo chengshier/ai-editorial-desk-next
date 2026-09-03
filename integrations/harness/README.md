@@ -7,8 +7,8 @@
 - Harness = Product Runtime + Workbench Shell + Agent/Session/Tool/Job/Approval runtime。
 - Editorial Intelligence Core 通过 API / tools 暴露给 Harness。
 - 首选 out-of-tree plugin、profile、bundle、tool 与 capability seam；默认禁止 patch upstream core。
-- Harness 处于 Developer Preview，必须 pin 版本/commit，并通过 compatibility adapter 隔离 breaking changes。
-- Durable business truth 不写入 Harness session log 作为唯一存储；Session log 只保存交互与运行轨迹。
+- Harness 处于 Developer Preview，必须 pin version/commit，并通过 compatibility adapter 隔离 breaking changes。
+- Durable business truth 不以 Harness Session log 作为唯一存储；Session 只保存交互/运行/replay 所需事实。
 
 实现前阅读：
 - `docs/03_ARCHITECTURE/HARNESS_INTEGRATION.md`
@@ -16,9 +16,7 @@
 - `docs/04_CONTRACTS/HARNESS_API_CONTRACT.md`
 - `docs/07_DELIVERY/HARNESS_INTEGRATION_SPIKE.md`
 
-## Phase 0.5-A 当前 Pin
-
-见 `HARNESS_PIN.json`。当前 Spike 固定：
+## Phase 0.5-A Pin
 
 ```text
 DeepSeek Harness commit
@@ -34,74 +32,76 @@ pnpm
 11.7.0
 ```
 
-Pin 的目的不是永久锁版本，而是让 Spike 的兼容性结论可复现。
+Pin 只用于让 Spike 兼容结论可复现，不代表永久锁版本。
 
-## Spike 目录
+## Spike package
 
 ```text
 integrations/harness/
 ├─ HARNESS_PIN.json
 ├─ README.md
-├─ scripts/
-│  └─ prepare_spike.py
+├─ scripts/prepare_spike.py
 └─ spike-package/
    ├─ package.json
    ├─ tsconfig.json
    ├─ tsdown.config.ts
    ├─ cordis.patch.yml
    └─ src/
-      ├─ index.ts              # Host: Tools + Jobs + FastAPI client
-      ├─ events.ts             # Durable research session events
-      └─ client/index.ts       # Web: replayable Research Conversation Node
+      ├─ index.ts
+      ├─ events.ts
+      └─ client/index.ts
 ```
 
-该 package 会在验证时复制进 **独立的 pinned Harness checkout** 以完成 exact-pin 编译；本仓库不提交 Harness 源码。运行时还必须通过 Harness 官方 profile plugin seam 安装到实际使用的 profile，不能把“复制进 upstream workspace”误当成运行时安装。
+Package 会在验证时复制进独立 pinned Harness checkout 以完成 exact-pin build；运行时必须再通过官方 `dsh plugin --profile web add ...` 安装到选定 profile。复制到 upstream workspace 不是运行时安装。
 
-## 本地执行
+## 本地执行：必须保持与 CI 相同顺序
 
 ### 1. 启动 Editorial API
 
-在 `ai-editorial-desk-next` 根目录：
+Next 仓库根目录：
 
 ```bash
-python -m pip install -e .
+python -m pip install -e '.[dev]'
 python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Spike Backend 只提供 mock Opportunity/Research API，不建立正式 Subject/Opportunity 数据表。
+Spike Backend 只提供 mock Opportunity/Research API，不建立正式业务表。
 
-### 2. 准备 exact-pin Harness
-
-另一个目录：
+### 2. checkout exact pin 并先构建 pristine Harness
 
 ```bash
 git clone https://github.com/deepseek-ai/deepseek-harness.git
 cd deepseek-harness
 git checkout 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+corepack enable
+corepack prepare pnpm@11.7.0 --activate
+pnpm install --frozen-lockfile
+pnpm run build
 ```
 
-回到 Next 仓库，执行：
+**顺序不能倒置。** 完整 Web profile 启动需要 pristine pinned Harness 的 root build 产物；仅执行 `build:lib:host` 不足以证明 Web runtime 可启动。
+
+### 3. 准备 out-of-tree spike package
+
+回到 Next 仓库：
 
 ```bash
 python integrations/harness/scripts/prepare_spike.py /path/to/deepseek-harness
 ```
 
-脚本会拒绝非 pinned commit，并只允许覆盖自身的 `@ai-editorial-desk/harness-spike` 临时目录。
+脚本会拒绝非 pinned commit，并只允许覆盖自身 `@ai-editorial-desk/harness-spike` 临时目录。
 
-### 3. 构建 Harness Spike
+### 4. reconcile / typecheck / bundle
 
-在 DeepSeek Harness 根目录：
+在 Harness 根目录：
 
 ```bash
-corepack enable
-corepack prepare pnpm@11.7.0 --activate
 pnpm install --no-frozen-lockfile
-pnpm run build:lib:host
 pnpm exec tsc -b packages/client/editorial-spike/tsconfig.json
 pnpm --filter @ai-editorial-desk/harness-spike run bundle
 ```
 
-预期产生：
+预期：
 
 ```text
 packages/client/editorial-spike/lib/index.js
@@ -110,34 +110,16 @@ packages/client/editorial-spike/lib/types/index.d.ts
 packages/client/editorial-spike/lib/types/client/index.d.ts
 ```
 
-### 4. 安装到隔离的 Harness Web Profile
-
-Pinned Harness 的 profile loader 以 profile 目录为 out-of-tree dependency 的解析锚点。因此 Spike package 必须通过官方 `dsh plugin` seam 安装到 profile。
-
-为避免污染开发机已有 Harness 配置，Spike 使用独立 `DSH_HOME`：
+### 5. 安装到隔离 Web profile
 
 ```bash
 export DSH_HOME="$PWD/.dsh-spike-home"
 pnpm dsh plugin --profile web add ./packages/client/editorial-spike
 ```
 
-Spike package 声明：
+Spike package 通过 `dsh.bundle.patch` 加入 profile composition；无需 fork/patch Harness core，也不使用临时 `--patch` 绕过 profile 生命周期。
 
-```json
-{
-  "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    }
-  }
-}
-```
-
-因此 `dsh plugin` 在安装完成后会把 `@ai-editorial-desk/harness-spike` 同时加入 Web profile 的 dependency 与 bundle layer。无需再通过临时 `--patch` 参数绕过 profile 生命周期。
-
-### 5. 启动 Harness Web
-
-保持同一个 `DSH_HOME`：
+### 6. 启动 Harness Web
 
 ```bash
 export DSH_HOME="$PWD/.dsh-spike-home"
@@ -145,83 +127,30 @@ EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 \
 pnpm dsh web
 ```
 
-默认 Web 地址为 `http://127.0.0.1:3080`。如需通过自然语言让 Agent 自动调用 Tool，按 Harness 官方方式配置可用模型；API Key 不写入本仓库。
+默认 Web 地址：`http://127.0.0.1:3080`。
 
-## 本轮要验证的真实交互
+如果只验证 Tool runtime，不需要模型即可由集成测试使用 Harness 的 `ctx.tools.execute()`；如果验证“自然语言 → Agent 自动选择 Tool”，则仍需按 Harness 官方方式配置可用模型。API Key 不写入仓库。
 
-### A. Tool → FastAPI
-
-在 Harness 中要求 Agent：
+## 当前自动化已经证明
 
 ```text
-列出今天已经发现的编辑机会。
+pristine exact-pin full build
+→ out-of-tree profile/plugin activation
+→ FastAPI + Harness Web boot
+→ Harness ctx.tools.execute(list/inspect/error)
+→ Editorial Tool → FastAPI
 ```
 
-应调用：
+自动化证明的是 runtime integration，不是最终产品 UX。
 
-```text
-list_editorial_opportunities
-→ GET /api/v1/spike/opportunities
-```
+## 仍需真实浏览器/Agent 验证
 
-随后可以要求：
-
-```text
-详细看看洗碗机这条为什么值得做。
-```
-
-应调用 `inspect_editorial_opportunity`，并保留 canonical `opportunity_id`。
-
-### B. Tool Card
-
-List/Inspect 的 Tool result 应显示结构化业务卡片，而不是要求 UI 或 Agent 从自然语言中解析 id。
-
-### C. Research Job + Replay
-
-要求：
-
-```text
-继续研究洗碗机这条，补主要来源、反方证据和未知项。
-```
-
-应形成两种不同 identity：
-
-```text
-Backend research_case_id = canonical research business id
-Harness job_id           = runtime task id
-```
-
-Session 中产生：
-
-```text
-editorial/research-start
-editorial/research-progress
-editorial/research-end
-```
-
-Web Conversation Node 根据这些 durable events 重建研究卡。需要人工验证：运行中进度、完成态、刷新/重新打开后的 replay 是否一致。
-
-## 自动化边界
-
-`.github/workflows/harness-spike.yml` 会对 exact pinned upstream 执行：
-
-```text
-copy package for exact-pin build
-→ pnpm install
-→ TypeScript project build
-→ host/client bundle
-→ artifact assertion
-→ official dsh plugin --profile web add
-→ isolated Web profile activation assertion
-→ FastAPI + Harness Web profile boot smoke
-```
-
-自动化通过只证明 **编译/打包/profile 安装/Host 启动边界兼容**。以下仍需要真实 Web/Agent 人工验收后才能写 PASS：
-
-- Model 是否能稳定选择三个 Editorial Tools；
-- Opportunity Card 的实际可用性；
-- Research Conversation Node 的 live progress；
+- Model 是否稳定选择 Editorial Tools；
+- Opportunity Card 的实际信息密度与可读性；
+- Research Job live progress；
+- Research Conversation Node；
 - Session refresh/replay；
-- Radar/复杂业务页面的扩展能力。
+- error/cancel UX；
+- Radar/Programming/Performance 等复杂业务 UI。
 
-禁止在这些项目未真实验证前把 Spike 总结写成 PASS。
+这些项目未实测前，不得把 `HARNESS_FULL_WORKBENCH` 写成 Accepted。

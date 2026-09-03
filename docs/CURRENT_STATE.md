@@ -2,111 +2,126 @@
 
 ## 状态
 
-`PHASE_0_5_A_HARNESS_INTEGRATION_SPIKE_IN_PROGRESS`
+`PHASE_0_5_VALIDATION_SPIKES_IN_PROGRESS`
 
 Architecture + Functional Baseline v1 已通过 PR #1 合并到 `main`。
 
-当前分支：
+当前并行基线：
+- Phase 0.5-A Harness Integration Spike：PR #2 / `spike/harness-integration`；自动化技术链路已通过，真实浏览器/模型 UX Gate 仍待完成；
+- Human Acquisition baseline amendment：已通过 PR #3 合并到 `main`，HumanSubmission 已冻结为一等发现入口；
+- Phase 0.5-B Acquisition Provider Spike：待 Harness Spike 达到足够结论后正式执行，不依赖 Harness Full Workbench 才能开始。
 
-```text
-spike/harness-integration
-```
+本分支只继续收口 **PR #2 / Phase 0.5-A Harness Integration Spike**，不进入 Acquisition Provider Spike 正式实现。
 
-本分支只执行 **Phase 0.5-A Harness Integration Spike**，验证 DeepSeek Harness 与 Editorial API 的真实集成边界；不进入正式 Subject/Discovery/Opportunity 持久化实现。
-
-## Baseline 已冻结
+## 已确认
 
 - 新仓库独立演化，旧 `ai-editorial-desk` 冻结为 Legacy MVP/reference。
 - 新核心以 Subject / Discovery / Editorial Opportunity 为中心。
 - Editorial Opportunity 是 Value Evaluation 与 Candidate V2 的直接业务对象。
 - Editorial Value 采用版本化 Profile，不以单个 0–100 总分作为业务真相。
-- Trend 是可选 Feature Provider；热度不是 Discovery Gate。
-- Acquisition = Ambient Coverage + Potential Scouts + Momentum Radar + Search-first + Targeted Fetch + Targeted Platform Research。
-- Reddit/论坛/社区等非官方来源可以承担 Discovery/Audience/Trend Signal；事实确认仍走 Evidence/Primary Source。
+- Trend 从前置必需步骤降级为可选 Feature Provider。
+- Acquisition 改为 Mission-driven：Ambient Coverage + Potential Scouts + Momentum Radar + Search-first + Targeted Fetch + Targeted Platform Research。
+- **热度不是 Discovery Gate**：未升温但本身有趣、有用、有故事、反常识、保护价值或再解释潜力的内容可以进入 Discovery/Opportunity。
+- Reddit/论坛/社区等非官方来源允许作为 Discovery/Audience/Trend Signal；事实确认仍遵守 Evidence/Primary Source 规则。
+- **Human Acquisition 是一等发现入口**：用户可以通过 HumanSubmission 提交 URL / Text / Question / Idea / Observation；归一化后仍进入统一 RawSignal / Subject / Discovery 主链。
+- HumanSubmission 不是 Confirmed Fact、偏好正标签、Opportunity、Candidate 或 Adopt。
+- `source_origin` 与 `acquisition_origin` 必须分离；用户提交第三方 URL 不改变第三方作为原始来源的事实。
+- Candidate 前必须能够说明相对原始资料新增的 Editorial Advantage，而不是仅复述来源。
+- 固定平台 crawler/Legacy MediaCrawler 只允许作为 PlatformProvider/Adapter，不是 Acquisition Core。
+- DeepSeek Harness 作为首选 Product Runtime / Agent Workbench，通过插件/工具/HTTPS API 接入 Core。
+- Harness 是否承担全部复杂 Radar/Programming/Performance UI，须通过 Harness Integration Spike 决定；若 Developer Preview 扩展点无法稳定满足要求，允许采用 Hybrid Web + Harness Runtime，不允许无限阻塞 MVP。
 - PostgreSQL 是 System of Record。
-- WeKnora 是 Knowledge Provider，经 Knowledge Gateway 接入。
-- DeepSeek Harness 是首选 Product Runtime / Agent Workbench，但是否承担全部复杂业务 UI 必须由本 Spike 验证。
+- WeKnora 是 Knowledge Provider，通过 Knowledge Gateway 接入。
+- Evidence、Decision、Publication、Performance 的审计语义尽量继承旧版成熟原则。
 
-## Phase 0.5-A 当前范围
+## 当前允许
 
-允许：
-- pinned DeepSeek Harness checkout / compatibility validation；
-- out-of-tree Harness package；
-- Editorial Tools；
-- FastAPI mock Opportunity / Research API；
-- structured Tool Card；
-- Harness Job；
-- durable Session event；
-- Research Conversation Node；
-- exact-pin build/boot CI；
-- 浏览器手工 runtime/replay 验证；
-- Spike Validation Report / UI capability matrix / ADR proposal。
+- Harness Integration Spike 的最小真实代码、兼容性验证与报告。
+- Acquisition Provider Spike 的 Mission、Provider adapter、benchmark harness 与真实采样验证。
+- Human Acquisition / HumanSubmission 的文档、Contract 与 MVP 最小接口设计。
+- 为 MVP Vertical Slice 实现最小 Foundation Contracts，但不得提前把候选 Provider SDK 耦合到 Domain。
+- `/healthz`、mock endpoint、Spike fixture 等验证骨架。
 
-禁止：
-- 正式建立 Subject / Discovery / Opportunity 数据库和完整 Service；
-- 为通过 Spike 而 fork/patch DeepSeek Harness core；
-- Harness Tool 直接访问 PostgreSQL / WeKnora；
-- 将 Harness Session 当成 canonical business database；
-- 用 mock 结果冒充真实 Editorial Intelligence；
-- 在未实测前宣称 Harness Full Workbench 已通过；
-- 同时开始 Acquisition Provider Spike 的正式实现。
+## 当前禁止
 
-## Harness Pin
+- 把旧 Event/Trend/Score 模型复制到新仓库后继续作为主链。
+- 把固定平台每天抓 N 条作为 V1 核心发现方式。
+- 把“快速升温”设成所有 Discovery 的必要条件。
+- 因来源非官方就直接丢弃 Community Signal，或把社区热帖直接当作 Confirmed Fact。
+- 把 HumanSubmission 直接当成用户正偏好、事实确认或已采用选题。
+- 使用 `source=human` 覆盖第三方真实 Source Origin。
+- 在 Provider Spike 前把 Exa/Firecrawl/Crawl4AI/MediaCrawler/Trend Provider 等具体实现锁死为不可替换基础设施。
+- 为了 Full Workbench 直接 fork/魔改 DeepSeek Harness core。
+- 将 Candidate/Decision/Publication 真相写到 WeKnora 或 Harness Session。
+- 为了“先跑起来”跳过 provenance/versioning。
 
-```text
-Repository: deepseek-ai/deepseek-harness
-Commit:     99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
-Release:    dsh@0.1.0-rc.7
-```
+## 当前 Gate：Phase 0.5-A Harness Integration Spike
 
-见 `integrations/harness/HARNESS_PIN.json`。
-
-## 当前实现状态
+Pin：
 
 ```text
-FastAPI mock Opportunity API             IMPLEMENTED
-FastAPI mock Research Case               IMPLEMENTED
-Harness list/inspect Tools               IMPLEMENTED
-Harness start research Tool              IMPLEMENTED
-Harness Job bridge                       IMPLEMENTED
-Durable research Session events          IMPLEMENTED
-Research Conversation Node               IMPLEMENTED
-Exact-pin TypeScript/build CI             RUNNING/PENDING
-Harness Web overlay boot smoke           RUNNING/PENDING
-Manual browser Tool/Card validation       PENDING
-Manual live research progress             PENDING
-Manual refresh/replay validation          PENDING
-Complex Radar/UI capability test          PENDING
+DeepSeek Harness commit 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+release dsh@0.1.0-rc.7
+Node 22.19.0
+pnpm 11.7.0
 ```
 
-任何 `PENDING` 项不得在报告中写成 PASS。
-
-## 本阶段 Exit Gate
-
-至少需要：
-
-1. Python exact-head CI success；
-2. pinned Harness typecheck/build success；
-3. Harness Web overlay boot success；
-4. 浏览器内真实 Tool → FastAPI 调用成功；
-5. Opportunity Card 可用性确认；
-6. Research Job live progress 成功；
-7. refresh/replay 成功；
-8. 输出 compatibility risk list 和 UI capability matrix；
-9. 对 `HARNESS_FULL_WORKBENCH` / `HYBRID_WEB_HARNESS` 给出基于实测的阶段性结论。
-
-若复杂 Radar/UI 仍需更独立的第二层验证，可将 A/B/C 核心链路先收口为 PASS，同时明确 UI Strategy Decision 仍为 `DEFERRED_TO_UI_SPIKE`，不得强行下结论。
-
-## 下一 Gate
-
-Phase 0.5-A 收口后，从最新 `main` 新建独立分支执行：
+当前已取得的自动化证据：
 
 ```text
-Phase 0.5-B — Acquisition Provider Spike
+Python Ruff / Spike API pytest                       PASS
+pristine exact-pin Harness dependency install       PASS
+full pinned Harness Web runtime build               PASS
+out-of-tree dsh web profile/plugin install           PASS
+FastAPI + Harness Web concurrent boot                PASS
+Harness ctx.tools.execute → list Tool → FastAPI      PASS
+Harness ctx.tools.execute → inspect Tool → FastAPI   PASS
+Harness Tool error propagation (missing id)          PASS
 ```
 
-只有两个 Spike 的关键结论冻结后，才进入：
+因此 PR #2 已经真实回答：
+- exact-pin Harness 可以稳定构建并启动；
+- out-of-tree Profile/Plugin/Tool seam 可工作，当前无需 patch Harness core；
+- Tool → FastAPI 边界可通过 Harness 自身 `ctx.tools.execute()` 运行时链路工作；
+- canonical Tool value 与 UI presentation 可以分离。
+
+仍未允许写成 PASS：
+- Agent 根据自然语言稳定选择 Editorial Tool；
+- Opportunity Card 的真实浏览器信息密度与交互质量；
+- `start_editorial_research` 在真实 Agent Session 下的 Job/live progress；
+- durable Conversation Node 的 refresh/replay；
+- error/cancel 的浏览器 UX；
+- Harness 是否足以承载复杂 Radar/Programming/Performance UI。
+
+Harness Spike 不允许无限时间阻塞后续 MVP；如果 Full Workbench 目标在明确时间盒内不能稳定满足，保留 Harness Agent Runtime 并采用 Hybrid Workbench。
+
+## 下一 Gate：Phase 0.5-B Acquisition Provider Spike
+
+Acquisition Spike 必须同时验证：
+- high-momentum discovery；
+- low/no-momentum but high-potential discovery；
+- community/non-official first discovery → reliable evidence follow-up。
+
+Spike 输出 V1 Search/Fetch/Feed/Platform/Trend Provider 组合与 fallback strategy。
+
+HumanSubmission 不参加 Provider 胜负比较；它作为产品自身入口，在 MVP 中复用选定 Provider 做 fetch / verification / research。
+
+## MVP v0.1 Gate
+
+两个 Spike 给出足够结论后，优先做 Discovery Desk Vertical Slice，不等待完整 Phase 1→7 全部完成。
+
+最低闭环：
 
 ```text
-Phase 1 — Foundation Contracts
+Machine Discovery + HumanSubmission
+→ RawSignal
+→ Discovery
+→ Editorial Opportunity
+→ Evaluation / Research
+→ Adopt / Watch / Drop
 ```
+
+MVP 的第一成功标准不是“功能齐全”，而是：
+1. 系统能主动发现用户真实认为值得看的内容；
+2. 用户能把自己刷到的一条低结构化线索交给编辑部，并得到可验证、可解释的 Opportunity；
+3. 两类入口最终都能形成可追溯的 Human Decision。

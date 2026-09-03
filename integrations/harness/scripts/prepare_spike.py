@@ -35,7 +35,10 @@ def _safe_replace(source: Path, target: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Copy the Harness integration spike into the exact pinned DeepSeek Harness checkout."
+        description=(
+            "Copy the Harness integration spike into an already-built exact pinned "
+            "DeepSeek Harness checkout."
+        )
     )
     parser.add_argument("harness_root", type=Path, help="Path to a deepseek-harness checkout")
     args = parser.parse_args()
@@ -65,21 +68,18 @@ def main() -> int:
     print(f"Prepared {PACKAGE_NAME}")
     print(f"Harness pin: {expected_head} ({pin.get('release', 'unknown release')})")
     print(f"Target: {target}")
+    print("Assumption: pristine pinned Harness dependencies and root build are already complete.")
     print("Next commands from the Harness root:")
     print("  pnpm install --no-frozen-lockfile")
-    print("  pnpm run build:lib:host")
     print("  pnpm exec tsc -b packages/client/editorial-spike/tsconfig.json")
     print("  pnpm --filter @ai-editorial-desk/harness-spike run bundle")
     print("  export DSH_HOME=\"$PWD/.dsh-spike-home\"")
     print("  pnpm dsh plugin --profile web add ./packages/client/editorial-spike")
+    print("  EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 pnpm dsh web")
     print(
-        "  EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 "
-        "pnpm dsh web"
-    )
-    print(
-        "The plugin must be installed into the active Harness profile. "
-        "Copying it into the upstream workspace is only for exact-pin build compatibility; "
-        "runtime resolution is profile-relative."
+        "Runtime resolution is profile-relative. Copying the package into the upstream "
+        "workspace is only for exact-pin build compatibility; the active profile still "
+        "must install the plugin."
     )
     return 0
 

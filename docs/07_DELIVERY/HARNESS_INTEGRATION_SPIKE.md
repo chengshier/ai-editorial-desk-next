@@ -1,17 +1,15 @@
 # Harness Integration Spike
 
-> 状态：`IMPLEMENTATION_IN_PROGRESS`  
+> 状态：`AUTOMATED_RUNTIME_PASS / MANUAL_UX_PENDING / LATEST_MAIN_REVALIDATION_PENDING`  
 > 分支：`spike/harness-integration`
 
 ## 1. 目的
 
-在正式大规模开发 Harness Workbench 之前，用最小代码验证官方扩展点是否足以支撑本项目，而不是先假设“所有 UI 都能无痛做出来”。
+在正式大规模开发 Harness Workbench 之前，用最小真实代码验证官方扩展点是否足以支撑本项目，而不是先假设“所有 UI 都能无痛做出来”。
 
 本 Spike **不是正式业务开发**：Backend 使用稳定 mock Opportunity / Research Case，不创建 Subject/Discovery/Opportunity 正式表。
 
 ## 2. Exact upstream baseline
-
-当前固定：
 
 ```text
 Repository: deepseek-ai/deepseek-harness
@@ -23,189 +21,168 @@ pnpm:       11.7.0
 
 Pin 记录见 `integrations/harness/HARNESS_PIN.json`。
 
-## 3. 必须验证的最小链路
+## 3. 已验证的最小链路
 
 ### Spike A — Tool → FastAPI
 
-实现目标：
+实现：
 - out-of-tree package 注册 `list_editorial_opportunities`；
 - 注册 `inspect_editorial_opportunity`；
-- Tool 调用本项目 FastAPI mock opportunity API；
-- 返回 typed canonical JSON；
-- 不从渲染文案反解析业务 id；
-- request 支持 timeout / cancellation。
+- Tool 调用 FastAPI mock Opportunity API；
+- typed canonical JSON；
+- stable `opportunity_id`；
+- request timeout / cancellation；
+- missing id 显式 Tool error。
 
-当前实现：**CODE_COMPLETE / EXACT-PIN_BUILD_PENDING**。
+自动化运行时状态：**PASS**。
+
+CI 不只 `curl` 后端，而是在 Harness 已加载 profile/plugin 后通过 pinned Harness 的 `ctx.tools.execute()` 真实执行：
+
+```text
+list_editorial_opportunities
+→ Harness Tool registry/execution
+→ FastAPI
+→ Tool render
+
+inspect_editorial_opportunity
+→ Harness Tool registry/execution
+→ FastAPI
+→ Tool render
+
+missing opportunity
+→ FastAPI 404
+→ Harness Tool isError
+```
+
+注意：这证明 Tool runtime 边界，不等于证明模型能从自然语言稳定选择 Tool；后者仍为 Manual Gate。
 
 ### Spike B — Opportunity Card
 
-实现目标：
-- 后端返回 `OpportunitySummary`；
-- Harness Tool 的 presentation/card 显示 Angle、Theme、Audience Promise、Recommendation、Unknown；
-- canonical value 与 UI presentation 分离；
-- Tool result replay 不依赖实时 Backend I/O。
+实现：
+- Backend 返回 `OpportunitySummary`；
+- Tool output schema/render/presentationMeta 分离 canonical value 与 presentation；
+- generic Tool Card 包含 Angle、Theme、Audience Promise、Recommendation、Unknown；
+- replay 展示不需要从自然语言反解析业务 id。
 
-当前实现：**CODE_COMPLETE / MANUAL_UI_PENDING**。
-
-说明：当前 Spike 先使用 Harness 的 replay-safe generic Tool Card 验证业务信息密度。是否需要独立 Opportunity Card kind 属于后续 UI 能力判断，不在本 Spike 通过修改 upstream core 实现。
+编译/profile/runtime compatibility：**PASS**。  
+真实浏览器卡片可读性/信息密度：**MANUAL_UI_PENDING**。
 
 ### Spike C — Research Job / Conversation Node
 
-实现目标：
+实现：
 - `start_editorial_research` 创建 backend mock Research Case；
-- backend `research_case_id` 与 Harness `job_id` 严格分离；
+- backend `research_case_id` 与 Harness `job_id` 分离；
 - Harness Job 后台轮询 canonical Research Case；
 - Session 写入 replayable `editorial/research-start/progress/end`；
-- Conversation Node 从 durable events 重建 start → progress → completed；
-- 刷新/重新打开后 replay 一致。
+- Conversation Node 从 durable events fold 研究状态。
 
-当前实现：**CODE_COMPLETE / EXACT-PIN_BUILD_PENDING / MANUAL_REPLAY_PENDING**。
+exact-pin build/profile activation：**PASS**。  
+真实 Agent Session 下的 start/live progress/cancel/replay：**MANUAL_REPLAY_PENDING**。
 
-## 4. 已实现代码边界
-
-```text
-Harness Tool
-    │
-    │ HTTPS/JSON
-    ▼
-FastAPI spike endpoints
-    │
-    ├─ /api/v1/spike/opportunities
-    ├─ /api/v1/spike/opportunities/{id}
-    └─ /api/v1/spike/research-cases/*
-```
-
-Research：
+## 4. 架构边界
 
 ```text
-start_editorial_research
-        ↓
-POST backend Research Case
-        ↓
-research_case_id
-        ↓
-ctx.jobs.start(editorial-research)
-        ↓
-poll canonical backend progress
-        ↓
-append durable Session events
-        ↓
-Editorial Research Conversation Node
+Harness Tool / Job / Conversation Node
+              │
+              │ HTTPS / JSON
+              ▼
+      FastAPI Editorial API
+              │
+              └─ Spike mock domain state
 ```
 
-业务真相仍位于 Backend；Session event 只保存 replay 所需展示事实，不保存模型隐藏推理。
+业务真相仍位于 Backend；Harness Session event 只保存 replay 所需展示事实，不保存模型隐藏推理，也不替代 PostgreSQL canonical truth。
 
-## 5. 自动化验证 Gate
+## 5. Exact-pin 自动化 Gate
 
-`.github/workflows/harness-spike.yml` 必须对 exact pin 完成：
+当前 workflow 的真实顺序为：
 
-1. checkout Next；
-2. checkout pinned Harness；
-3. 复制 `spike-package` 到临时 Harness workspace；
-4. pnpm install；
-5. TypeScript project build；
-6. host/client bundle；
-7. artifact assertion；
-8. 启动 FastAPI；
-9. 使用 `cordis.patch.yml` 启动 Harness Web overlay；
-10. 确认 Backend 与 Harness Web 均成功响应。
+```text
+Checkout Next
+→ Checkout exact pinned Harness
+→ Python dev install
+→ Ruff
+→ Spike API pytest
+→ pnpm install --frozen-lockfile on pristine upstream
+→ pnpm run build on pristine upstream
+→ prepare out-of-tree spike package
+→ pnpm install --no-frozen-lockfile
+→ Spike TypeScript project build
+→ host/client bundle
+→ artifact assertions
+→ dsh plugin --profile web add spike
+→ isolated profile dependency/bundle assertion
+→ boot FastAPI
+→ boot Harness Web
+→ Harness ctx.tools.execute list/inspect/error self-test
+→ HTTP readiness smoke
+→ upload diagnostics artifact
+```
 
-只有 exact-head CI success 后，才能把 Compatibility/Boot 项标记 PASS。
+关键发现：完整 `web` profile 不能只依赖局部 `build:lib:host`。产品级 Web smoke 前必须先对 **pristine exact pin** 执行 root `pnpm run build`，随后再准备 out-of-tree package。
 
 ## 6. Manual Runtime Gate
 
-自动化无法替代以下真实产品验收。必须在浏览器 + 可用 Harness Model 下实际执行：
+以下必须真实浏览器 + 可用 Harness Model 才能验收：
 
-### M1 — Agent Tool Selection
+| ID | Scenario | Status |
+|---|---|---|
+| M1 | 自然语言 → Agent 选择 list Tool | PENDING |
+| M2 | follow-up inspect，稳定传递 `opportunity_id` | PENDING |
+| M3 | Opportunity Tool Card 真实可读性 | PENDING |
+| M4 | start research，创建 backend case + Harness job | PENDING |
+| M5 | Research live progress Conversation Node | PENDING |
+| M6 | refresh / session replay | PENDING |
+| M7 | 新 Session 从 Backend 重建 Opportunity | PENDING |
+| M8 | API unavailable/error，不伪装为空结果 | PENDING |
+| M9 | cancel research job + terminal event | PENDING |
 
-输入自然语言“今天有什么值得做”，确认 Agent 正确调用 list Tool。
-
-### M2 — Opportunity Inspect
-
-从 list 结果继续询问某条，确认 stable `opportunity_id` 正确传递，且卡片可读。
-
-### M3 — Research Live Progress
-
-发起研究，确认：
-- Research Case 创建；
-- Harness Job 创建；
-- 两个 id 不混淆；
-- Conversation Node 可见；
-- progress 逐步更新到 completed。
-
-### M4 — Replay
-
-刷新页面、重新进入 Session，确认 Research Node 的最终状态由 session events 重建，而不是依赖内存中的 live task。
-
-### M5 — Backend Reconstruction
-
-新建另一个 Session 后，再次 list/inspect，确认业务 Opportunity 来自 Backend，不依赖旧 Session 才能存在。
+其中 list/inspect/error 的 **Harness Tool execution 本身已自动化 PASS**；M1/M2 仍验证模型选择与对话上下文行为。
 
 ## 7. 第二层 UI 验证
 
-A/B/C 通过后再验证：
-- 自定义 Radar/独立业务区域；
-- 50~200 条 Opportunity 的列表、筛选、分组；
-- Sidebar / Navigation 的产品化扩展；
-- 跨 Session 读取业务状态；
+A/B/C 核心链路人工通过后，再判断是否需要验证：
+- 50~200 Opportunity Radar；
+- 列表/筛选/分组；
+- Sidebar / Navigation 产品化扩展；
 - Programming Slate；
-- Performance Dashboard 的基本图表/筛选体验。
+- Performance Dashboard。
 
-这部分决定 Harness 是否承担全部复杂产品 UI，不应为了“证明 Harness 可行”而 patch upstream core。
+不允许为了证明 Full Harness 可行而 patch upstream core。
 
-## 8. UI capability matrix（待实测）
+## 8. 当前 Capability Matrix
 
-| Capability | Code/API | Exact-pin build | Manual UX | 结论 |
+| Capability | Code/API | Exact-pin/Runtime | Manual UX | 结论 |
 |---|---|---|---|---|
-| Tool → FastAPI | Implemented | Pending | Pending | Pending |
-| Structured canonical output | Implemented | Pending | Pending | Pending |
-| Generic Opportunity Tool Card | Implemented | Pending | Pending | Pending |
-| Background Research Job | Implemented | Pending | Pending | Pending |
-| Durable research events | Implemented | Pending | Pending | Pending |
-| Custom Conversation Node | Implemented | Pending | Pending | Pending |
-| Refresh/replay | Implemented by event model | Pending | Pending | Pending |
+| Tool registration/profile activation | Implemented | PASS | N/A | PASS |
+| Tool → FastAPI list/inspect | Implemented | PASS (`ctx.tools.execute`) | Model pending | Runtime PASS |
+| Tool error propagation | Implemented | PASS | Browser pending | Runtime PASS |
+| Structured canonical output | Implemented | PASS | N/A | PASS |
+| Generic Opportunity Tool Card | Implemented | PASS | Pending | Pending |
+| Background Research Job | Implemented | Build PASS | Pending | Pending |
+| Durable research events | Implemented | Build PASS | Pending | Pending |
+| Custom Conversation Node | Implemented | Build PASS | Pending | Pending |
+| Refresh/replay | Event model implemented | Build PASS | Pending | Pending |
 | Radar / large list | Not implemented | N/A | Pending | Pending |
 | Programming Slate | Not implemented | N/A | Pending | Pending |
 | Performance Dashboard | Not implemented | N/A | Pending | Pending |
 
 ## 9. Compatibility risks
 
-当前已知：
-- Harness 是 Developer Preview，Tool/Client/Conversation API 可能 breaking；
-- out-of-tree client package 需要针对 pinned upstream 构建，不能假设 npm release 永远保持当前 workspace contract；
-- client plugin 使用 `dsh.client` manifest 与 Cordis service injection，升级时重点检查 client loading model；
-- Conversation Node 依赖 durable Session event schema；事件 contract 应由本项目 compatibility layer 拥有；
-- Generic Tool Card 足以验证信息传递，但复杂 Dashboard 能力仍未知。
+- Harness 是 Developer Preview，Tool/Jobs/Client/Conversation contracts 可能 breaking；
+- out-of-tree client package 需要针对 pinned upstream 构建；升级 Harness 必须重跑 compatibility CI；
+-完整 Web runtime smoke 依赖 pristine pinned upstream full root build；
+- profile loader 的 out-of-tree dependency 解析依赖官方 profile/plugin seam；
+- Compatibility 变化必须收敛在 `integrations/harness`，不能向 Domain/API schema 泄漏；
+- Generic Tool Card 是否足够支撑最终信息密度仍需 UX 实测；
+- Radar/Programming/Performance 是否适合完全放在 Harness 内仍无证据。
 
-## 10. 决策输出
+## 10. 决策状态
 
-Spike 最终必须形成 ADR，二选一：
+```text
+HARNESS_AS_AGENT_RUNTIME: TECHNICALLY_VALIDATED
+HARNESS_FULL_WORKBENCH:   NOT_DECIDED
+HYBRID_WEB_HARNESS:       NOT_DECIDED
+```
 
-### `HARNESS_FULL_WORKBENCH`
-Harness 的 out-of-tree profile/plugin/client extension 足以承担主要 Radar + Agent + Programming 工作台。
-
-### `HYBRID_WEB_HARNESS`
-Harness 保持 Agent/Research/Tool/Approval/Replay 核心工作台；复杂全局业务页面由本项目 Web Shell 承担。
-
-在第二层 UI 验证以前，不允许提前写 Accepted。
-
-## 11. 失败条件
-
-出现以下任一情况不得直接 fork Harness core 继续：
-- 关键 UI 只能通过长期维护 upstream core patch 实现；
-- 业务状态必须塞进 Harness Session 才能工作；
-- 插件需要直接读取 PostgreSQL；
-- breaking changes 会直接迫使 Domain/API schema 跟随变化。
-
-应先评估 Hybrid 方案。
-
-## 12. 验收产物
-
-- Spike branch / PR；
-- 可运行 demo；
-- pinned Harness commit/version；
-- exact-pin CI；
-- compatibility risk list；
-- UI capability matrix；
-- Manual Validation Report；
-- 最终 ADR。
+当前不再需要回答“Harness 能不能跑/能不能调用我们的 Tool”；下一 Gate 是真实 Agent/Card/Research/Replay UX，并据此决定 Full Harness Workbench 或 Hybrid。
