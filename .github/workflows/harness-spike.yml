@@ -48,19 +48,23 @@ jobs:
           corepack prepare pnpm@11.7.0 --activate
           pnpm --version
 
-      - name: Prepare out-of-tree spike package
-        run: python integrations/harness/scripts/prepare_spike.py .harness-upstream
-
-      - name: Install Harness workspace
+      - name: Install pristine Harness workspace
         working-directory: .harness-upstream
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
-      - name: Build complete pinned Harness runtime
+      - name: Build complete pristine pinned Harness runtime
         working-directory: .harness-upstream
         shell: bash
         run: |
           set -o pipefail
           pnpm run build 2>&1 | tee /tmp/harness-build.log
+
+      - name: Prepare out-of-tree spike package after upstream build
+        run: python integrations/harness/scripts/prepare_spike.py .harness-upstream
+
+      - name: Reconcile workspace with spike package
+        working-directory: .harness-upstream
+        run: pnpm install --no-frozen-lockfile
 
       - name: Typecheck spike and referenced contracts
         working-directory: .harness-upstream
