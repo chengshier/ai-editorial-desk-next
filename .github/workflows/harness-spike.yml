@@ -106,7 +106,42 @@ jobs:
       - name: Boot Editorial API and Harness web profile
         shell: bash
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
+
+          API_PID=""
+          HARNESS_PID=""
+          dump_diagnostics() {
+            echo "--- process status ---"
+            if [[ -n "${API_PID:-}" ]]; then
+              ps -p "$API_PID" -o pid,ppid,stat,etime,cmd || true
+            fi
+            if [[ -n "${HARNESS_PID:-}" ]]; then
+              ps -p "$HARNESS_PID" -o pid,ppid,stat,etime,cmd || true
+            fi
+            echo "--- listening ports ---"
+            ss -ltnp 2>/dev/null | grep -E ':(8000|3080)\b' || true
+            echo "--- Editorial API log ---"
+            cat /tmp/editorial-api.log 2>/dev/null || true
+            echo "--- Harness web log ---"
+            cat /tmp/harness-web.log 2>/dev/null || true
+          }
+          cleanup() {
+            if [[ -n "${HARNESS_PID:-}" ]]; then
+              kill "$HARNESS_PID" 2>/dev/null || true
+            fi
+            if [[ -n "${API_PID:-}" ]]; then
+              kill "$API_PID" 2>/dev/null || true
+            fi
+          }
+          on_error() {
+            status=$?
+            echo "Harness smoke failed with exit code $status"
+            dump_diagnostics
+            exit "$status"
+          }
+          trap on_error ERR
+          trap cleanup EXIT
+
           python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 8000 > /tmp/editorial-api.log 2>&1 &
           API_PID=$!
           (
@@ -116,18 +151,34 @@ jobs:
               pnpm dsh web > /tmp/harness-web.log 2>&1
           ) &
           HARNESS_PID=$!
-          cleanup() {
-            kill "$HARNESS_PID" "$API_PID" 2>/dev/null || true
-          }
-          trap cleanup EXIT
 
+          READY=0
           for _ in $(seq 1 45); do
-            if curl --fail --silent http://127.0.0.1:8000/healthz >/tmp/api-health.json \
-              && curl --fail --silent http://127.0.0.1:3080/ >/tmp/harness-index.html; then
+            API_READY=0
+            HARNESS_READY=0
+            if curl --fail --silent http://127.0.0.1:8000/healthz >/tmp/api-health.json; then
+              API_READY=1
+            fi
+            if curl --fail --silent http://127.0.0.1:3080/ >/tmp/harness-index.html; then
+              HARNESS_READY=1
+            fi
+            if [[ "$API_READY" -eq 1 && "$HARNESS_READY" -eq 1 ]]; then
+              READY=1
               break
+            fi
+            if ! kill -0 "$HARNESS_PID" 2>/dev/null; then
+              echo "Harness web exited while waiting for readiness"
+              dump_diagnostics
+              exit 1
             fi
             sleep 1
           done
+
+          if [[ "$READY" -ne 1 ]]; then
+            echo "Timed out waiting for Editorial API + Harness web readiness"
+            dump_diagnostics
+            exit 1
+          fi
 
           curl --fail --silent http://127.0.0.1:8000/api/v1/spike/opportunities >/tmp/opportunities.json
           curl --fail --silent http://127.0.0.1:3080/ >/dev/null
@@ -136,7 +187,7 @@ jobs:
 
           if ! kill -0 "$HARNESS_PID" 2>/dev/null; then
             echo "Harness web exited before validation completed"
-            cat /tmp/harness-web.log
+            dump_diagnostics
             exit 1
           fi
 
