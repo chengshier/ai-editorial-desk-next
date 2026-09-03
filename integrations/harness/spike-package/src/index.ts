@@ -7,6 +7,7 @@ import './events.ts'
 const BASE_URL = (process.env.EDITORIAL_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/u, '')
 const REQUEST_TIMEOUT_MS = Number(process.env.EDITORIAL_API_TIMEOUT_MS ?? '8000')
 const RESEARCH_POLL_INTERVAL_MS = Number(process.env.EDITORIAL_RESEARCH_POLL_MS ?? '700')
+const TOOL_SELF_TEST_ENABLED = process.env.EDITORIAL_SPIKE_TOOL_SELF_TEST === '1'
 
 interface SubjectSummary {
   id: string
@@ -238,6 +239,51 @@ function researchHooks(agent: Agent, created: ResearchCreated) {
   }
 }
 
+function selfTestCallId(value: string): Parameters<Context['tools']['execute']>[0]['callId'] {
+  return value as Parameters<Context['tools']['execute']>[0]['callId']
+}
+
+async function runToolRuntimeSelfTest(ctx: Context): Promise<void> {
+  const signal = new AbortController().signal
+  const listResult = await ctx.tools.execute({
+    callId: selfTestCallId('editorial-spike-selftest-list'),
+    name: 'list_editorial_opportunities',
+    arguments: {},
+    signal,
+  })
+  if (listResult.isError) throw new Error('list_editorial_opportunities returned an error')
+  const listText = listResult.content
+    .map(block => block.type === 'text' ? block.text : '')
+    .join('\n')
+  if (!listText.includes('洗碗机真的可能比手洗更省水吗？')) {
+    throw new Error('list_editorial_opportunities did not return expected rendered content')
+  }
+
+  const inspectResult = await ctx.tools.execute({
+    callId: selfTestCallId('editorial-spike-selftest-inspect'),
+    name: 'inspect_editorial_opportunity',
+    arguments: { opportunity_id: 'opp_dishwasher_water' },
+    signal,
+  })
+  if (inspectResult.isError) throw new Error('inspect_editorial_opportunity returned an error')
+  const inspectText = inspectResult.content
+    .map(block => block.type === 'text' ? block.text : '')
+    .join('\n')
+  if (!inspectText.includes('代际生活方式与节约观念')) {
+    throw new Error('inspect_editorial_opportunity did not preserve expected opportunity detail')
+  }
+
+  const missingResult = await ctx.tools.execute({
+    callId: selfTestCallId('editorial-spike-selftest-error'),
+    name: 'inspect_editorial_opportunity',
+    arguments: { opportunity_id: 'opp_missing' },
+    signal,
+  })
+  if (!missingResult.isError) throw new Error('missing opportunity should surface as a Tool error')
+
+  console.log('EDITORIAL_SPIKE_TOOL_SELF_TEST_PASS list+inspect+error')
+}
+
 export const name = 'ai-editorial-desk-harness-spike'
 export const inject = ['tools', 'jobs']
 
@@ -377,4 +423,11 @@ export function apply(ctx: Context): void {
       )
     },
   }))
+
+  if (TOOL_SELF_TEST_ENABLED) {
+    void runToolRuntimeSelfTest(ctx).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`EDITORIAL_SPIKE_TOOL_SELF_TEST_FAIL ${message}`)
+    })
+  }
 }

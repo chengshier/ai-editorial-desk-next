@@ -157,26 +157,39 @@ jobs:
 
           python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 8000 > /tmp/editorial-api.log 2>&1 &
           API_PID=$!
+
+          API_READY=0
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/healthz >/tmp/api-health.json; then
+              API_READY=1
+              break
+            fi
+            if ! kill -0 "$API_PID" 2>/dev/null; then
+              echo "Editorial API exited while waiting for readiness"
+              dump_diagnostics
+              exit 1
+            fi
+            sleep 1
+          done
+          if [[ "$API_READY" -ne 1 ]]; then
+            echo "Timed out waiting for Editorial API readiness"
+            dump_diagnostics
+            exit 1
+          fi
+
           (
             cd .harness-upstream
             export DSH_HOME="$PWD/.dsh-spike-home"
             EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 \
+            EDITORIAL_SPIKE_TOOL_SELF_TEST=1 \
               pnpm dsh web > /tmp/harness-web.log 2>&1
           ) &
           HARNESS_PID=$!
 
-          READY=0
+          HARNESS_READY=0
           for _ in $(seq 1 45); do
-            API_READY=0
-            HARNESS_READY=0
-            if curl --fail --silent http://127.0.0.1:8000/healthz >/tmp/api-health.json; then
-              API_READY=1
-            fi
             if curl --fail --silent http://127.0.0.1:3080/ >/tmp/harness-index.html; then
               HARNESS_READY=1
-            fi
-            if [[ "$API_READY" -eq 1 && "$HARNESS_READY" -eq 1 ]]; then
-              READY=1
               break
             fi
             if ! kill -0 "$HARNESS_PID" 2>/dev/null; then
@@ -187,8 +200,27 @@ jobs:
             sleep 1
           done
 
-          if [[ "$READY" -ne 1 ]]; then
-            echo "Timed out waiting for Editorial API + Harness web readiness"
+          if [[ "$HARNESS_READY" -ne 1 ]]; then
+            echo "Timed out waiting for Harness web readiness"
+            dump_diagnostics
+            exit 1
+          fi
+
+          TOOL_SELF_TEST_READY=0
+          for _ in $(seq 1 20); do
+            if grep -q 'EDITORIAL_SPIKE_TOOL_SELF_TEST_PASS' /tmp/harness-web.log; then
+              TOOL_SELF_TEST_READY=1
+              break
+            fi
+            if grep -q 'EDITORIAL_SPIKE_TOOL_SELF_TEST_FAIL' /tmp/harness-web.log; then
+              echo "Harness Tool runtime self-test failed"
+              dump_diagnostics
+              exit 1
+            fi
+            sleep 1
+          done
+          if [[ "$TOOL_SELF_TEST_READY" -ne 1 ]]; then
+            echo "Timed out waiting for Harness Tool runtime self-test"
             dump_diagnostics
             exit 1
           fi
@@ -206,6 +238,9 @@ jobs:
 
           echo "--- Editorial API health ---"
           cat /tmp/api-health.json
+          echo
+          echo "--- Harness Tool runtime self-test ---"
+          grep 'EDITORIAL_SPIKE_TOOL_SELF_TEST_PASS' /tmp/harness-web.log
           echo
           echo "--- Harness boot tail ---"
           tail -n 80 /tmp/harness-web.log
