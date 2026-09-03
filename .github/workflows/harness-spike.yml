@@ -37,6 +37,15 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install Python dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Ruff
+        run: python -m ruff check apps packages tests
+
+      - name: Spike API tests
+        run: python -m pytest tests/test_harness_spike_api.py tests/test_health.py -q
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -106,9 +115,6 @@ jobs:
           console.log(`profile dependency: ${manifest.dependencies[packageName]}`)
           console.log(`profile bundles: ${manifest.dsh.profile.bundles.join(', ')}`)
           NODE
-
-      - name: Install Editorial API
-        run: python -m pip install -e .
 
       - name: Boot Editorial API and Harness web profile
         shell: bash
