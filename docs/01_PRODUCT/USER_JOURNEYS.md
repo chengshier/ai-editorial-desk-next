@@ -61,3 +61,19 @@
 5. 发布时冻结 Candidate、Decision、Draft、Evidence、Policy provenance。
 6. Performance 以 append-only snapshot 回流。
 7. Calibration 后续可以提出 rubric/policy 调整建议，但历史 Evaluation/Decision 不被改写。
+
+## Journey G — 用户随手投喂一条线索
+
+例：用户刷到一条 Reddit 帖子、新闻链接，或者只是想到“这个说法是真的吗？”。
+
+1. 用户在 Workbench/Harness 里粘贴 URL 或输入一句话：“刚看到这个，帮我看看有没有值得讲的。”
+2. Backend 创建 `HumanSubmission`，保存 raw input、actor、submitted_at 与 `acquisition_origin = HUMAN_SUBMISSION`。
+3. 如果是第三方 URL，Source Origin 仍是原站点；系统复用 FetchProvider 读取正文。若只是用户陈述，则以 unverified human assertion 进入验证。
+4. 归一化结果进入统一 RawSignal，不建立第二套 HumanSignal 模型。
+5. 系统识别 Subject，生成 `Discovery(trigger=HUMAN_SEED)`，并判断是否需要 Research。
+6. Research 可以补：事实来源、反方证据、背景、真实讨论、Why Now、未来回访节点。
+7. 系统形成或拒绝 Editorial Opportunity，并明确说明 Editorial Advantage：相对用户原始线索新增了什么。
+8. 用户再做 Adopt / Watch / Drop；Submission 本身不被当成“喜欢”或“采用”。
+9. 后续 Calibration 使用 `Submission → Evaluation → Decision + reason` 完整 trajectory，而不是把所有投喂都当正样本。
+
+**关键验收：**用户不需要先理解 Subject、Mission、Rubric 等内部字段，只需要把低结构化线索交给编辑部；系统负责验证、组织与解释。
