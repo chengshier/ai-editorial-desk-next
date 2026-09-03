@@ -196,3 +196,34 @@ jobs:
           echo
           echo "--- Harness boot tail ---"
           tail -n 80 /tmp/harness-web.log
+
+      - name: Collect Harness smoke diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          mkdir -p harness-spike-diagnostics
+          cp /tmp/editorial-api.log harness-spike-diagnostics/editorial-api.log 2>/dev/null || true
+          cp /tmp/harness-web.log harness-spike-diagnostics/harness-web.log 2>/dev/null || true
+          cp /tmp/api-health.json harness-spike-diagnostics/api-health.json 2>/dev/null || true
+          cp /tmp/opportunities.json harness-spike-diagnostics/opportunities.json 2>/dev/null || true
+          cp /tmp/harness-index.html harness-spike-diagnostics/harness-index.html 2>/dev/null || true
+          if [[ -f .harness-upstream/.dsh-spike-home/profiles/web/package.json ]]; then
+            cp .harness-upstream/.dsh-spike-home/profiles/web/package.json harness-spike-diagnostics/web-profile-package.json
+          fi
+          {
+            echo "head_sha=${GITHUB_SHA}"
+            echo "node=$(node --version 2>/dev/null || true)"
+            echo "pnpm=$(pnpm --version 2>/dev/null || true)"
+            echo "--- ports ---"
+            ss -ltnp 2>/dev/null | grep -E ':(8000|3080)\b' || true
+          } > harness-spike-diagnostics/environment.txt
+
+      - name: Upload Harness smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-spike-diagnostics-${{ github.run_id }}
+          path: harness-spike-diagnostics/
+          if-no-files-found: error
+          retention-days: 7
