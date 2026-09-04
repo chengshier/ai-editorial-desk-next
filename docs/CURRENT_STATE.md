@@ -2,16 +2,16 @@
 
 ## 状态
 
-`PHASE_0_5_VALIDATION_SPIKES_IN_PROGRESS`
+`PHASE_0_5_A_READY_TO_MERGE`
 
 Architecture + Functional Baseline v1 已通过 PR #1 合并到 `main`。
 
 当前并行基线：
-- Phase 0.5-A Harness Integration Spike：PR #2 / `spike/harness-integration`；自动化技术链路已通过，真实浏览器/模型 UX Gate 仍待完成；
+- Phase 0.5-A Harness Integration Spike：PR #2 / `spike/harness-integration`；**技术 Spike 已完成，exact-head CI 已通过，可合并**；真实浏览器/模型 UX 继续作为 post-merge Gate；
 - Human Acquisition baseline amendment：已通过 PR #3 合并到 `main`，HumanSubmission 已冻结为一等发现入口；
-- Phase 0.5-B Acquisition Provider Spike：待 Harness Spike 达到足够结论后正式执行，不依赖 Harness Full Workbench 才能开始。
+- Phase 0.5-B Acquisition Provider Spike：PR #2 合并后可正式进入，不依赖 Harness Full Workbench 人工结论才开始。
 
-本分支只继续收口 **PR #2 / Phase 0.5-A Harness Integration Spike**，不进入 Acquisition Provider Spike 正式实现。
+本分支只收口 **PR #2 / Phase 0.5-A Harness Integration Spike**，不进入 Acquisition Provider Spike 正式实现。
 
 ## 已确认
 
@@ -28,18 +28,19 @@ Architecture + Functional Baseline v1 已通过 PR #1 合并到 `main`。
 - `source_origin` 与 `acquisition_origin` 必须分离；用户提交第三方 URL 不改变第三方作为原始来源的事实。
 - Candidate 前必须能够说明相对原始资料新增的 Editorial Advantage，而不是仅复述来源。
 - 固定平台 crawler/Legacy MediaCrawler 只允许作为 PlatformProvider/Adapter，不是 Acquisition Core。
-- DeepSeek Harness 作为首选 Product Runtime / Agent Workbench，通过插件/工具/HTTPS API 接入 Core。
-- Harness 是否承担全部复杂 Radar/Programming/Performance UI，须通过 Harness Integration Spike 决定；若 Developer Preview 扩展点无法稳定满足要求，允许采用 Hybrid Web + Harness Runtime，不允许无限阻塞 MVP。
+- **DeepSeek Harness 作为 V1 Agent Runtime 技术基线已通过 Spike**：exact-pin pristine build、official profile/plugin activation、FastAPI concurrent boot、Harness `ctx.tools.execute()` → Editorial API 均已自动化 PASS。
+- Harness 是否承担全部复杂 Radar/Programming/Performance UI，仍须通过浏览器/模型 UX Gate 决定；若 Developer Preview 扩展点无法稳定满足要求，允许采用 Hybrid Web + Harness Runtime，不允许无限阻塞 MVP。
 - PostgreSQL 是 System of Record。
 - WeKnora 是 Knowledge Provider，通过 Knowledge Gateway 接入。
 - Evidence、Decision、Publication、Performance 的审计语义尽量继承旧版成熟原则。
 
 ## 当前允许
 
-- Harness Integration Spike 的最小真实代码、兼容性验证与报告。
-- Acquisition Provider Spike 的 Mission、Provider adapter、benchmark harness 与真实采样验证。
-- Human Acquisition / HumanSubmission 的文档、Contract 与 MVP 最小接口设计。
-- 为 MVP Vertical Slice 实现最小 Foundation Contracts，但不得提前把候选 Provider SDK 耦合到 Domain。
+- PR #2 合并前仅做 Harness Spike 文档/兼容性收口；
+- PR #2 合并后进入 Acquisition Provider Spike；
+- Harness browser/model M1~M9 人工验证可与 Acquisition Spike 并行；
+- Human Acquisition / HumanSubmission 的 Contract 与 MVP 最小接口设计；
+- 为 MVP Vertical Slice 实现最小 Foundation Contracts，但不得提前把候选 Provider SDK 耦合到 Domain；
 - `/healthz`、mock endpoint、Spike fixture 等验证骨架。
 
 ## 当前禁止
@@ -55,7 +56,7 @@ Architecture + Functional Baseline v1 已通过 PR #1 合并到 `main`。
 - 将 Candidate/Decision/Publication 真相写到 WeKnora 或 Harness Session。
 - 为了“先跑起来”跳过 provenance/versioning。
 
-## 当前 Gate：Phase 0.5-A Harness Integration Spike
+## Phase 0.5-A Harness Integration Spike — 技术结论
 
 Pin：
 
@@ -66,24 +67,39 @@ Node 22.19.0
 pnpm 11.7.0
 ```
 
-当前已取得的自动化证据：
+同步最新 `main` 后的 exact head：
 
 ```text
-Python Ruff / Spike API pytest                       PASS
-pristine exact-pin Harness dependency install       PASS
-full pinned Harness Web runtime build               PASS
-out-of-tree dsh web profile/plugin install           PASS
-FastAPI + Harness Web concurrent boot                PASS
-Harness ctx.tools.execute → list Tool → FastAPI      PASS
-Harness ctx.tools.execute → inspect Tool → FastAPI   PASS
-Harness Tool error propagation (missing id)          PASS
+3681e4e3e5161cf6716eaf9436a1e0161d8d4681
+```
+
+自动化证据：
+
+```text
+Standard CI                                            PASS
+Python Ruff / Spike API pytest                         PASS
+pristine exact-pin Harness dependency install         PASS
+full pinned Harness Web runtime build                 PASS
+out-of-tree dsh web profile/plugin install            PASS
+FastAPI + Harness Web concurrent boot                  PASS
+Harness ctx.tools.execute → list Tool → FastAPI       PASS
+Harness ctx.tools.execute → inspect Tool → FastAPI    PASS
+Harness Tool error propagation (missing id)           PASS
+```
+
+对应 runs：
+
+```text
+Harness Spike 33725911984 / job 100554708800 : SUCCESS
+CI            33725911979 / job 100554708417 : SUCCESS
 ```
 
 因此 PR #2 已经真实回答：
 - exact-pin Harness 可以稳定构建并启动；
 - out-of-tree Profile/Plugin/Tool seam 可工作，当前无需 patch Harness core；
 - Tool → FastAPI 边界可通过 Harness 自身 `ctx.tools.execute()` 运行时链路工作；
-- canonical Tool value 与 UI presentation 可以分离。
+- canonical Tool value 与 UI presentation 可以分离；
+- Harness 可以作为 V1 **Agent Runtime 技术基线**。
 
 仍未允许写成 PASS：
 - Agent 根据自然语言稳定选择 Editorial Tool；
@@ -93,7 +109,19 @@ Harness Tool error propagation (missing id)          PASS
 - error/cancel 的浏览器 UX；
 - Harness 是否足以承载复杂 Radar/Programming/Performance UI。
 
-Harness Spike 不允许无限时间阻塞后续 MVP；如果 Full Workbench 目标在明确时间盒内不能稳定满足，保留 Harness Agent Runtime 并采用 Hybrid Workbench。
+这些人工项目决定 **Full Harness vs Hybrid**，不再阻塞 PR #2 技术 Spike 合并。
+
+## PR #2 合并语义
+
+```text
+MERGE PR #2
+≠ Full Harness Workbench approved
+
+MERGE PR #2
+= Harness Agent Runtime technical integration accepted
++ compatibility seam frozen
++ manual UI strategy gate remains open
+```
 
 ## 下一 Gate：Phase 0.5-B Acquisition Provider Spike
 
@@ -105,6 +133,8 @@ Acquisition Spike 必须同时验证：
 Spike 输出 V1 Search/Fetch/Feed/Platform/Trend Provider 组合与 fallback strategy。
 
 HumanSubmission 不参加 Provider 胜负比较；它作为产品自身入口，在 MVP 中复用选定 Provider 做 fetch / verification / research。
+
+Harness M1~M9 browser/model 人工验证可以与 Acquisition Spike 并行，避免 Full Workbench 决策无限阻塞 MVP。
 
 ## MVP v0.1 Gate
 

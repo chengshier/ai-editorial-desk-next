@@ -1,6 +1,6 @@
 # Harness Integration Spike
 
-> 状态：`AUTOMATED_RUNTIME_PASS / MANUAL_UX_PENDING / LATEST_MAIN_REVALIDATION_PENDING`  
+> 状态：`TECHNICAL_SPIKE_COMPLETE / EXACT_HEAD_PASS / READY_TO_MERGE / MANUAL_UX_FOLLOW_UP`  
 > 分支：`spike/harness-integration`
 
 ## 1. 目的
@@ -54,7 +54,7 @@ missing opportunity
 → Harness Tool isError
 ```
 
-注意：这证明 Tool runtime 边界，不等于证明模型能从自然语言稳定选择 Tool；后者仍为 Manual Gate。
+这证明 Tool runtime 边界，不等于证明模型能从自然语言稳定选择 Tool；后者属于人工 Model/UX Gate。
 
 ### Spike B — Opportunity Card
 
@@ -95,7 +95,7 @@ Harness Tool / Job / Conversation Node
 
 ## 5. Exact-pin 自动化 Gate
 
-当前 workflow 的真实顺序为：
+workflow 的真实顺序为：
 
 ```text
 Checkout Next
@@ -121,9 +121,18 @@ Checkout Next
 
 关键发现：完整 `web` profile 不能只依赖局部 `build:lib:host`。产品级 Web smoke 前必须先对 **pristine exact pin** 执行 root `pnpm run build`，随后再准备 out-of-tree package。
 
+同步最新 `main` 后的 exact head `3681e4e3e5161cf6716eaf9436a1e0161d8d4681` 已通过：
+
+```text
+Harness Spike run 33725911984 / job 100554708800 : SUCCESS
+Standard CI  run 33725911979 / job 100554708417 : SUCCESS
+```
+
+因此技术集成 Gate 已完成。
+
 ## 6. Manual Runtime Gate
 
-以下必须真实浏览器 + 可用 Harness Model 才能验收：
+以下仍需真实浏览器 + 可用 Harness Model 验收：
 
 | ID | Scenario | Status |
 |---|---|---|
@@ -137,11 +146,11 @@ Checkout Next
 | M8 | API unavailable/error，不伪装为空结果 | PENDING |
 | M9 | cancel research job + terminal event | PENDING |
 
-其中 list/inspect/error 的 **Harness Tool execution 本身已自动化 PASS**；M1/M2 仍验证模型选择与对话上下文行为。
+这些项目用于决定产品层 UI 形态，**不再作为 PR #2 技术集成代码的 merge blocker**。list/inspect/error 的 Harness Tool execution 本身已经自动化 PASS；M1/M2 验证的是模型选择与对话上下文行为。
 
 ## 7. 第二层 UI 验证
 
-A/B/C 核心链路人工通过后，再判断是否需要验证：
+人工 A/B/C 核心链路之后，再判断是否需要验证：
 - 50~200 Opportunity Radar；
 - 列表/筛选/分组；
 - Sidebar / Navigation 产品化扩展；
@@ -171,18 +180,18 @@ A/B/C 核心链路人工通过后，再判断是否需要验证：
 
 - Harness 是 Developer Preview，Tool/Jobs/Client/Conversation contracts 可能 breaking；
 - out-of-tree client package 需要针对 pinned upstream 构建；升级 Harness 必须重跑 compatibility CI；
--完整 Web runtime smoke 依赖 pristine pinned upstream full root build；
+- 完整 Web runtime smoke 依赖 pristine pinned upstream full root build；
 - profile loader 的 out-of-tree dependency 解析依赖官方 profile/plugin seam；
 - Compatibility 变化必须收敛在 `integrations/harness`，不能向 Domain/API schema 泄漏；
 - Generic Tool Card 是否足够支撑最终信息密度仍需 UX 实测；
 - Radar/Programming/Performance 是否适合完全放在 Harness 内仍无证据。
 
-## 10. 决策状态
+## 10. 技术 Spike 结论
 
 ```text
-HARNESS_AS_AGENT_RUNTIME: TECHNICALLY_VALIDATED
-HARNESS_FULL_WORKBENCH:   NOT_DECIDED
-HYBRID_WEB_HARNESS:       NOT_DECIDED
+HARNESS_AS_AGENT_RUNTIME: ACCEPTED_AS_V1_TECHNICAL_BASELINE
+HARNESS_FULL_WORKBENCH:   DEFERRED_TO_MANUAL_UX_GATE
+HYBRID_WEB_HARNESS:       DEFERRED_TO_MANUAL_UX_GATE
 ```
 
-当前不再需要回答“Harness 能不能跑/能不能调用我们的 Tool”；下一 Gate 是真实 Agent/Card/Research/Replay UX，并据此决定 Full Harness Workbench 或 Hybrid。
+所以 PR #2 可以合并。合并代表 **Harness Agent Runtime / Tool / FastAPI 集成路线技术成立**，不代表 “Full Harness Workbench 已验收”。最终 UI 形态仍需人工 Gate 后用新的 ADR 冻结。
