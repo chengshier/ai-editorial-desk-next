@@ -10,7 +10,7 @@
 | ADR-0004 | WeKnora = Knowledge Provider，经 Knowledge Gateway 接入 | Accepted |
 | ADR-0005 | Editorial Opportunity = 主要评价/候选单位 | Accepted |
 | ADR-0006 | Acquisition Core 采用 Mission-driven；Potential 与 Momentum 双通道，热度不是前置条件 | Accepted |
-| ADR-0007 | Harness 复杂 UI 必须经过 Spike，再决定 Full Workbench 或 Hybrid | Accepted |
+| ADR-0007 | Harness 复杂 UI 必须经过 Spike；Agent Runtime 技术基线已验证，Full Workbench / Hybrid 仍待人工 UX Gate | Accepted / Runtime Validated |
 | ADR-0008 | Human Acquisition 是一等发现入口；HumanSubmission 统一归一化进入 RawSignal / Provenance 主链 | Accepted |
 
 ## 业务不变量
@@ -38,11 +38,21 @@
 21. Machine Acquisition 与 Human Acquisition 共享统一 RawSignal / Subject / Discovery / Opportunity 主链，不建立第二套 HumanSignal 业务模型。
 22. **Editorial Advantage invariant**：进入 Candidate 的 Opportunity 必须说明相对原始信息新增了什么编辑价值；不要求信息具有排他性。
 23. Human Submission 只有与后续 Evaluation + Adopt/Watch/Drop + reason 结合后，才可作为 Rubric calibration evidence。
+24. **Harness Runtime 技术可行 != Full Harness Workbench UX 已验收**；两者必须保持独立 Gate。
+25. Harness compatibility 必须收敛在 integration seam；不得为兼容升级把 Domain/API 耦合进 Harness internals。
 
-## 当前待 Spike 后冻结的决定
+## 已由 Spike 冻结的决定
+
+```text
+HARNESS_AS_AGENT_RUNTIME = ACCEPTED_AS_V1_TECHNICAL_BASELINE
+```
+
+依据 PR #2 exact-head automated validation：pristine pinned build、official profile/plugin、FastAPI + Harness Web boot、Harness `ctx.tools.execute()` → Editorial API 全部通过，当前无需 fork/patch Harness core。
+
+## 当前待 Spike / UX 后冻结的决定
 
 - V1 Acquisition Provider 具体组合与 fallback。
 - TrendProvider / Community Provider 的具体实现与访问边界。
 - Harness 最终采用 `HARNESS_FULL_WORKBENCH` 还是 `HYBRID_WEB_HARNESS`。
 
-在 Spike 前不得把候选实现、热点假设或 UI 假设写成已验证事实。
+在剩余 Gate 前不得把候选 Provider 实现、热点假设或 Full Harness UI 假设写成已验证事实。

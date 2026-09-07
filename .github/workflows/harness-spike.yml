@@ -1,0 +1,278 @@
+name: Harness Spike
+
+on:
+  pull_request:
+    paths:
+      - "integrations/harness/**"
+      - "apps/editorial_api/spike_harness.py"
+      - "apps/editorial_api/main.py"
+      - "tests/test_harness_spike_api.py"
+      - ".github/workflows/harness-spike.yml"
+  push:
+    branches: ["spike/harness-integration"]
+    paths:
+      - "integrations/harness/**"
+      - "apps/editorial_api/spike_harness.py"
+      - "apps/editorial_api/main.py"
+      - "tests/test_harness_spike_api.py"
+      - ".github/workflows/harness-spike.yml"
+
+jobs:
+  exact-pin-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout AI Editorial Desk Next
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned DeepSeek Harness
+        uses: actions/checkout@v4
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+          path: .harness-upstream
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Ruff
+        run: python -m ruff check apps packages tests
+
+      - name: Spike API tests
+        run: python -m pytest tests/test_harness_spike_api.py tests/test_health.py -q
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm --version
+
+      - name: Install pristine Harness workspace
+        working-directory: .harness-upstream
+        run: pnpm install --frozen-lockfile
+
+      - name: Build complete pristine pinned Harness runtime
+        working-directory: .harness-upstream
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm run build 2>&1 | tee /tmp/harness-build.log
+
+      - name: Prepare out-of-tree spike package after upstream build
+        run: python integrations/harness/scripts/prepare_spike.py .harness-upstream
+
+      - name: Reconcile workspace with spike package
+        working-directory: .harness-upstream
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Typecheck spike and referenced contracts
+        working-directory: .harness-upstream
+        run: pnpm exec tsc -b packages/client/editorial-spike/tsconfig.json
+
+      - name: Bundle host and web client faces
+        working-directory: .harness-upstream
+        run: pnpm --filter @ai-editorial-desk/harness-spike run bundle
+
+      - name: Assert expected Harness artifacts
+        working-directory: .harness-upstream
+        run: |
+          test -f packages/client/editorial-spike/lib/index.js
+          test -f packages/client/editorial-spike/lib/client.js
+          test -f packages/client/editorial-spike/lib/types/index.d.ts
+          test -f packages/client/editorial-spike/lib/types/client/index.d.ts
+
+      - name: Install spike through official Harness profile plugin seam
+        working-directory: .harness-upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DSH_HOME="$PWD/.dsh-spike-home"
+          pnpm dsh plugin --profile web add ./packages/client/editorial-spike
+
+          PROFILE_MANIFEST="$DSH_HOME/profiles/web/package.json"
+          test -f "$PROFILE_MANIFEST"
+          node - "$PROFILE_MANIFEST" <<'NODE'
+          const fs = require('node:fs')
+          const manifestPath = process.argv[2]
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+          const packageName = '@ai-editorial-desk/harness-spike'
+          if (!manifest.dependencies?.[packageName]) {
+            throw new Error(`${packageName} was not installed into the web profile`)
+          }
+          if (!manifest.dsh?.profile?.bundles?.includes(packageName)) {
+            throw new Error(`${packageName} was not activated as a profile bundle`)
+          }
+          console.log(`profile dependency: ${manifest.dependencies[packageName]}`)
+          console.log(`profile bundles: ${manifest.dsh.profile.bundles.join(', ')}`)
+          NODE
+
+      - name: Boot Editorial API and Harness web profile
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          API_PID=""
+          HARNESS_PID=""
+          dump_diagnostics() {
+            echo "--- process status ---"
+            if [[ -n "${API_PID:-}" ]]; then
+              ps -p "$API_PID" -o pid,ppid,stat,etime,cmd || true
+            fi
+            if [[ -n "${HARNESS_PID:-}" ]]; then
+              ps -p "$HARNESS_PID" -o pid,ppid,stat,etime,cmd || true
+            fi
+            echo "--- listening ports ---"
+            ss -ltnp 2>/dev/null | grep -E ':(8000|3080)\b' || true
+            echo "--- Editorial API log ---"
+            cat /tmp/editorial-api.log 2>/dev/null || true
+            echo "--- Harness web log ---"
+            cat /tmp/harness-web.log 2>/dev/null || true
+          }
+          cleanup() {
+            if [[ -n "${HARNESS_PID:-}" ]]; then
+              kill "$HARNESS_PID" 2>/dev/null || true
+            fi
+            if [[ -n "${API_PID:-}" ]]; then
+              kill "$API_PID" 2>/dev/null || true
+            fi
+          }
+          on_error() {
+            status=$?
+            echo "Harness smoke failed with exit code $status"
+            dump_diagnostics
+            exit "$status"
+          }
+          trap on_error ERR
+          trap cleanup EXIT
+
+          python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 8000 > /tmp/editorial-api.log 2>&1 &
+          API_PID=$!
+
+          API_READY=0
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/healthz >/tmp/api-health.json; then
+              API_READY=1
+              break
+            fi
+            if ! kill -0 "$API_PID" 2>/dev/null; then
+              echo "Editorial API exited while waiting for readiness"
+              dump_diagnostics
+              exit 1
+            fi
+            sleep 1
+          done
+          if [[ "$API_READY" -ne 1 ]]; then
+            echo "Timed out waiting for Editorial API readiness"
+            dump_diagnostics
+            exit 1
+          fi
+
+          (
+            cd .harness-upstream
+            export DSH_HOME="$PWD/.dsh-spike-home"
+            EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 \
+            EDITORIAL_SPIKE_TOOL_SELF_TEST=1 \
+              pnpm dsh web > /tmp/harness-web.log 2>&1
+          ) &
+          HARNESS_PID=$!
+
+          HARNESS_READY=0
+          for _ in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:3080/ >/tmp/harness-index.html; then
+              HARNESS_READY=1
+              break
+            fi
+            if ! kill -0 "$HARNESS_PID" 2>/dev/null; then
+              echo "Harness web exited while waiting for readiness"
+              dump_diagnostics
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [[ "$HARNESS_READY" -ne 1 ]]; then
+            echo "Timed out waiting for Harness web readiness"
+            dump_diagnostics
+            exit 1
+          fi
+
+          TOOL_SELF_TEST_READY=0
+          for _ in $(seq 1 20); do
+            if grep -q 'EDITORIAL_SPIKE_TOOL_SELF_TEST_PASS' /tmp/harness-web.log; then
+              TOOL_SELF_TEST_READY=1
+              break
+            fi
+            if grep -q 'EDITORIAL_SPIKE_TOOL_SELF_TEST_FAIL' /tmp/harness-web.log; then
+              echo "Harness Tool runtime self-test failed"
+              dump_diagnostics
+              exit 1
+            fi
+            sleep 1
+          done
+          if [[ "$TOOL_SELF_TEST_READY" -ne 1 ]]; then
+            echo "Timed out waiting for Harness Tool runtime self-test"
+            dump_diagnostics
+            exit 1
+          fi
+
+          curl --fail --silent http://127.0.0.1:8000/api/v1/spike/opportunities >/tmp/opportunities.json
+          curl --fail --silent http://127.0.0.1:3080/ >/dev/null
+          test -s /tmp/opportunities.json
+          test -s /tmp/harness-index.html
+
+          if ! kill -0 "$HARNESS_PID" 2>/dev/null; then
+            echo "Harness web exited before validation completed"
+            dump_diagnostics
+            exit 1
+          fi
+
+          echo "--- Editorial API health ---"
+          cat /tmp/api-health.json
+          echo
+          echo "--- Harness Tool runtime self-test ---"
+          grep 'EDITORIAL_SPIKE_TOOL_SELF_TEST_PASS' /tmp/harness-web.log
+          echo
+          echo "--- Harness boot tail ---"
+          tail -n 80 /tmp/harness-web.log
+
+      - name: Collect Harness smoke diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          mkdir -p harness-spike-diagnostics
+          cp /tmp/harness-build.log harness-spike-diagnostics/harness-build.log 2>/dev/null || true
+          cp /tmp/editorial-api.log harness-spike-diagnostics/editorial-api.log 2>/dev/null || true
+          cp /tmp/harness-web.log harness-spike-diagnostics/harness-web.log 2>/dev/null || true
+          cp /tmp/api-health.json harness-spike-diagnostics/api-health.json 2>/dev/null || true
+          cp /tmp/opportunities.json harness-spike-diagnostics/opportunities.json 2>/dev/null || true
+          cp /tmp/harness-index.html harness-spike-diagnostics/harness-index.html 2>/dev/null || true
+          if [[ -f .harness-upstream/.dsh-spike-home/profiles/web/package.json ]]; then
+            cp .harness-upstream/.dsh-spike-home/profiles/web/package.json harness-spike-diagnostics/web-profile-package.json
+          fi
+          {
+            echo "head_sha=${GITHUB_SHA}"
+            echo "node=$(node --version 2>/dev/null || true)"
+            echo "pnpm=$(pnpm --version 2>/dev/null || true)"
+            echo "--- ports ---"
+            ss -ltnp 2>/dev/null | grep -E ':(8000|3080)\b' || true
+          } > harness-spike-diagnostics/environment.txt
+
+      - name: Upload Harness smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-spike-diagnostics-${{ github.run_id }}
+          path: harness-spike-diagnostics/
+          if-no-files-found: error
+          retention-days: 7
