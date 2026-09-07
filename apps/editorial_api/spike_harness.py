@@ -66,6 +66,36 @@ class ResearchProgress(BaseModel):
     open_unknown_count: int = Field(ge=0)
 
 
+class ResearchEvidence(BaseModel):
+    evidence_id: str
+    claim: str
+    stance: str
+    source_title: str
+    source_type: str
+    locator: str
+    summary: str
+    confidence: str
+
+
+class ResearchUnknown(BaseModel):
+    unknown_id: str
+    question: str
+    status: str
+
+
+class ResearchResult(BaseModel):
+    research_case_id: str
+    opportunity_id: str
+    goal: str
+    status: str
+    result_kind: str
+    evidence_count: int = Field(ge=0)
+    open_unknown_count: int = Field(ge=0)
+    evidence: list[ResearchEvidence]
+    unknowns: list[ResearchUnknown]
+    conclusion: str
+
+
 OPPORTUNITIES: tuple[OpportunitySummary, ...] = (
     OpportunitySummary(
         opportunity_id="opp_dishwasher_water",
@@ -123,6 +153,7 @@ class _ResearchRecord:
     opportunity_id: str
     goal: str
     poll_count: int = 0
+    completed: bool = False
 
 
 _RESEARCH: dict[str, _ResearchRecord] = {}
@@ -137,16 +168,137 @@ _RESEARCH_STAGES = (
 )
 
 
+def _latest_record_unlocked(opportunity_id: str) -> _ResearchRecord | None:
+    for record in reversed(tuple(_RESEARCH.values())):
+        if record.opportunity_id == opportunity_id:
+            return record
+    return None
+
+
+def _effective_opportunity(base: OpportunitySummary) -> OpportunitySummary:
+    with _RESEARCH_LOCK:
+        record = _latest_record_unlocked(base.opportunity_id)
+        if record is None:
+            return base
+        completed = record.completed
+
+    return base.model_copy(
+        update={
+            "research_status": "completed" if completed else "running",
+            "evidence_state": EvidenceState(
+                open_unknown_count=1 if completed else base.evidence_state.open_unknown_count
+            ),
+            "production_readiness": "high" if completed else base.production_readiness,
+        }
+    )
+
+
+def _mock_research_result(record: _ResearchRecord) -> ResearchResult:
+    if record.opportunity_id == "opp_dishwasher_water":
+        evidence = [
+            ResearchEvidence(
+                evidence_id="ev_dishwasher_01",
+                claim="在满载并使用节能程序时，现代洗碗机更可能形成较低的单次用水量。",
+                stance="supporting",
+                source_title="Spike 模拟证据 A：满载节能程序对照",
+                source_type="deterministic_mock",
+                locator="mock://research/dishwasher/full-load-eco",
+                summary="用于验证 Evidence 契约：满载与节能模式是比较机器洗和手洗时必须显式控制的条件变量。",
+                confidence="high",
+            ),
+            ResearchEvidence(
+                evidence_id="ev_dishwasher_02",
+                claim="手洗是否省水高度依赖水龙头使用方式，持续流水会显著改变比较结果。",
+                stance="supporting",
+                source_title="Spike 模拟证据 B：手洗行为变量",
+                source_type="deterministic_mock",
+                locator="mock://research/dishwasher/handwash-behavior",
+                summary="用于验证 Evidence 契约：满槽清洗、间歇开水与持续流水不能被视为同一种手洗条件。",
+                confidence="high",
+            ),
+            ResearchEvidence(
+                evidence_id="ev_dishwasher_03",
+                claim="半负载运行并叠加长时间预冲洗，会削弱甚至反转洗碗机的节水优势。",
+                stance="contradicting",
+                source_title="Spike 模拟反证：半负载与预冲洗",
+                source_type="deterministic_mock",
+                locator="mock://research/dishwasher/pre-rinse-half-load",
+                summary="用于验证 contradictory evidence：不能把“洗碗机一定省水”当作无条件结论。",
+                confidence="medium",
+            ),
+            ResearchEvidence(
+                evidence_id="ev_dishwasher_04",
+                claim="地区水压、龙头流量、家庭装载习惯与机器代际会影响最终比较。",
+                stance="context",
+                source_title="Spike 模拟证据 D：地域与设备条件",
+                source_type="deterministic_mock",
+                locator="mock://research/dishwasher/context-variables",
+                summary="用于验证 Context/Unknown 边界：结论应表达为条件化判断，而不是统一单值。",
+                confidence="medium",
+            ),
+        ]
+        unknowns = [
+            ResearchUnknown(
+                unknown_id="unk_dishwasher_cn_household",
+                question="中国家庭真实使用场景下，不同水压、机型与手洗习惯的代表性对照数据是否足够？",
+                status="open",
+            )
+        ]
+        conclusion = (
+            "Spike 模拟结论：在满载、使用节能模式、避免额外预冲洗，且对照的手洗方式存在持续流水时，"
+            "洗碗机更可能省水；半负载、额外预冲洗或本身非常节水的手洗方式会缩小甚至反转优势。"
+            "这里的 4 条证据均为确定性 Spike 模拟数据，仅用于验证 Research Result / Evidence / Unknown 契约，"
+            "不代表真实外部研究结论。"
+        )
+    else:
+        opportunity = OPPORTUNITY_BY_ID[record.opportunity_id]
+        evidence = [
+            ResearchEvidence(
+                evidence_id=f"ev_{record.opportunity_id}_{index}",
+                claim=f"围绕“{opportunity.headline}”的模拟研究证据 {index}。",
+                stance="supporting" if index < 3 else "contradicting",
+                source_title=f"Spike 模拟证据 {index}",
+                source_type="deterministic_mock",
+                locator=f"mock://research/{record.opportunity_id}/{index}",
+                summary="确定性模拟结果，仅用于验证研究结果可消费契约与回放能力。",
+                confidence="medium",
+            )
+            for index in range(1, 5)
+        ]
+        unknowns = [
+            ResearchUnknown(
+                unknown_id=f"unk_{record.opportunity_id}_01",
+                question="仍需真实外部资料验证的一个关键问题。",
+                status="open",
+            )
+        ]
+        conclusion = "Spike 模拟结论：研究已形成可消费的 Evidence 与 Unknown 结构，但不代表真实外部事实。"
+
+    return ResearchResult(
+        research_case_id=record.research_case_id,
+        opportunity_id=record.opportunity_id,
+        goal=record.goal,
+        status="completed",
+        result_kind="deterministic_spike_mock",
+        evidence_count=len(evidence),
+        open_unknown_count=len(unknowns),
+        evidence=evidence,
+        unknowns=unknowns,
+        conclusion=conclusion,
+    )
+
+
 @router.get("/opportunities", response_model=OpportunityList)
 async def list_opportunities() -> OpportunityList:
-    """Return stable mock read models for the Harness integration spike."""
-    return OpportunityList(items=list(OPPORTUNITIES), count=len(OPPORTUNITIES))
+    """Return the current effective mock read models for the Harness integration spike."""
+    items = [_effective_opportunity(item) for item in OPPORTUNITIES]
+    return OpportunityList(items=items, count=len(items))
 
 
 @router.get("/opportunities/{opportunity_id}", response_model=OpportunitySummary)
 async def inspect_opportunity(opportunity_id: str) -> OpportunitySummary:
     try:
-        return OPPORTUNITY_BY_ID[opportunity_id]
+        return _effective_opportunity(OPPORTUNITY_BY_ID[opportunity_id])
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="opportunity not found") from exc
 
@@ -184,10 +336,12 @@ async def get_research_progress(research_case_id: str) -> ResearchProgress:
         stage_index = min(record.poll_count, len(_RESEARCH_STAGES) - 1)
         if record.poll_count < len(_RESEARCH_STAGES) - 1:
             record.poll_count += 1
+        status, stage, progress, completed_steps, message, evidence_count, unknown_count = (
+            _RESEARCH_STAGES[stage_index]
+        )
+        if status == "completed":
+            record.completed = True
 
-    status, stage, progress, completed_steps, message, evidence_count, unknown_count = (
-        _RESEARCH_STAGES[stage_index]
-    )
     return ResearchProgress(
         research_case_id=record.research_case_id,
         opportunity_id=record.opportunity_id,
@@ -200,3 +354,23 @@ async def get_research_progress(research_case_id: str) -> ResearchProgress:
         new_evidence_count=evidence_count,
         open_unknown_count=unknown_count,
     )
+
+
+@router.get("/research-cases/{research_case_id}/result", response_model=ResearchResult)
+async def get_research_result(research_case_id: str) -> ResearchResult:
+    """Return durable, consumable mock Evidence/Unknown output after the job completes."""
+    with _RESEARCH_LOCK:
+        record = _RESEARCH.get(research_case_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="research case not found")
+        if not record.completed:
+            raise HTTPException(status_code=409, detail="research case not completed")
+        snapshot = _ResearchRecord(
+            research_case_id=record.research_case_id,
+            opportunity_id=record.opportunity_id,
+            goal=record.goal,
+            poll_count=record.poll_count,
+            completed=record.completed,
+        )
+
+    return _mock_research_result(snapshot)

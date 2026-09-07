@@ -1,4 +1,3 @@
-import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericResultView, ToolResult } from '@deepseek-ai/dsh-tools'
@@ -56,6 +55,36 @@ interface ResearchProgress {
   open_unknown_count: number
 }
 
+interface ResearchEvidence {
+  evidence_id: string
+  claim: string
+  stance: string
+  source_title: string
+  source_type: string
+  locator: string
+  summary: string
+  confidence: string
+}
+
+interface ResearchUnknown {
+  unknown_id: string
+  question: string
+  status: string
+}
+
+interface ResearchResult {
+  research_case_id: string
+  opportunity_id: string
+  goal: string
+  status: string
+  result_kind: string
+  evidence_count: number
+  open_unknown_count: number
+  evidence: ResearchEvidence[]
+  unknowns: ResearchUnknown[]
+  conclusion: string
+}
+
 interface ResearchStartMeta {
   research_case_id: string
   opportunity_id: string
@@ -103,6 +132,48 @@ const OPPORTUNITY_SCHEMA = {
   },
 } as const
 
+const RESEARCH_EVIDENCE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    evidence_id: { type: 'string', required: true },
+    claim: { type: 'string', required: true },
+    stance: { type: 'string', required: true },
+    source_title: { type: 'string', required: true },
+    source_type: { type: 'string', required: true },
+    locator: { type: 'string', required: true },
+    summary: { type: 'string', required: true },
+    confidence: { type: 'string', required: true },
+  },
+} as const
+
+const RESEARCH_UNKNOWN_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    unknown_id: { type: 'string', required: true },
+    question: { type: 'string', required: true },
+    status: { type: 'string', required: true },
+  },
+} as const
+
+const RESEARCH_RESULT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    research_case_id: { type: 'string', required: true },
+    opportunity_id: { type: 'string', required: true },
+    goal: { type: 'string', required: true },
+    status: { type: 'string', required: true },
+    result_kind: { type: 'string', required: true },
+    evidence_count: { type: 'integer', required: true },
+    open_unknown_count: { type: 'integer', required: true },
+    evidence: { type: 'array', required: true, items: RESEARCH_EVIDENCE_SCHEMA },
+    unknowns: { type: 'array', required: true, items: RESEARCH_UNKNOWN_SCHEMA },
+    conclusion: { type: 'string', required: true },
+  },
+} as const
+
 function opportunityText(item: OpportunitySummary): string {
   return [
     `Opportunity ID: ${item.opportunity_id}`,
@@ -112,8 +183,36 @@ function opportunityText(item: OpportunitySummary): string {
     `Audience promise: ${item.audience_promise}`,
     `Why now: ${item.why_now}`,
     `Recommendation: ${item.recommendation}`,
+    `Research status: ${item.research_status}`,
     `Unknowns: ${item.evidence_state.open_unknown_count}`,
+    `Production readiness: ${item.production_readiness}`,
   ].join('\n')
+}
+
+function researchResultText(result: ResearchResult): string {
+  const evidenceText = result.evidence
+    .map((item, index) => [
+      `${index + 1}. [${item.stance}] ${item.claim}`,
+      `   Source: ${item.source_title}`,
+      `   Locator: ${item.locator}`,
+      `   Summary: ${item.summary}`,
+      `   Confidence: ${item.confidence}`,
+    ].join('\n'))
+    .join('\n\n')
+  const unknownText = result.unknowns.length === 0
+    ? 'None'
+    : result.unknowns.map((item, index) => `${index + 1}. ${item.question} [${item.status}]`).join('\n')
+  return [
+    `Research Case: ${result.research_case_id}`,
+    `Opportunity ID: ${result.opportunity_id}`,
+    `Result kind: ${result.result_kind}`,
+    `Goal: ${result.goal}`,
+    `Evidence: ${result.evidence_count}`,
+    evidenceText,
+    `Open unknowns: ${result.open_unknown_count}`,
+    unknownText,
+    `Conclusion: ${result.conclusion}`,
+  ].join('\n\n')
 }
 
 function genericResult(title: string, text: string): GenericResultView {
@@ -170,64 +269,40 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-function researchHooks(agent: Agent, created: ResearchCreated) {
+/**
+ * Drive the process-local Harness Job from the Editorial API without writing
+ * plugin-owned events into the durable Harness Session log.
+ *
+ * DeepSeek Harness intentionally cannot treat out-of-repo SessionEventMap
+ * additions as known durable vocabulary. Persisting editorial/research-* events
+ * therefore made a session unreadable after a cold Harness restart. The durable
+ * business truth is the Research Case / Result in Editorial API; the Harness Job
+ * only owns execution and completion notification.
+ */
+function researchHooks(created: ResearchCreated) {
   const controller = new AbortController()
   const done = (async () => {
     try {
       while (true) {
         const progress = await fetchJson<ResearchProgress>(created.progress_url, { method: 'GET' }, controller.signal)
         if (progress.status === 'completed') {
-          agent.session.append('editorial/research-end', {
-            researchCaseId: progress.research_case_id,
-            opportunityId: progress.opportunity_id,
-            status: 'completed',
-            progress: progress.progress,
-            message: progress.message,
-            newEvidenceCount: progress.new_evidence_count,
-            openUnknownCount: progress.open_unknown_count,
-          })
           return {
             status: 'completed' as const,
             detail: `${progress.new_evidence_count} evidence, ${progress.open_unknown_count} unknown`,
-            output: progress.message,
+            output: [
+              progress.message,
+              `Research case ${progress.research_case_id} is complete.`,
+              `Call get_editorial_research_result with research_case_id="${progress.research_case_id}" to read the Evidence, Unknowns and conclusion.`,
+            ].join('\n'),
           }
         }
-
-        agent.session.append('editorial/research-progress', {
-          researchCaseId: progress.research_case_id,
-          opportunityId: progress.opportunity_id,
-          status: progress.status,
-          stage: progress.stage,
-          progress: progress.progress,
-          message: progress.message,
-          newEvidenceCount: progress.new_evidence_count,
-          openUnknownCount: progress.open_unknown_count,
-        })
         await wait(RESEARCH_POLL_INTERVAL_MS, controller.signal)
       }
     } catch (error: unknown) {
       if (controller.signal.aborted) {
-        agent.session.append('editorial/research-end', {
-          researchCaseId: created.research_case_id,
-          opportunityId: created.opportunity_id,
-          status: 'cancelled',
-          progress: 0,
-          message: '研究任务已取消。',
-          newEvidenceCount: 0,
-          openUnknownCount: 0,
-        })
         return { status: 'killed' as const, detail: 'cancelled' }
       }
       const message = error instanceof Error ? error.message : String(error)
-      agent.session.append('editorial/research-end', {
-        researchCaseId: created.research_case_id,
-        opportunityId: created.opportunity_id,
-        status: 'failed',
-        progress: 0,
-        message,
-        newEvidenceCount: 0,
-        openUnknownCount: 0,
-      })
       return { status: 'failed' as const, detail: message }
     }
   })()
@@ -296,7 +371,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'list_editorial_opportunities',
-    description: 'List editorial opportunities already discovered by AI Editorial Desk Next. Returns stable opportunity_id values for follow-up inspection or research.',
+    description: 'List editorial opportunities already discovered by AI Editorial Desk Next. Returns stable opportunity_id values and the current effective research state for follow-up inspection or research.',
     parameters: {},
     output: {
       schema: {
@@ -333,7 +408,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'inspect_editorial_opportunity',
-    description: 'Inspect one editorial opportunity with angle, theme, audience promise and unknowns.',
+    description: 'Inspect one editorial opportunity with angle, theme, audience promise, current research status and unknowns.',
     parameters: {
       opportunity_id: { type: 'string', required: true, description: 'Stable opportunity id.' },
     },
@@ -361,7 +436,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'start_editorial_research',
-    description: 'Start a background research job for an editorial opportunity.',
+    description: 'Start a background research job for an editorial opportunity. When the job completes, use get_editorial_research_result with the returned research_case_id to consume Evidence, Unknowns and the conclusion.',
     parameters: {
       opportunity_id: { type: 'string', required: true },
       goal: { type: 'string', description: 'Optional research goal.' },
@@ -394,20 +469,11 @@ export function apply(ctx: Context): void {
         body: JSON.stringify({ opportunity_id: args.opportunity_id, goal: args.goal }),
       }, exec.signal)
 
-      exec.agent.session.append('editorial/research-start', {
-        researchCaseId: created.research_case_id,
-        opportunityId: created.opportunity_id,
-        title: args.goal ?? `Research ${created.opportunity_id}`,
-        status: created.status === 'queued' ? 'queued' : 'running',
-        progress: 0,
-        message: '研究任务已创建。',
-      })
-
       const jobId = ctx.jobs.start({
         kind: 'editorial-research',
         label: `Research ${created.opportunity_id}`,
         owner: exec.agent,
-        run: () => researchHooks(exec.agent as Agent, created),
+        run: () => researchHooks(created),
       })
       return {
         research_case_id: created.research_case_id,
@@ -424,6 +490,37 @@ export function apply(ctx: Context): void {
       return genericResult(
         '研究已启动',
         `Research Case: ${value.research_case_id}\nHarness Job: ${value.job_id}`,
+      )
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'get_editorial_research_result',
+    description: 'Read the durable result of a completed editorial research case. Returns concrete Evidence items, remaining Unknowns, a conclusion and an explicit result_kind. Use this after a background research job completes; do not substitute job_output counts for the actual result.',
+    parameters: {
+      research_case_id: { type: 'string', required: true, description: 'Stable research case id returned by start_editorial_research.' },
+    },
+    output: {
+      schema: RESEARCH_RESULT_SCHEMA,
+      render: (_args, value) => [{ type: 'text', text: researchResultText(value) }],
+      presentationMeta: (_args, value) => value,
+    },
+    async execute(args, exec) {
+      if (args.research_case_id.trim().length === 0) throw new Error('research_case_id must be non-empty')
+      return fetchJson<ResearchResult>(
+        `/api/v1/spike/research-cases/${encodeURIComponent(args.research_case_id)}/result`,
+        { method: 'GET' },
+        exec.signal,
+      )
+    },
+    presentCall: args => ({ card: 'generic', title: '读取研究结果', kind: 'read', rawInput: args.research_case_id }),
+    presentResult(_args, result: ToolResult): GenericResultView | undefined {
+      if (result.isError) return undefined
+      const value = presentationMeta<ResearchResult>(result)
+      if (value === undefined) return undefined
+      return genericResult(
+        `研究结果 · 证据 ${value.evidence_count} · 未知项 ${value.open_unknown_count}`,
+        researchResultText(value),
       )
     },
   }))
