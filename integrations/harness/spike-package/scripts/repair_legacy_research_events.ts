@@ -155,7 +155,19 @@ async function main(): Promise<void> {
     const backupPath = join(backupDir, `${basename(path)}.before-ignorable`)
     await copyFile(path, backupPath)
     await writeFile(path, rewritten.encoded)
+
+    // Re-read the exact bytes that were persisted. A successful apply must be
+    // idempotent: no legacy Research event may remain without ignorable=true.
+    // This also re-validates the concatenated Zstd frame structure.
+    const verification = await rewriteFile(path)
+    if (verification.changed !== 0) {
+      throw new Error(
+        `repair verification failed for ${path}: ${verification.changed} legacy event(s) still require ignorable=true`,
+      )
+    }
+
     console.log(`  backup: ${backupPath}`)
+    console.log('  verified: no unmarked legacy editorial/research-* events remain')
   }
 
   if (affectedEvents === 0) {
