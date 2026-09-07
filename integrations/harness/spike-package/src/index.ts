@@ -105,6 +105,7 @@ const OPPORTUNITY_SCHEMA = {
 
 function opportunityText(item: OpportunitySummary): string {
   return [
+    `Opportunity ID: ${item.opportunity_id}`,
     item.headline,
     `Angle: ${item.angle}`,
     `Theme: ${item.theme}`,
@@ -258,6 +259,9 @@ async function runToolRuntimeSelfTest(ctx: Context): Promise<void> {
   if (!listText.includes('洗碗机真的可能比手洗更省水吗？')) {
     throw new Error('list_editorial_opportunities did not return expected rendered content')
   }
+  if (!listText.includes('Opportunity ID: opp_dishwasher_water')) {
+    throw new Error('list_editorial_opportunities did not expose stable opportunity_id for follow-up tools')
+  }
 
   const inspectResult = await ctx.tools.execute({
     callId: selfTestCallId('editorial-spike-selftest-inspect'),
@@ -281,7 +285,7 @@ async function runToolRuntimeSelfTest(ctx: Context): Promise<void> {
   })
   if (!missingResult.isError) throw new Error('missing opportunity should surface as a Tool error')
 
-  console.log('EDITORIAL_SPIKE_TOOL_SELF_TEST_PASS list+inspect+error')
+  console.log('EDITORIAL_SPIKE_TOOL_SELF_TEST_PASS list+stable-id+inspect+error')
 }
 
 export const name = 'ai-editorial-desk-harness-spike'
@@ -292,7 +296,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'list_editorial_opportunities',
-    description: 'List editorial opportunities already discovered by AI Editorial Desk Next.',
+    description: 'List editorial opportunities already discovered by AI Editorial Desk Next. Returns stable opportunity_id values for follow-up inspection or research.',
     parameters: {},
     output: {
       schema: {
@@ -321,7 +325,7 @@ export function apply(ctx: Context): void {
       const value = presentationMeta<OpportunityList>(result)
       if (value === undefined) return undefined
       const text = value.items
-        .map(item => `• ${item.headline}\n  ${item.angle}\n  → ${item.recommendation}`)
+        .map(item => `• ${item.headline}\n  ID: ${item.opportunity_id}\n  ${item.angle}\n  → ${item.recommendation}`)
         .join('\n\n')
       return genericResult(`编辑机会 · ${value.count} 条`, text)
     },
