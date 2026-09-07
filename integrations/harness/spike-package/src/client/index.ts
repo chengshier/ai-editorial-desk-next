@@ -7,6 +7,7 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ChatNodeViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
+import { ResearchWorkspaceView } from './research-workspace.tsx'
 import '../events.ts'
 
 /** Legacy-only projection for sessions written before the cold-replay fix. */
@@ -720,4 +721,10 @@ export function apply(ctx: ClientContext): void {
       key: 'get_editorial_research_result',
     }, ResearchResultToolView)
   })
+  ctx.slots.inject('conversation.view', () => ctx.slots.register({
+    name: 'conversation.view',
+    id: 'editorial-research-workspace',
+    order: 20,
+    label: '研究工作台',
+  }, ResearchWorkspaceView))
 }
