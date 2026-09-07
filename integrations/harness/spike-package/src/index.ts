@@ -1,4 +1,3 @@
-import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericResultView, ToolResult } from '@deepseek-ai/dsh-tools'
@@ -270,22 +269,23 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-function researchHooks(agent: Agent, created: ResearchCreated) {
+/**
+ * Drive the process-local Harness Job from the Editorial API without writing
+ * plugin-owned events into the durable Harness Session log.
+ *
+ * DeepSeek Harness intentionally cannot treat out-of-repo SessionEventMap
+ * additions as known durable vocabulary. Persisting editorial/research-* events
+ * therefore made a session unreadable after a cold Harness restart. The durable
+ * business truth is the Research Case / Result in Editorial API; the Harness Job
+ * only owns execution and completion notification.
+ */
+function researchHooks(created: ResearchCreated) {
   const controller = new AbortController()
   const done = (async () => {
     try {
       while (true) {
         const progress = await fetchJson<ResearchProgress>(created.progress_url, { method: 'GET' }, controller.signal)
         if (progress.status === 'completed') {
-          agent.session.append('editorial/research-end', {
-            researchCaseId: progress.research_case_id,
-            opportunityId: progress.opportunity_id,
-            status: 'completed',
-            progress: progress.progress,
-            message: progress.message,
-            newEvidenceCount: progress.new_evidence_count,
-            openUnknownCount: progress.open_unknown_count,
-          })
           return {
             status: 'completed' as const,
             detail: `${progress.new_evidence_count} evidence, ${progress.open_unknown_count} unknown`,
@@ -296,42 +296,13 @@ function researchHooks(agent: Agent, created: ResearchCreated) {
             ].join('\n'),
           }
         }
-
-        agent.session.append('editorial/research-progress', {
-          researchCaseId: progress.research_case_id,
-          opportunityId: progress.opportunity_id,
-          status: progress.status,
-          stage: progress.stage,
-          progress: progress.progress,
-          message: progress.message,
-          newEvidenceCount: progress.new_evidence_count,
-          openUnknownCount: progress.open_unknown_count,
-        })
         await wait(RESEARCH_POLL_INTERVAL_MS, controller.signal)
       }
     } catch (error: unknown) {
       if (controller.signal.aborted) {
-        agent.session.append('editorial/research-end', {
-          researchCaseId: created.research_case_id,
-          opportunityId: created.opportunity_id,
-          status: 'cancelled',
-          progress: 0,
-          message: '研究任务已取消。',
-          newEvidenceCount: 0,
-          openUnknownCount: 0,
-        })
         return { status: 'killed' as const, detail: 'cancelled' }
       }
       const message = error instanceof Error ? error.message : String(error)
-      agent.session.append('editorial/research-end', {
-        researchCaseId: created.research_case_id,
-        opportunityId: created.opportunity_id,
-        status: 'failed',
-        progress: 0,
-        message,
-        newEvidenceCount: 0,
-        openUnknownCount: 0,
-      })
       return { status: 'failed' as const, detail: message }
     }
   })()
@@ -498,20 +469,11 @@ export function apply(ctx: Context): void {
         body: JSON.stringify({ opportunity_id: args.opportunity_id, goal: args.goal }),
       }, exec.signal)
 
-      exec.agent.session.append('editorial/research-start', {
-        researchCaseId: created.research_case_id,
-        opportunityId: created.opportunity_id,
-        title: args.goal ?? `Research ${created.opportunity_id}`,
-        status: created.status === 'queued' ? 'queued' : 'running',
-        progress: 0,
-        message: '研究任务已创建。',
-      })
-
       const jobId = ctx.jobs.start({
         kind: 'editorial-research',
         label: `Research ${created.opportunity_id}`,
         owner: exec.agent,
-        run: () => researchHooks(exec.agent as Agent, created),
+        run: () => researchHooks(created),
       })
       return {
         research_case_id: created.research_case_id,
