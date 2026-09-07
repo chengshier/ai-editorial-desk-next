@@ -36,10 +36,23 @@ def test_legacy_repair_preserves_zstd_frame_boundaries() -> None:
         SPIKE_ROOT / "scripts" / "repair_legacy_research_events.ts"
     ).read_text(encoding="utf-8")
 
-    # Harness requires the first Zstd frame to remain exactly one header line.
-    # The repair must therefore rewrite frames independently instead of
-    # flattening the whole decoded JSONL into one new frame.
+    # Harness stores session logs as concatenated Zstd frames. The repair must
+    # scan and rewrite frames independently, preserve untouched frames verbatim,
+    # and only recompress the individual frame containing a changed event.
+    assert "scanZstdFrames(source)" in repair
     assert "for (const frame of scan.frames)" in repair
-    assert "Buffer.concat(rewrittenFrames)" in repair
+    assert "const rawFrame = source.subarray(frame.start, frame.end)" in repair
+    assert "decompressZstdFrame(rawFrame)" in repair
     assert "marked.changed === 0" in repair
-    assert "first frame" in repair
+    assert "compressZstdFrame(Buffer.from(marked.text, 'utf8'))" in repair
+    assert "Buffer.concat(rewrittenFrames)" in repair
+
+
+def test_legacy_repair_verifies_persisted_result_is_idempotent() -> None:
+    repair = (
+        SPIKE_ROOT / "scripts" / "repair_legacy_research_events.ts"
+    ).read_text(encoding="utf-8")
+
+    assert "const verification = await rewriteFile(path)" in repair
+    assert "verification.changed !== 0" in repair
+    assert "verified: no unmarked legacy editorial/research-* events remain" in repair
