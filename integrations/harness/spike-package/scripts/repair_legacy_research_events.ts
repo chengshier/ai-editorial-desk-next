@@ -18,6 +18,11 @@ interface Args {
   sessionId?: string
 }
 
+interface RewriteResult {
+  encoded: Buffer
+  changed: number
+}
+
 function parseArgs(argv: string[]): Args {
   const positional = argv.filter(arg => !arg.startsWith('--'))
   const dshHome = positional[0]
@@ -45,21 +50,6 @@ async function walk(root: string): Promise<string[]> {
     }
   }
   return result
-}
-
-async function decodeFile(path: string): Promise<string> {
-  const source = await readFile(path)
-  if (!path.endsWith('.zstd')) return source.toString('utf8')
-
-  const scan = scanZstdFrames(source)
-  if (scan.tornStart !== undefined) {
-    throw new Error(`refusing to rewrite torn zstd session log: ${path}`)
-  }
-  const chunks: Buffer[] = []
-  for (const frame of scan.frames) {
-    chunks.push(await decompressZstdFrame(source.subarray(frame.start, frame.end)))
-  }
-  return Buffer.concat(chunks).toString('utf8')
 }
 
 function markLegacyEvents(text: string): { text: string; changed: number } {
@@ -91,9 +81,49 @@ function markLegacyEvents(text: string): { text: string; changed: number } {
   }
 }
 
-async function encodeFile(path: string, text: string): Promise<Buffer> {
-  if (!path.endsWith('.zstd')) return Buffer.from(text, 'utf8')
-  return compressZstdFrame(Buffer.from(text, 'utf8'))
+async function rewritePlainJsonl(path: string): Promise<RewriteResult> {
+  const source = await readFile(path)
+  const marked = markLegacyEvents(source.toString('utf8'))
+  return { encoded: Buffer.from(marked.text, 'utf8'), changed: marked.changed }
+}
+
+async function rewriteZstdJsonl(path: string): Promise<RewriteResult> {
+  const source = await readFile(path)
+  const scan = scanZstdFrames(source)
+  if (scan.tornStart !== undefined) {
+    throw new Error(`refusing to rewrite torn zstd session log: ${path}`)
+  }
+  if (scan.frames.length === 0) {
+    throw new Error(`refusing to rewrite empty zstd session log: ${path}`)
+  }
+
+  // Harness owns a concatenated-frame container. In particular the FIRST frame
+  // must remain exactly one header JSON line; subsequent frames contain durable
+  // event batches. Recompressing the entire decoded JSONL into one frame would
+  // destroy that physical contract and make the workspace fail at boot.
+  const rewrittenFrames: Buffer[] = []
+  let changed = 0
+
+  for (const frame of scan.frames) {
+    const rawFrame = source.subarray(frame.start, frame.end)
+    const decoded = await decompressZstdFrame(rawFrame)
+    const marked = markLegacyEvents(decoded.toString('utf8'))
+    changed += marked.changed
+
+    // Preserve untouched frames byte-for-byte. For changed event frames, keep
+    // the original frame boundary and only recompress that frame's plaintext.
+    rewrittenFrames.push(
+      marked.changed === 0
+        ? rawFrame
+        : await compressZstdFrame(Buffer.from(marked.text, 'utf8')),
+    )
+  }
+
+  return { encoded: Buffer.concat(rewrittenFrames), changed }
+}
+
+async function rewriteFile(path: string): Promise<RewriteResult> {
+  return path.endsWith('.zstd') ? rewriteZstdJsonl(path) : rewritePlainJsonl(path)
 }
 
 function matchesSession(path: string, sessionId?: string): boolean {
@@ -113,20 +143,18 @@ async function main(): Promise<void> {
   let affectedEvents = 0
 
   for (const path of files) {
-    const decoded = await decodeFile(path)
-    const marked = markLegacyEvents(decoded)
-    if (marked.changed === 0) continue
+    const rewritten = await rewriteFile(path)
+    if (rewritten.changed === 0) continue
     affectedFiles += 1
-    affectedEvents += marked.changed
-    console.log(`${args.apply ? 'repair' : 'would repair'} ${path}: ${marked.changed} legacy event(s)`)
+    affectedEvents += rewritten.changed
+    console.log(`${args.apply ? 'repair' : 'would repair'} ${path}: ${rewritten.changed} legacy event(s)`)
 
     if (!args.apply) continue
     const backupDir = join(dirname(path), '.editorial-repair-backup')
     await mkdir(backupDir, { recursive: true })
     const backupPath = join(backupDir, `${basename(path)}.before-ignorable`)
     await copyFile(path, backupPath)
-    const encoded = await encodeFile(path, marked.text)
-    await writeFile(path, encoded)
+    await writeFile(path, rewritten.encoded)
     console.log(`  backup: ${backupPath}`)
   }
 
