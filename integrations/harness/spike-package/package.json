@@ -25,7 +25,8 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-conversation"
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-tool"
       ],
       "platform": "web"
     }
@@ -41,6 +42,7 @@
     "@deepseek-ai/dsh-agent": "workspace:^",
     "@deepseek-ai/dsh-client-runtime": "workspace:^",
     "@deepseek-ai/dsh-client-ui-conversation": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-tool": "workspace:^",
     "@deepseek-ai/dsh-jobs": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
     "@deepseek-ai/dsh-tools": "workspace:^"
@@ -50,6 +52,7 @@
     "@deepseek-ai/dsh-agent": "workspace:^",
     "@deepseek-ai/dsh-client-runtime": "workspace:^",
     "@deepseek-ai/dsh-client-ui-conversation": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-tool": "workspace:^",
     "@deepseek-ai/dsh-jobs": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
     "@deepseek-ai/dsh-tools": "workspace:^",
