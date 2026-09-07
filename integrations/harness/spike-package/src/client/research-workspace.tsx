@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 interface OpportunityView {
@@ -259,7 +259,7 @@ function Pill({ children, tone = 'neutral' }: { children: string; tone?: 'primar
   return <span style={{ ...style, borderRadius: 999, padding: '3px 8px', fontSize: 12, fontWeight: 700 }}>{children}</span>
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section style={{
       border: '1px solid var(--dsw-alias-border-default, #e2e8f0)',
