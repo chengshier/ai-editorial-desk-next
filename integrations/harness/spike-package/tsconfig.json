@@ -1,5 +1,5 @@
 {
-  "extends": "../../../tsconfig.base.json",
+  "extends": "../../../tsconfig.base.client.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "lib/types",
@@ -11,6 +11,7 @@
     { "path": "../../../vendor/cordis" },
     { "path": "../runtime" },
     { "path": "../ui-conversation" },
+    { "path": "../ui-tool" },
     { "path": "../../core/agent" },
     { "path": "../../core/session" },
     { "path": "../../core/tools" },
