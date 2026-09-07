@@ -29,3 +29,17 @@ def test_legacy_research_session_repair_marks_exact_events_ignorable() -> None:
     assert "editorial/research-end" in repair
     assert "record.ignorable = true" in repair
     assert ".editorial-repair-backup" in repair
+
+
+def test_legacy_repair_preserves_zstd_frame_boundaries() -> None:
+    repair = (
+        SPIKE_ROOT / "scripts" / "repair_legacy_research_events.ts"
+    ).read_text(encoding="utf-8")
+
+    # Harness requires the first Zstd frame to remain exactly one header line.
+    # The repair must therefore rewrite frames independently instead of
+    # flattening the whole decoded JSONL into one new frame.
+    assert "for (const frame of scan.frames)" in repair
+    assert "Buffer.concat(rewrittenFrames)" in repair
+    assert "marked.changed === 0" in repair
+    assert "first frame" in repair
