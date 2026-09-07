@@ -9,6 +9,7 @@ import type { ChatNodeViewProps } from '@deepseek-ai/dsh-client-ui-conversation/
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import '../events.ts'
 
+/** Legacy-only projection for sessions written before the cold-replay fix. */
 interface ResearchNodeData {
   title: string
   progress: number
@@ -42,6 +43,42 @@ interface OpportunityListView {
   items: OpportunityView[]
 }
 
+interface ResearchStartView {
+  research_case_id: string
+  opportunity_id: string
+  job_id: string
+}
+
+interface ResearchEvidenceView {
+  evidence_id: string
+  claim: string
+  stance: string
+  source_title: string
+  source_type: string
+  locator: string
+  summary: string
+  confidence: string
+}
+
+interface ResearchUnknownView {
+  unknown_id: string
+  question: string
+  status: string
+}
+
+interface ResearchResultView {
+  research_case_id: string
+  opportunity_id: string
+  goal: string
+  status: string
+  result_kind: string
+  evidence_count: number
+  open_unknown_count: number
+  evidence: ResearchEvidenceView[]
+  unknowns: ResearchUnknownView[]
+  conclusion: string
+}
+
 type ResearchNodeViewProps = Pick<ChatNodeViewProps<'editorial-research'>, 'node'>
 
 declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
@@ -65,6 +102,12 @@ function viewData(state: ResearchState): ResearchNodeData {
   }
 }
 
+/**
+ * Keep the old event projection so explicitly repaired legacy sessions still
+ * render their historical Research Node. New sessions no longer emit these
+ * plugin-owned durable events; current Research state lives in Editorial API
+ * and completed results are persisted as ordinary tool/result events.
+ */
 const researchDefinition: ConversationNodeDefinition<ResearchState> = {
   kind: 'editorial-research',
   target: 'chat',
@@ -182,6 +225,11 @@ function stringField(value: Record<string, unknown>, key: string): string | null
   return typeof field === 'string' ? field : null
 }
 
+function numberField(value: Record<string, unknown>, key: string): number | null {
+  const field = value[key]
+  return typeof field === 'number' ? field : null
+}
+
 function parseOpportunity(value: unknown): OpportunityView | null {
   if (!isRecord(value)) return null
   const evidence = value.evidence_state
@@ -226,6 +274,81 @@ function parseOpportunityList(value: unknown): OpportunityListView | null {
   return { count: value.count, items: items as OpportunityView[] }
 }
 
+function parseResearchStart(value: unknown): ResearchStartView | null {
+  if (!isRecord(value)) return null
+  const researchCaseId = stringField(value, 'research_case_id')
+  const opportunityId = stringField(value, 'opportunity_id')
+  const jobId = stringField(value, 'job_id')
+  if (researchCaseId === null || opportunityId === null || jobId === null) return null
+  return { research_case_id: researchCaseId, opportunity_id: opportunityId, job_id: jobId }
+}
+
+function parseResearchEvidence(value: unknown): ResearchEvidenceView | null {
+  if (!isRecord(value)) return null
+  const evidenceId = stringField(value, 'evidence_id')
+  const claim = stringField(value, 'claim')
+  const stance = stringField(value, 'stance')
+  const sourceTitle = stringField(value, 'source_title')
+  const sourceType = stringField(value, 'source_type')
+  const locator = stringField(value, 'locator')
+  const summary = stringField(value, 'summary')
+  const confidence = stringField(value, 'confidence')
+  if (
+    evidenceId === null || claim === null || stance === null || sourceTitle === null
+    || sourceType === null || locator === null || summary === null || confidence === null
+  ) return null
+  return {
+    evidence_id: evidenceId,
+    claim,
+    stance,
+    source_title: sourceTitle,
+    source_type: sourceType,
+    locator,
+    summary,
+    confidence,
+  }
+}
+
+function parseResearchUnknown(value: unknown): ResearchUnknownView | null {
+  if (!isRecord(value)) return null
+  const unknownId = stringField(value, 'unknown_id')
+  const question = stringField(value, 'question')
+  const status = stringField(value, 'status')
+  if (unknownId === null || question === null || status === null) return null
+  return { unknown_id: unknownId, question, status }
+}
+
+function parseResearchResult(value: unknown): ResearchResultView | null {
+  if (!isRecord(value) || !Array.isArray(value.evidence) || !Array.isArray(value.unknowns)) return null
+  const researchCaseId = stringField(value, 'research_case_id')
+  const opportunityId = stringField(value, 'opportunity_id')
+  const goal = stringField(value, 'goal')
+  const status = stringField(value, 'status')
+  const resultKind = stringField(value, 'result_kind')
+  const conclusion = stringField(value, 'conclusion')
+  const evidenceCount = numberField(value, 'evidence_count')
+  const unknownCount = numberField(value, 'open_unknown_count')
+  const evidence = value.evidence.map(parseResearchEvidence)
+  const unknowns = value.unknowns.map(parseResearchUnknown)
+  if (
+    researchCaseId === null || opportunityId === null || goal === null || status === null
+    || resultKind === null || conclusion === null || evidenceCount === null || unknownCount === null
+    || evidence.some(item => item === null) || unknowns.some(item => item === null)
+  ) return null
+  return {
+    research_case_id: researchCaseId,
+    opportunity_id: opportunityId,
+    goal,
+    status,
+    result_kind: resultKind,
+    evidence_count: evidenceCount,
+    open_unknown_count: unknownCount,
+    evidence: evidence as ResearchEvidenceView[],
+    unknowns: unknowns as ResearchUnknownView[],
+    conclusion,
+  }
+}
+
 function presentationMeta(block: ToolCallViewProps['block']): unknown {
   if (!('kind' in block)) return undefined
   return (block as unknown as { meta?: unknown }).meta
@@ -262,6 +385,15 @@ function readinessLabel(value: string): string {
     case 'high': return '就绪度高'
     case 'medium': return '就绪度中'
     case 'low': return '就绪度低'
+    default: return value
+  }
+}
+
+function stanceLabel(value: string): string {
+  switch (value) {
+    case 'supporting': return '支持证据'
+    case 'contradicting': return '反向证据'
+    case 'context': return '条件背景'
     default: return value
   }
 }
@@ -393,7 +525,7 @@ function OpportunityCard(item: OpportunityView, detailed: boolean, key?: string)
   )
 }
 
-function fallbackOpportunityRow(block: ToolCallViewProps['block']) {
+function fallbackToolRow(title: string, block: ToolCallViewProps['block']) {
   return createElement('div', {
     style: {
       border: '1px solid var(--dsw-alias-border-default, #e2e8f0)',
@@ -403,7 +535,7 @@ function fallbackOpportunityRow(block: ToolCallViewProps['block']) {
       background: 'var(--dsw-alias-surface-card, #fff)',
     },
   },
-  createElement('div', { style: { fontWeight: 650, marginBottom: 8 } }, '编辑机会'),
+  createElement('div', { style: { fontWeight: 650, marginBottom: 8 } }, title),
   createElement('pre', {
     style: {
       margin: 0,
@@ -421,7 +553,7 @@ function OpportunityToolView({ toolName, block }: ToolCallViewProps) {
   const meta = presentationMeta(block)
   const list = toolName === 'list_editorial_opportunities' ? parseOpportunityList(meta) : null
   const detail = toolName === 'inspect_editorial_opportunity' ? parseOpportunity(meta) : null
-  if (list === null && detail === null) return fallbackOpportunityRow(block)
+  if (list === null && detail === null) return fallbackToolRow('编辑机会', block)
 
   if (list !== null) {
     return createElement('section', {
@@ -459,10 +591,112 @@ function OpportunityToolView({ toolName, block }: ToolCallViewProps) {
   }, OpportunityCard(detail as OpportunityView, true, 'opportunity-detail'))
 }
 
+function ResearchStartToolView({ block }: ToolCallViewProps) {
+  const value = parseResearchStart(presentationMeta(block))
+  if (value === null) return fallbackToolRow('研究已启动', block)
+  return createElement('section', {
+    style: {
+      border: '1px solid var(--dsw-alias-border-default, #dbe3ef)',
+      borderRadius: 14,
+      padding: '14px 16px',
+      margin: '8px 0',
+      background: 'var(--dsw-alias-surface-subtle, #f8fafc)',
+      maxWidth: 820,
+    },
+  },
+  createElement('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 12 } },
+    createElement('div', { style: { fontSize: 15, fontWeight: 750 } }, '后台研究已启动'),
+    badge('运行中', 'primary'),
+  ),
+  createElement('div', {
+    style: { marginTop: 8, fontSize: 13, color: 'var(--dsw-alias-content-secondary, #475569)' },
+  }, `机会 ${value.opportunity_id}`),
+  createElement('div', {
+    style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-content-tertiary, #94a3b8)' },
+  }, `Research Case ${value.research_case_id} · Harness Job ${value.job_id}`),
+  createElement('div', {
+    style: { marginTop: 10, fontSize: 12, lineHeight: 1.6, color: 'var(--dsw-alias-content-secondary, #64748b)' },
+  }, '运行进度以 Editorial API 的 Research Case 为事实源；任务完成后会生成可重放的研究结果卡。'),
+  )
+}
+
+function ResearchResultToolView({ block }: ToolCallViewProps) {
+  const value = parseResearchResult(presentationMeta(block))
+  if (value === null) return fallbackToolRow('研究结果', block)
+  return createElement('section', {
+    style: {
+      border: '1px solid var(--dsw-alias-border-default, #dbe3ef)',
+      borderRadius: 14,
+      padding: '16px 18px',
+      margin: '8px 0',
+      background: 'var(--dsw-alias-surface-card, #fff)',
+      maxWidth: 900,
+    },
+  },
+  createElement('div', {
+    style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  },
+  createElement('div', { style: { fontSize: 16, fontWeight: 750 } }, '研究结果'),
+  createElement('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' } },
+    badge(`证据 ${value.evidence_count}`, 'primary'),
+    badge(`未知项 ${value.open_unknown_count}`, value.open_unknown_count > 0 ? 'warning' : 'neutral'),
+    value.result_kind === 'deterministic_spike_mock' ? badge('Spike 模拟结果', 'warning') : null,
+  )),
+  createElement('div', {
+    style: { marginTop: 10, fontSize: 13, lineHeight: 1.65, color: 'var(--dsw-alias-content-secondary, #475569)' },
+  }, value.goal),
+  createElement('div', { style: { display: 'grid', gap: 10, marginTop: 14 } },
+    ...value.evidence.map((item, index) => createElement('article', {
+      key: item.evidence_id,
+      style: {
+        border: '1px solid var(--dsw-alias-border-subtle, #eef2f7)',
+        borderRadius: 10,
+        padding: '11px 12px',
+        background: 'var(--dsw-alias-surface-subtle, #f8fafc)',
+      },
+    },
+    createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+      badge(stanceLabel(item.stance), item.stance === 'contradicting' ? 'warning' : 'neutral'),
+      createElement('span', { style: { fontSize: 12, opacity: 0.62 } }, `#${index + 1}`),
+    ),
+    createElement('div', { style: { marginTop: 7, fontSize: 13, fontWeight: 650, lineHeight: 1.55 } }, item.claim),
+    createElement('div', { style: { marginTop: 5, fontSize: 12, lineHeight: 1.55, color: 'var(--dsw-alias-content-secondary, #64748b)' } }, item.summary),
+    createElement('div', { style: { marginTop: 6, fontSize: 11, color: 'var(--dsw-alias-content-tertiary, #94a3b8)' } }, `${item.source_title} · ${item.source_type} · ${item.confidence}`),
+    )),
+  ),
+  value.unknowns.length === 0 ? null : createElement('div', {
+    style: {
+      marginTop: 14,
+      paddingTop: 12,
+      borderTop: '1px solid var(--dsw-alias-border-subtle, #eef2f7)',
+    },
+  },
+  createElement('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, '仍待确认'),
+  ...value.unknowns.map(item => createElement('div', {
+    key: item.unknown_id,
+    style: { fontSize: 13, lineHeight: 1.6, color: 'var(--dsw-alias-content-secondary, #475569)' },
+  }, `• ${item.question}`)),
+  ),
+  createElement('div', {
+    style: {
+      marginTop: 14,
+      paddingTop: 12,
+      borderTop: '1px solid var(--dsw-alias-border-subtle, #eef2f7)',
+      fontSize: 13,
+      lineHeight: 1.65,
+    },
+  }, value.conclusion),
+  createElement('div', {
+    style: { marginTop: 10, fontSize: 11, color: 'var(--dsw-alias-content-tertiary, #94a3b8)' },
+  }, `${value.research_case_id} · ${value.opportunity_id}`),
+  )
+}
+
 export const name = 'ai-editorial-desk-harness-spike-client'
 export const inject = ['conversationEvents', 'slots']
 
 export function apply(ctx: ClientContext): void {
+  // Legacy-only: repaired pre-fix sessions can still project their old Research Node.
   ctx.conversationEvents.register(researchDefinition)
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node',
@@ -477,5 +711,13 @@ export function apply(ctx: ClientContext): void {
       name: 'tool.call.toolview',
       key: 'inspect_editorial_opportunity',
     }, OpportunityToolView)
+    yield ctx.slots.register({
+      name: 'tool.call.toolview',
+      key: 'start_editorial_research',
+    }, ResearchStartToolView)
+    yield ctx.slots.register({
+      name: 'tool.call.toolview',
+      key: 'get_editorial_research_result',
+    }, ResearchResultToolView)
   })
 }
