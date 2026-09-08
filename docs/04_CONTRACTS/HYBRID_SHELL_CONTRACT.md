@@ -81,6 +81,7 @@ Initial route baseline:
 ```text
 P01  /today
 P02  /opportunities
+P03  /research
 P03  /research/:research_case_id
 P04  /programming
 P05  /creation
@@ -94,6 +95,8 @@ M03  /manage/system
 ```
 
 These routes are business/product routes. They must remain valid if the Harness version, Session ID, workspace directory or internal Web URL changes.
+
+`/research` is the global Research Hub entry used by primary navigation and “正在研究”. It may list or resume Research Cases, but it is not itself a Research Case identity.
 
 ## 4.1 Opportunity focus state
 
@@ -118,7 +121,14 @@ The Shell resolves `opportunity_id` through Editorial API. It must not recover i
 
 ## 4.2 Research route
 
-Canonical Research URL uses the business Research Case ID:
+The Research navigation model has two levels:
+
+```text
+/research
+/research/:research_case_id
+```
+
+`/research` is the global hub. The canonical URL for one specific Research Case uses the business Research Case ID:
 
 ```text
 /research/:research_case_id
@@ -314,6 +324,8 @@ P01/P02 Opportunity
 → Shell can reload canonical Research state independently
 ```
 
+The global `/research` hub may additionally list or resume Research Cases, but it never substitutes for the case-level route above.
+
 Critical invariant:
 
 > Harness Session replay improves continuity, but Research correctness must survive without the old Session.
@@ -491,10 +503,11 @@ Acquisition Provider Spike remains a separate Phase 0.5 workstream and must not 
 A Hybrid Shell implementation is conformant only if all are true:
 
 1. `/programming` works without selecting a Harness Session.
-2. `/research/:research_case_id` remains meaningful if the previous Harness Session is gone.
-3. Shell does not import Harness internal TypeScript packages.
-4. Harness plugin does not import Web Shell application code.
-5. both call stable Editorial API contracts.
-6. product URLs use business IDs, not only runtime IDs.
-7. no DOM/private-store hack is required for cross-surface navigation.
-8. canonical business state can be reconstructed independently of Harness replay.
+2. `/research` works as a global Research entry without requiring a preselected Harness Session.
+3. `/research/:research_case_id` remains meaningful if the previous Harness Session is gone.
+4. Shell does not import Harness internal TypeScript packages.
+5. Harness plugin does not import Web Shell application code.
+6. both call stable Editorial API contracts.
+7. product URLs use business IDs, not only runtime IDs.
+8. no DOM/private-store hack is required for cross-surface navigation.
+9. canonical business state can be reconstructed independently of Harness replay.
