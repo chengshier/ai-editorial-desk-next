@@ -250,7 +250,7 @@ function stanceTone(value: string): { background: string; color: string } {
   return { background: 'rgba(99,102,241,.10)', color: '#4f46e5' }
 }
 
-function Pill({ children, tone = 'neutral' }: { children: string; tone?: 'primary' | 'neutral' | 'warning' }) {
+function Pill({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'primary' | 'neutral' | 'warning' }) {
   const style = tone === 'primary'
     ? { background: 'rgba(79,70,229,.10)', color: '#4f46e5' }
     : tone === 'warning'
