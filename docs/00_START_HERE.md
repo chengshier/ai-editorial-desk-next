@@ -4,23 +4,36 @@
 **Functional Baseline:** v1  
 **Baseline date:** 2026-08-17  
 **Human Acquisition amendment:** 2026-09-03  
+**Harness UI architecture decision:** 2026-09-08  
 **Repository:** `chengshier/ai-editorial-desk-next`
 
 ## 当前目标
 
-Architecture + Functional Baseline v1 已通过 PR #1 合并。当前进入 **Phase 0.5 — Validation Spikes**，并在 MVP 开始前补充 Human Acquisition / HumanSubmission 这一等发现入口。
+Architecture + Functional Baseline v1 已合并。
 
-当前重点不是继续扩写大而全的架构，而是：
+Harness Integration / UI Gate 已通过 PR #2、#5–#9 完成，最终 UI 架构冻结为：
 
 ```text
-Harness Integration Spike
-+
-Acquisition Provider Spike
-+
-HumanSubmission baseline
-        ↓
-MVP v0.1 Discovery Desk Vertical Slice
+HYBRID_WEB_HARNESS
 ```
+
+当前产品推进主线：
+
+```text
+Hybrid Shell Contract
+→ Web Shell foundation
+→ Today / Opportunities
+→ Harness-powered Research integration
+→ Programming / Creation / Publication
+```
+
+并行工作流：
+
+```text
+Phase 0.5-B Acquisition Provider Spike
+```
+
+Shell 工作不能替代 Acquisition Provider Spike；Provider Spike 也不能重新打开已关闭的 Full-vs-Hybrid UI Gate。
 
 ## 必读顺序
 
@@ -30,23 +43,30 @@ MVP v0.1 Discovery Desk Vertical Slice
 4. `01_PRODUCT/FUNCTIONAL_SPEC.md`：V1 与 MVP 要实现什么。
 5. `01_PRODUCT/USER_JOURNEYS.md`：真实用户如何使用系统。
 6. `01_PRODUCT/WORKBENCH_UX_SPEC.md`：工作台信息架构与 Human Submission 入口。
-7. `01_PRODUCT/GLOSSARY.md`：统一术语。
-8. `02_DOMAIN/DOMAIN_MODEL.md`：核心领域模型。
-9. `02_DOMAIN/EDITORIAL_VALUE_MODEL.md`：编辑价值判断语言。
-10. `03_ARCHITECTURE/SYSTEM_ARCHITECTURE.md`：系统边界。
-11. `03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`：Machine + Human Acquisition。
-12. `03_ARCHITECTURE/HARNESS_INTEGRATION.md`：Harness 集成总则。
-13. `03_ARCHITECTURE/HARNESS_RUNTIME_TOPOLOGY.md`：Harness 与 FastAPI 的真实连接方式。
-14. `03_ARCHITECTURE/HARNESS_UI_STRATEGY.md`：Harness UI 决策门。
-15. `03_ARCHITECTURE/WEKNORA_INTEGRATION.md`：知识层边界。
-16. `04_CONTRACTS/USE_CASE_CATALOG.md`：业务 Use Case 索引。
-17. `04_CONTRACTS/HARNESS_API_CONTRACT.md`：Harness ↔ Backend 协议。
-18. `04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`：采集 Provider seam 与 Human ingress 边界。
-19. `04_CONTRACTS/PROVENANCE_CONTRACT.md`：Source Origin / Acquisition Origin 与可回放要求。
-20. `05_MIGRATION/LEGACY_REUSE_AUDIT.md`：旧项目复用策略。
-21. `07_DELIVERY/IMPLEMENTATION_ROADMAP.md`：实施顺序与 MVP Vertical Slice。
+7. `01_PRODUCT/UI_PAGE_STATE_AND_GENERATION_MAP.md`：正式产品页面 / State / Overlay 划分。
+8. `01_PRODUCT/GLOSSARY.md`：统一术语。
+9. `02_DOMAIN/DOMAIN_MODEL.md`：核心领域模型。
+10. `02_DOMAIN/EDITORIAL_VALUE_MODEL.md`：编辑价值判断语言。
+11. `03_ARCHITECTURE/SYSTEM_ARCHITECTURE.md`：系统边界。
+12. `03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`：Machine + Human Acquisition。
+13. `03_ARCHITECTURE/HARNESS_INTEGRATION.md`：Harness 集成总则。
+14. `03_ARCHITECTURE/HARNESS_RUNTIME_TOPOLOGY.md`：Web Shell / Harness / FastAPI 运行拓扑。
+15. `03_ARCHITECTURE/HARNESS_UI_STRATEGY.md`：最终 Hybrid UI 策略。
+16. `04_CONTRACTS/HYBRID_SHELL_CONTRACT.md`：Web Shell ↔ Harness 路由、ID、launch/return、ownership。
+17. `03_ARCHITECTURE/WEKNORA_INTEGRATION.md`：知识层边界。
+18. `04_CONTRACTS/USE_CASE_CATALOG.md`：业务 Use Case 索引。
+19. `04_CONTRACTS/HARNESS_API_CONTRACT.md`：Harness ↔ Backend 协议。
+20. `04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`：采集 Provider seam 与 Human ingress 边界。
+21. `04_CONTRACTS/PROVENANCE_CONTRACT.md`：Source Origin / Acquisition Origin 与可回放要求。
+22. `05_MIGRATION/LEGACY_REUSE_AUDIT.md`：旧项目复用策略。
+23. `07_DELIVERY/IMPLEMENTATION_ROADMAP.md`：实施顺序与 MVP Vertical Slice。
 
-进入实现前还必须阅读对应 ADR 与 Acceptance/Spike 文档，尤其 `ADR-0008-human-acquisition-entry.md`。
+进入实现前还必须阅读对应 ADR 与当前批次 Contract / Spike 文档。
+
+当前特别重要：
+
+- `ADR-0008-human-acquisition-entry.md`
+- `ADR-0009-hybrid-web-shell-harness.md`
 
 ## 新核心主链
 
@@ -114,9 +134,7 @@ research  围绕已知 Opportunity 定向补证/补素材
 
 > **热度不是 Discovery Gate。**
 
-一个没有明显 Trend 的内容，只要足够有趣、有用、反常识、有故事性、具有保护价值、再解释价值或栏目潜力，也可以进入 Discovery / Opportunity。
-
-同样，一个很热的内容也可能没有足够 Editorial Value。
+没有明显 Trend 的内容，只要足够有趣、有用、反常识、有故事性、保护价值、再解释价值或栏目潜力，也可以进入 Discovery / Opportunity。
 
 > **Human Submission 不是正样本，也不是事实确认。**
 
@@ -124,39 +142,89 @@ research  围绕已知 Opportunity 定向补证/补素材
 
 > **Candidate 必须有 Editorial Advantage。**
 
-系统必须说明相对原始资料新增了什么编辑价值，例如查证、跨源连接、背景、Angle、Theme、受众连接、行动建议或后续回访钩子。我们追求 Editorial Advantage，不要求 Information Exclusivity。
+系统必须说明相对原始资料新增了什么编辑价值，例如查证、跨源连接、背景、Angle、Theme、受众连接、行动建议或后续回访钩子。
 
-发现来源与事实证据来源必须分开。社区/非官方来源可以承担 `DISCOVERY_SIGNAL / TREND_SIGNAL / AUDIENCE_SIGNAL`，后续再通过 `PRIMARY_SOURCE / EVIDENCE_SOURCE / CONTRADICTION_SOURCE` 完成事实核验。
+## Hybrid Web + Harness 基线
 
-## Harness 基线
+最终职责：
 
 ```text
-DeepSeek Harness (Node / TypeScript)
-→ Editorial Tools
-→ HTTPS/JSON (+ SSE/轮询)
-→ FastAPI Editorial Intelligence API
-→ Domain Services / PostgreSQL
+AI Editorial Desk Web Shell
+├─ Global IA / Router
+├─ Today / Opportunities
+├─ Programming / Creation / Publication
+├─ Performance / Knowledge
+├─ Management / Configuration
+├─ Global Inspector / Search / Human Submission
+└─ Harness launch / return orchestration
+
+DeepSeek Harness
+├─ Agent Conversation / Session / Replay
+├─ Editorial Tools / ToolViews
+├─ Background Jobs
+└─ Research Workspace
+
+Editorial Intelligence API / PostgreSQL
+└─ canonical business truth
 ```
 
-Harness 是首选 Agent Workbench，但复杂 Radar / Programming / Performance UI 是否完全由 Harness 承担，必须通过 Harness Integration Spike。
+Harness exact-pin：
 
-如果 Developer Preview 的 UI/Runtime 扩展能力无法在明确时间盒内稳定满足需要，允许冻结为 `HYBRID_WEB_HARNESS`，不得无限阻塞 MVP。
+```text
+99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+dsh@0.1.0-rc.7
+```
+
+PR #5–#9 已证明：Harness 很适合 Agent / Tool / Job / Research / Replay 与 Session-scoped complex workbench；但全局产品 Router / Programming / Publishing 等不应绑定 Agent Session。
+
+因此不再以 Full Harness Workbench 为 V1 目标，也不得为了全局 Shell patch/fork upstream core。
+
+## 产品 Route 基线
+
+正式产品页面由 Web Shell 持有：
+
+```text
+/today
+/opportunities
+/research/:research_case_id
+/programming
+/creation
+/publication
+/performance
+/knowledge
+/manage/acquisition
+/manage/configuration
+/manage/system
+```
+
+产品 route 使用业务 ID；`harness_session_id` / Harness Job ID 仅是 runtime metadata。
+
+详细见 `04_CONTRACTS/HYBRID_SHELL_CONTRACT.md`。
 
 ## 当前 Gate
 
-```text
-Phase 0.5-A Harness Integration Spike
-Phase 0.5-B Acquisition Provider Spike
-```
+### Hybrid Shell Contract
 
-Acquisition Spike 必须同时验证：
+先冻结：
+
+- Shell / Harness / API ownership；
+- route map；
+- business id / runtime id 边界；
+- Shell → Harness launch；
+- Harness → Shell return；
+- Research outer route / inner Harness surface；
+- session 丢失后的 rehydrate；
+- browser transport 与 Domain 隔离。
+
+### Phase 0.5-B Acquisition Provider Spike
+
+必须同时验证：
+
 - high-momentum discovery；
 - low/no-momentum but high-potential discovery；
 - community/non-official first discovery → reliable evidence follow-up。
 
-HumanSubmission 不参加 Provider 选型比较；它直接进入 MVP 并复用最终选定 Provider 做 fetch/research。
-
-两个 Spike 给出足够结论后，优先进入 **MVP v0.1 Discovery Desk Vertical Slice**，而不是等待全部 Phase 顺序完成。
+HumanSubmission 不参加 Provider 选型比较；它直接进入 MVP 并复用选定 Provider 做 fetch/research。
 
 ## MVP v0.1 一句话
 
