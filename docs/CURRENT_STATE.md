@@ -2,23 +2,21 @@
 
 ## 状态
 
-`HARNESS_UI_GATE_COMPLETE__HYBRID_SHELL_CONTRACT_IN_PROGRESS`
+`WEB_SHELL_FOUNDATION_IN_PROGRESS`
 
-Architecture + Functional Baseline v1 已合并到 `main`。
+Architecture + Functional Baseline v1、Harness Runtime / UI Spike 与 Hybrid Shell Contract 均已合并到 `main`。
 
-截至 PR #9：
+截至 PR #10，已经冻结：
 
 ```text
-Harness Agent Runtime technical baseline        COMPLETE
-Natural-language Tool selection / stable ID    PASS
-Custom Editorial ToolView                      PASS
-Research Job / Result / durable replay         PASS
-Research Workspace hostability                 PASS
-Programming / Global Shell hostability         ARCHITECTURE GATE COMPLETE
-Final UI architecture                          HYBRID_WEB_HARNESS
+HARNESS_AS_AGENT_RUNTIME = ACCEPTED
+HARNESS_AS_RESEARCH_WORKBENCH = ACCEPTED
+HARNESS_FULL_WORKBENCH = REJECTED_FOR_V1
+HYBRID_WEB_HARNESS = ACCEPTED
+HYBRID_SHELL_CONTRACT = COMPLETE
 ```
 
-最终 UI 架构已由 ADR-0009 冻结：
+最终产品 UI 架构：
 
 ```text
 AI Editorial Desk Web Shell
@@ -28,14 +26,15 @@ Harness-powered Agent / Research Workbench
 Editorial Intelligence API / PostgreSQL canonical truth
 ```
 
-当前正在进入：
+当前正式进入：
 
 ```text
-Hybrid Shell Contract
-→ Web Shell foundation
-→ Today / Opportunities
-→ Harness launch adapter + Research outer route
-→ Programming / Creation / Publication 等正式产品页面
+S1 Web Shell foundation / router / design-system shell
+→ S2 Today + Opportunity Inspector
+→ S3 Opportunities Library
+→ S4 Harness launch adapter + /research/:research_case_id
+→ S5 Global Human Submission
+→ S6 Programming foundation
 ```
 
 Phase 0.5-B Acquisition Provider Spike 仍是独立并行工作流，不能被 Shell 工作替代。
@@ -44,21 +43,18 @@ Phase 0.5-B Acquisition Provider Spike 仍是独立并行工作流，不能被 S
 
 ## 已确认
 
-- 新仓库独立演化，旧 `ai-editorial-desk` 冻结为 Legacy/reference。
-- 新核心以 Subject / Discovery / Editorial Opportunity 为中心。
+### Product / Domain
+
+- 新仓库独立演化，旧 `ai-editorial-desk` 仅作为 Legacy/reference。
+- 主链以 Subject / Discovery / Editorial Opportunity 为中心。
 - Editorial Opportunity 是 Value Evaluation 与 Candidate V2 的直接业务对象。
-- Editorial Value 采用版本化 Profile，不以单个 0–100 总分作为业务真相。
-- Trend 从前置必需步骤降级为可选 Feature Provider。
-- Acquisition 改为 Mission-driven：Ambient Coverage + Potential Scouts + Momentum Radar + Search-first + Targeted Fetch + Targeted Platform Research。
-- **热度不是 Discovery Gate**。
-- Human Acquisition / HumanSubmission 是一等入口，但不是 Confirmed Fact、正偏好标签或 Adopt。
+- Trend 是可选 Feature，不是 Discovery / Opportunity / Candidate 的硬 Gate。
+- HumanSubmission 是一等 Acquisition 入口，但不是 Confirmed Fact、正偏好标签、Opportunity、Candidate 或 Adopt。
 - `source_origin` 与 `acquisition_origin` 必须分离。
 - Candidate 前必须说明 Editorial Advantage。
-- PostgreSQL 是 System of Record。
-- WeKnora 是 Knowledge Provider，经 Knowledge Gateway 接入。
-- Harness 与 Editorial API 保持独立运行时，Harness Tool 只走稳定 API。
+- PostgreSQL 是 System of Record；WeKnora 是 Knowledge Provider。
 
-### Harness / UI Spike 已确认
+### Harness / UI Spike
 
 Pinned Harness：
 
@@ -69,23 +65,15 @@ Node 22.19.0
 pnpm 11.7.0
 ```
 
-已完成的关键验证：
+关键验证：
 
-- PR #2：pristine exact-pin build / official profile-plugin / FastAPI concurrent boot / `ctx.tools.execute()` → Editorial API；
-- PR #5：Opportunity list → inspect 使用稳定业务 ID，不再让 Agent 猜 ID；
+- PR #2：exact-pin build / profile-plugin / FastAPI concurrent boot / Tool → Editorial API；
+- PR #5：Opportunity list → inspect 稳定业务 ID；
 - PR #6：Opportunity list/detail 自定义 ToolView；
 - PR #7：Research Result、Evidence/Unknown、cold restart replay、legacy session repair；
-- PR #8：`conversation.view` 无侵入挂载完整三栏 Research Workspace，并通过 refresh / Harness restart / Agent coexistence；
-- PR #9：确认 Programming / Today / Opportunities / Publishing 等全局模块不应绑定 Harness Session；root shell/sidebar 缺少合适的 additive global router/navigation seam。
-
-因此：
-
-```text
-HARNESS_AS_AGENT_RUNTIME = ACCEPTED
-HARNESS_AS_RESEARCH_WORKBENCH = ACCEPTED
-HARNESS_FULL_WORKBENCH = REJECTED_FOR_V1
-HYBRID_WEB_HARNESS = ACCEPTED
-```
+- PR #8：`conversation.view` 承载三栏 Research Workspace，并通过 refresh / Harness restart / Agent coexistence；
+- PR #9：Programming / Today / Opportunities / Publishing 等全局模块不应绑定 Harness Session；
+- PR #10：ADR-0009 + Hybrid Shell Contract 冻结 route / ownership / stable ID / launch-return / rehydrate 语义。
 
 ---
 
@@ -116,79 +104,59 @@ HYBRID_WEB_HARNESS = ACCEPTED
 - Draft / Publication / Performance；
 - 所有 canonical business truth。
 
-详细边界见：
+详细边界：
 
 - `docs/ADR/ADR-0009-hybrid-web-shell-harness.md`
 - `docs/04_CONTRACTS/HYBRID_SHELL_CONTRACT.md`
 
 ---
 
-## 当前允许
+## 当前 Gate：S1 Web Shell Foundation
 
-- 更新 Hybrid Shell ADR / Contract / Architecture docs；
-- 建立 Web Shell foundation / router / design-system shell；
-- 为 Today / Opportunities / HumanSubmission Vertical Slice 实现必要最小 API/Frontend；
-- 实现 Shell ↔ Harness compatibility / launch adapter，但必须遵守稳定 business ID 与 API 边界；
-- 继续 Harness exact-pin compatibility CI；
-- 并行推进 Acquisition Provider Spike；
-- 为 MVP Vertical Slice 实现必要 Foundation Contracts。
+S1 允许：
 
-## 当前禁止
+- 创建 `apps/web`；
+- 建立正式 Product Router；
+- 建立统一 TopNav / Sidebar / Workspace / Inspector Host；
+- 建立管理侧入口；
+- 建立全局 Human Submission 入口壳，但不得冒充 API 已接入；
+- 建立 Editorial API Client boundary；
+- 建立 Harness Surface / Launch type boundary，但不得写死 Harness 私有 URL、iframe 或 Session 路由；
+- 使用 Stitch 设计稿作为视觉语言参考，并重新统一 viewport / sidebar / inspector 尺寸。
 
-- 继续为了 Full Harness Workbench patch/fork upstream core；
-- 把 Programming / Draft / Publication 等全局业务模块强行做成 Session-scoped `conversation.view`；
-- Shell 访问 Harness 私有 store、DOM 或内部 session 文件；
-- 产品 canonical URL 只依赖 `harness_session_id` / job id；
-- Harness Session / WeKnora 成为 Candidate/Decision/Publication 真相层；
-- 在 Shell 与 Harness 两边复制相同的业务判断逻辑；
-- 在 Provider Spike 前锁死 Acquisition Provider 实现；
-- 跳过 provenance / versioning / Human Decision append-only 规则。
+S1 不允许：
 
----
+- 在 Today 页面伪造真实 Opportunity 业务数据；
+- 提前实现 S2/S3 的正式业务查询；
+- 提前写死 Harness transport；
+- Shell import Harness 内部 TypeScript package；
+- Shell 直接访问 Harness DOM / private store / session files；
+- 把 `harness_session_id` 作为产品 route key；
+- 在 Shell 中复制 Domain 决策规则。
 
-## 当前 Gate：Hybrid Shell Contract
-
-在开始正式 Web Shell 大规模实现前，必须冻结：
+S1 验收重点：
 
 ```text
-1. 产品 route map
-2. Shell / Harness / API ownership
-3. opportunity_id / research_case_id / harness_session_id 的身份边界
-4. Shell → Harness launch contract
-5. Harness → Shell return contract
-6. Research outer product route 与 Harness inner surface 的关系
-7. runtime/session 丢失后的 rehydrate 语义
-8. transport 与 Domain 的隔离
-```
-
-对应文档：
-
-`docs/04_CONTRACTS/HYBRID_SHELL_CONTRACT.md`
-
-该 Contract 合并后，优先顺序：
-
-```text
-S1 Web Shell foundation / router
-S2 Today + Opportunity Inspector
-S3 Opportunities Library
-S4 Harness launch adapter + /research/:research_case_id
-S5 Global Human Submission
-S6 Programming foundation
+1. /today 及冻结的产品路由可用
+2. Global Shell 视觉与 Stitch 基线一致但尺寸统一
+3. P01 Inspector Host 存在且不重复制造 Opportunity Detail 页面
+4. /research/:research_case_id 保留稳定 Harness 宿主边界
+5. Human Submission 入口可打开但明确标注尚未接业务 API
+6. Node typecheck + Vite production build 进入 CI
+7. 1280/1440+ 桌面布局不依赖单一固定 viewport
 ```
 
 ---
 
 ## Acquisition Provider Spike 仍未关闭
 
-Phase 0.5-B 必须同时验证：
+Phase 0.5-B 必须验证：
 
 - high-momentum discovery；
 - low/no-momentum but high-potential discovery；
 - community/non-official first discovery → reliable evidence follow-up。
 
 HumanSubmission 不参加 Provider 胜负比较；它作为产品自身入口，复用最终选定 Provider 做 fetch / verification / research。
-
-Hybrid Shell 工作与 Acquisition Provider Spike 可以并行，但任何一个都不得被另一个“视为已经完成”。
 
 ---
 
