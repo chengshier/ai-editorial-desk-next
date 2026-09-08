@@ -13,6 +13,7 @@ def test_web_shell_owns_frozen_product_routes() -> None:
     for route in (
         "/today",
         "/opportunities",
+        "/research",
         "/research/:researchCaseId",
         "/programming",
         "/creation",
@@ -24,6 +25,16 @@ def test_web_shell_owns_frozen_product_routes() -> None:
         "/manage/system",
     ):
         assert route in app
+
+
+def test_research_navigation_has_global_hub_and_case_workspace() -> None:
+    app = APP.read_text(encoding="utf-8")
+
+    assert "['/research', '研究']" in app
+    assert "['/research', '正在研究', FolderKanban]" in app
+    assert "ResearchIndexPage" in app
+    assert "Research Hub → Research Case → Harness Workspace" in app
+    assert "primary-nav__item--disabled" not in app
 
 
 def test_research_keeps_stable_harness_boundary_without_private_transport() -> None:
