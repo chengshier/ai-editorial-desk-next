@@ -30,8 +30,10 @@ def test_web_shell_owns_frozen_product_routes() -> None:
 def test_research_navigation_has_global_hub_and_case_workspace() -> None:
     app = APP.read_text(encoding="utf-8")
 
-    assert "['/research', '研究']" in app
-    assert "['/research', '正在研究', FolderKanban]" in app
+    top_nav = (WEB / "components" / "shell" / "TopNav.tsx").read_text(encoding="utf-8")
+    sidebar = (WEB / "components" / "shell" / "Sidebar.tsx").read_text(encoding="utf-8")
+    assert "['/research', '研究']" in top_nav
+    assert "['/research', '正在研究', FolderKanban]" in sidebar
     assert "ResearchIndexPage" in app
     assert "Research Hub → Research Case → Harness Workspace" in app
     assert "primary-nav__item--disabled" not in app
@@ -52,10 +54,13 @@ def test_research_keeps_stable_harness_boundary_without_private_transport() -> N
 
 
 def test_shell_does_not_claim_future_integrations_are_complete() -> None:
-    app = APP.read_text(encoding="utf-8")
     state = CURRENT_STATE.read_text(encoding="utf-8")
 
-    assert "S5 接入 HumanSubmission API 后才会真正提交" in app
-    assert "S4 接入 Harness Agent" in app
+    modal = (WEB / "components" / "shell" / "HumanSubmissionModal.tsx").read_text(
+        encoding="utf-8"
+    )
+    top_nav = (WEB / "components" / "shell" / "TopNav.tsx").read_text(encoding="utf-8")
+    assert "S5 接入 HumanSubmission API 后才会真正提交" in modal
+    assert "S4 接入 Harness Agent" in top_nav
     assert "TODAY_OPPORTUNITY_INSPECTOR_IN_PROGRESS" in state
     assert "不得把 Spike fixture 表述为真实外部发现结果" in state
