@@ -2,10 +2,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from apps.editorial_api.spike_harness import (
+    _RESEARCH_LOCK,
     OPPORTUNITIES,
     OPPORTUNITY_BY_ID,
     OpportunitySummary,
-    _RESEARCH_LOCK,
     _effective_opportunity,
     _latest_record_unlocked,
 )
