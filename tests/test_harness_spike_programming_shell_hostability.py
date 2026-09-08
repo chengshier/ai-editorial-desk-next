@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SPIKE_ROOT = ROOT / "integrations" / "harness" / "spike-package"
 DOC = ROOT / "docs" / "07_DELIVERY" / "HARNESS_PROGRAMMING_SHELL_HOSTABILITY_SPIKE.md"
