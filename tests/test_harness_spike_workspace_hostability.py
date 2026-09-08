@@ -38,16 +38,20 @@ def test_research_workspace_contains_three_product_zones() -> None:
     assert "条件化结论" in workspace
 
 
-def test_research_workspace_projects_durable_session_results_without_dom_hacks() -> None:
+def test_research_workspace_projects_durable_chat_tool_results_without_dom_hacks() -> None:
     workspace = (
         SPIKE_ROOT / "src" / "client" / "research-workspace.tsx"
     ).read_text(encoding="utf-8")
 
-    # The Spike intentionally derives from the current session snapshot / Tool
-    # Result metadata. It must not fake cross-view navigation by poking DOM.
-    assert "useSession(value => value)" in workspace
-    assert "collectWorkspaceProjection(snapshot)" in workspace
-    assert "parseResearchResult" in workspace
+    # Read the stock Chat target's durable ToolResult.meta instead of recursively
+    # enumerating the whole Session snapshot. Cordis service proxies elsewhere
+    # in that graph can throw "without inject" when arbitrary properties are read.
+    assert "snapshot.views.get('chat')" in workspace
+    assert "collectWorkspaceProjection(chatSnapshot)" in workspace
+    assert "durableToolMetadata" in workspace
+    assert "node.kind !== 'tool-result'" in workspace
+    assert "node.meta" in workspace
+    assert "Object.values" not in workspace
     assert "document.querySelector" not in workspace
     assert "getElementById" not in workspace
     assert ".click()" not in workspace
