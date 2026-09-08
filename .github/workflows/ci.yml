@@ -20,3 +20,18 @@ jobs:
         run: ruff check apps packages tests
       - name: Tests
         run: pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Typecheck and build
+        run: npm run build
