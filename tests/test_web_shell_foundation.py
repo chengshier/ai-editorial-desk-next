@@ -51,11 +51,11 @@ def test_research_keeps_stable_harness_boundary_without_private_transport() -> N
     assert "127.0.0.1:3080" not in harness
 
 
-def test_s1_does_not_claim_future_business_integrations_are_complete() -> None:
+def test_shell_does_not_claim_future_integrations_are_complete() -> None:
     app = APP.read_text(encoding="utf-8")
     state = CURRENT_STATE.read_text(encoding="utf-8")
 
     assert "S5 接入 HumanSubmission API 后才会真正提交" in app
     assert "S4 接入 Harness Agent" in app
-    assert "WEB_SHELL_FOUNDATION_IN_PROGRESS" in state
-    assert "在 Today 页面伪造真实 Opportunity 业务数据" in state
+    assert "TODAY_OPPORTUNITY_INSPECTOR_IN_PROGRESS" in state
+    assert "不得把 Spike fixture 表述为真实外部发现结果" in state

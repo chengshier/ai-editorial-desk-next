@@ -2,11 +2,11 @@
 
 ## 状态
 
-`WEB_SHELL_FOUNDATION_IN_PROGRESS`
+`TODAY_OPPORTUNITY_INSPECTOR_IN_PROGRESS`
 
-Architecture + Functional Baseline v1、Harness Runtime / UI Spike 与 Hybrid Shell Contract 均已合并到 `main`。
+Architecture + Functional Baseline v1、Harness Runtime / UI Spike、Hybrid Shell Contract 与 S1 Web Shell Foundation 已合并到 `main`。
 
-截至 PR #10，已经冻结：
+截至 PR #11：
 
 ```text
 HARNESS_AS_AGENT_RUNTIME = ACCEPTED
@@ -14,9 +14,10 @@ HARNESS_AS_RESEARCH_WORKBENCH = ACCEPTED
 HARNESS_FULL_WORKBENCH = REJECTED_FOR_V1
 HYBRID_WEB_HARNESS = ACCEPTED
 HYBRID_SHELL_CONTRACT = COMPLETE
+WEB_SHELL_FOUNDATION = COMPLETE
 ```
 
-最终产品 UI 架构：
+最终产品 UI 架构仍是：
 
 ```text
 AI Editorial Desk Web Shell
@@ -29,8 +30,7 @@ Editorial Intelligence API / PostgreSQL canonical truth
 当前正式进入：
 
 ```text
-S1 Web Shell foundation / router / design-system shell
-→ S2 Today + Opportunity Inspector
+S2 Today / Editorial Radar + Opportunity Inspector
 → S3 Opportunities Library
 → S4 Harness launch adapter + /research/:research_case_id
 → S5 Global Human Submission
@@ -54,18 +54,7 @@ Phase 0.5-B Acquisition Provider Spike 仍是独立并行工作流，不能被 S
 - Candidate 前必须说明 Editorial Advantage。
 - PostgreSQL 是 System of Record；WeKnora 是 Knowledge Provider。
 
-### Harness / UI Spike
-
-Pinned Harness：
-
-```text
-DeepSeek Harness 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
-release dsh@0.1.0-rc.7
-Node 22.19.0
-pnpm 11.7.0
-```
-
-关键验证：
+### Harness / Hybrid UI
 
 - PR #2：exact-pin build / profile-plugin / FastAPI concurrent boot / Tool → Editorial API；
 - PR #5：Opportunity list → inspect 稳定业务 ID；
@@ -73,7 +62,53 @@ pnpm 11.7.0
 - PR #7：Research Result、Evidence/Unknown、cold restart replay、legacy session repair；
 - PR #8：`conversation.view` 承载三栏 Research Workspace，并通过 refresh / Harness restart / Agent coexistence；
 - PR #9：Programming / Today / Opportunities / Publishing 等全局模块不应绑定 Harness Session；
-- PR #10：ADR-0009 + Hybrid Shell Contract 冻结 route / ownership / stable ID / launch-return / rehydrate 语义。
+- PR #10：ADR-0009 + Hybrid Shell Contract 冻结 route / ownership / stable ID / launch-return / rehydrate；
+- PR #11：正式 `apps/web`、Router、TopNav、Sidebar、Inspector Host、Research Hub/Case route 与 Harness boundary 已建立。
+
+---
+
+## 当前 Gate：S2 Today / Editorial Radar + Opportunity Inspector
+
+S2 允许：
+
+- `/today` 从 Editorial API 读取 Opportunity read model；
+- 使用 `opportunity_id` 驱动 URL-backed Inspector focus；
+- Inspector 使用 `overview / evidence / research / timeline / history` query state；
+- 从 Opportunity 创建或恢复业务 `research_case_id`，然后进入 `/research/:research_case_id`；
+- 复用 Stitch P01 的 Feed + Inspector 视觉结构，但继续使用 S1 已统一的 56px Header / 240px Sidebar / 416px Inspector 基线；
+- 为本地开发通过 Vite proxy 访问 Editorial API，而不是在浏览器关闭 CORS。
+
+S2 当前的事实边界：
+
+- 正式 Opportunity persistence/read API 尚未完成；
+- 因此本批暂时复用 **Harness Spike read model**，并通过单独的 `/api/v1/spike/shell/*` transitional adapter 暴露 Shell 所需的 `latest_research_case_id`；
+- 该 adapter 是开发/集成 fixture，不是 PostgreSQL canonical truth；
+- 前端不得硬编码 Opportunity 列表；
+- **不得把 Spike fixture 表述为真实外部发现结果**；
+- 不得因为 fixture 中存在 `today_main / evergreen` 就推导尚未实现的真实 Momentum / Potential 算法结果。
+
+S2 不允许：
+
+- 在浏览器内制造 Opportunity / Evidence / Human Decision 假数据；
+- 把 Research Evidence 从 Harness Session 文本解析回 Shell；
+- 实现 Adopt / Watch / Drop 的假按钮成功态；
+- 写死 Harness URL / iframe / private store；
+- 把 `harness_session_id` 作为研究产品 URL；
+- 把当前 fixture 当作 Acquisition Provider Spike 已完成。
+
+S2 验收重点：
+
+```text
+1. /today 能从 Editorial API 加载 Opportunity
+2. Opportunity Card → Inspector 可用
+3. URL 可表达 opportunity + inspector tab
+4. API unavailable 时明确失败，不显示伪造 0 数据
+5. “开始研究”创建 Research Case 并进入 /research/:research_case_id
+6. 已有 Research Case 时复用 latest_research_case_id
+7. Shell 不暴露 harness_session_id / 私有 Harness URL
+8. Node typecheck + Vite build + Python tests 全绿
+9. 视觉结构接近 Stitch P01，同时保持统一响应式尺寸
+```
 
 ---
 
@@ -103,48 +138,6 @@ pnpm 11.7.0
 - Candidate / Programming / Human Decision；
 - Draft / Publication / Performance；
 - 所有 canonical business truth。
-
-详细边界：
-
-- `docs/ADR/ADR-0009-hybrid-web-shell-harness.md`
-- `docs/04_CONTRACTS/HYBRID_SHELL_CONTRACT.md`
-
----
-
-## 当前 Gate：S1 Web Shell Foundation
-
-S1 允许：
-
-- 创建 `apps/web`；
-- 建立正式 Product Router；
-- 建立统一 TopNav / Sidebar / Workspace / Inspector Host；
-- 建立管理侧入口；
-- 建立全局 Human Submission 入口壳，但不得冒充 API 已接入；
-- 建立 Editorial API Client boundary；
-- 建立 Harness Surface / Launch type boundary，但不得写死 Harness 私有 URL、iframe 或 Session 路由；
-- 使用 Stitch 设计稿作为视觉语言参考，并重新统一 viewport / sidebar / inspector 尺寸。
-
-S1 不允许：
-
-- 在 Today 页面伪造真实 Opportunity 业务数据；
-- 提前实现 S2/S3 的正式业务查询；
-- 提前写死 Harness transport；
-- Shell import Harness 内部 TypeScript package；
-- Shell 直接访问 Harness DOM / private store / session files；
-- 把 `harness_session_id` 作为产品 route key；
-- 在 Shell 中复制 Domain 决策规则。
-
-S1 验收重点：
-
-```text
-1. /today 及冻结的产品路由可用
-2. Global Shell 视觉与 Stitch 基线一致但尺寸统一
-3. P01 Inspector Host 存在且不重复制造 Opportunity Detail 页面
-4. /research/:research_case_id 保留稳定 Harness 宿主边界
-5. Human Submission 入口可打开但明确标注尚未接业务 API
-6. Node typecheck + Vite production build 进入 CI
-7. 1280/1440+ 桌面布局不依赖单一固定 viewport
-```
 
 ---
 
