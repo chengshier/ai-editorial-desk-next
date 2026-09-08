@@ -47,5 +47,6 @@ def test_ui_strategy_keeps_research_in_harness_but_global_modules_in_shell() -> 
     assert "Research Workspace" in strategy
     assert "Programming / Creation / Publication" in strategy
     assert "conversation.view" in strategy
-    assert "Session scoped" in strategy
+    assert "scope 是 Session" in strategy
+    assert "因为这些对象必须跨 Session 长期存在" in strategy
     assert "Full Harness Workbench 不再作为 V1 目标" in strategy
