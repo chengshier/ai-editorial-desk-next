@@ -1,24 +1,39 @@
-import { BookOpen } from 'lucide-react'
+import { BookOpen, CircleHelp } from 'lucide-react'
 import type { OpportunitySummary } from '../../lib/editorial'
 import { researchLabel } from './presentation'
 
 export function InspectorResearch({ item }: { item: OpportunitySummary }) {
   return <>
-    <section className="inspector-section">
+    <section className="inspector-section inspector-section--first">
       <h3>Research Case</h3>
       <div className="research-state-card">
         <span className="research-state-card__icon"><BookOpen size={20}/></span>
-        <div><strong>{researchLabel(item.research_status)}</strong>
-          <p>{item.latest_research_case_id ?? '尚未建立 Research Case'}</p>
+        <div>
+          <span className={`research-state-badge is-${item.research_status}`}>{researchLabel(item.research_status)}</span>
+          <strong>{item.latest_research_case_id ?? '尚未建立 Research Case'}</strong>
+          <p>{item.latest_research_case_id
+            ? '已存在稳定业务 Research Case，可以直接进入继续研究。'
+            : '当前机会还没有 Research Case，开始研究后会创建稳定业务 ID。'}</p>
         </div>
       </div>
     </section>
+
     <section className="inspector-section">
-      <h3>{item.latest_research_case_id ? '继续研究' : '准备开始研究'}</h3>
-      <p>{item.latest_research_case_id
-        ? '进入已有研究，继续围绕这个编辑机会补齐证据与关键未知项。'
-        : '点击下方「开始研究」建立 Research Case，围绕当前角度补齐证据与关键未知项。'}</p>
+      <h3><CircleHelp size={14}/>开放未知项</h3>
+      <div className="inspector-question-card">
+        <CircleHelp size={16}/>
+        <div>
+          <strong>{item.evidence_state.open_unknown_count} 项待澄清</strong>
+          <p>Research Workspace 会围绕证据、反方信息与这些未知项继续推进，不在 Web Shell 中伪造研究结论。</p>
+        </div>
+      </div>
     </section>
-    <div className="inspector-unknown-note">当前有 <strong>{item.evidence_state.open_unknown_count}</strong> 个开放未知项。</div>
+
+    <section className="inspector-section">
+      <h3>{item.latest_research_case_id ? '推荐行动' : '下一步'}</h3>
+      <p>{item.latest_research_case_id
+        ? '使用底部「进入研究」回到已有 Research Case，继续补齐证据与关键未知项。'
+        : '使用底部「开始研究」建立 Research Case，再进入 Harness-powered Research Workspace。'}</p>
+    </section>
   </>
 }

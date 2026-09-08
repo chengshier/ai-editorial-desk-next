@@ -10,30 +10,46 @@ export function OpportunityCard({ item, selected, onSelect, onResearch, research
   researchBusy: boolean
 }) {
   const RecommendationIcon = item.recommendation === 'evergreen' ? Leaf : Sparkles
+
   return <article className={`opportunity-card${selected ? ' is-selected' : ''}`} onClick={onSelect}>
     <div className="opportunity-card__topline">
-      <span className={`status-chip status-chip--${item.recommendation === 'evergreen' ? 'evergreen' : 'primary'}`}>
-        <RecommendationIcon size={12}/>{recommendationLabel(item.recommendation)}
-      </span>
-      <span className={`research-status is-${item.research_status}`}>
-        <span className="status-dot"/>{researchLabel(item.research_status)}
-      </span>
+      <div className="opportunity-card__meta">
+        <span className={`status-chip status-chip--${item.recommendation === 'evergreen' ? 'evergreen' : 'primary'}`}>
+          <RecommendationIcon size={12}/>{recommendationLabel(item.recommendation)}
+        </span>
+        <span className={`research-status is-${item.research_status}`}>
+          <span className="status-dot"/>{researchLabel(item.research_status)}
+        </span>
+      </div>
+      <span className="opportunity-card__id" title={item.opportunity_id}>{item.opportunity_id}</span>
     </div>
-    <h2><button type="button" className="opportunity-card__headline" onClick={(event) => {
-      event.stopPropagation()
-      onSelect()
-    }} aria-pressed={selected}>{item.headline}</button></h2>
+
+    <h2>
+      <button type="button" className="opportunity-card__headline" onClick={(event) => {
+        event.stopPropagation()
+        onSelect()
+      }} aria-pressed={selected}>{item.headline}</button>
+    </h2>
+
     <p className="opportunity-card__angle">{item.angle}</p>
-    <p className="opportunity-card__promise"><span>读者承诺</span>{item.audience_promise}</p>
+
+    <div className="opportunity-card__promise">
+      <span>读者承诺</span>
+      <p>{item.audience_promise}</p>
+    </div>
+
     {item.value_highlights.length > 0 ? <div className="opportunity-card__tags">
       {item.value_highlights.map((highlight) => <span key={highlight}>{highlight}</span>)}
     </div> : null}
+
     <footer className="opportunity-card__footer">
       <div className="opportunity-card__metrics">
-        <span><CircleHelp size={12}/>未知 <strong>{item.evidence_state.open_unknown_count}</strong></span>
-        <span>置信度 <strong>{levelLabel(item.confidence)}</strong></span>
-        <span>生产就绪 <strong>{levelLabel(item.production_readiness)}</strong></span>
+        <span><small>未知</small><strong><CircleHelp size={12}/>{item.evidence_state.open_unknown_count}</strong></span>
+        <span><small>置信度</small><strong>{levelLabel(item.confidence)}</strong></span>
+        <span><small>生产就绪</small><strong>{levelLabel(item.production_readiness)}</strong></span>
+        <span><small>研究</small><strong>{researchLabel(item.research_status)}</strong></span>
       </div>
+
       <div className="opportunity-card__actions">
         <button type="button" className="subtle-button" onClick={(event) => {
           event.stopPropagation()

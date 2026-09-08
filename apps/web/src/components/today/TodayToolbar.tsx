@@ -9,16 +9,19 @@ export function TodayToolbar({ count, loading, failed, activeFilter, onFilter, o
   onFilter: (view: ViewFilter) => void
   onRefresh: () => void
 }) {
+  const activeLabel = filters.find(([value]) => value === activeFilter)?.[1] ?? '全部'
+
   return <header className="today-toolbar">
     <div className="today-feed__header">
       <div className="today-feed__title-row">
-        <h1>今日 · 编辑雷达</h1>
+        <h1>发现 · {activeLabel === '全部' ? '全部机会' : activeLabel}</h1>
         <span className="today-feed__count" role="status">{loading ? '读取中' : failed ? '读取失败' : `${count} 条机会`}</span>
       </div>
       <button className="refresh-button" type="button" onClick={onRefresh} disabled={loading}>
         <RefreshCw size={14} className={loading ? 'spin' : ''}/>刷新
       </button>
     </div>
+
     <div className="today-feed__toolbar">
       <div className="radar-filter-group" aria-label="Today filters">
         {filters.map(([value, label]) => <button key={value} type="button"
@@ -26,8 +29,10 @@ export function TodayToolbar({ count, loading, failed, activeFilter, onFilter, o
           onClick={() => onFilter(value)}>{label}</button>)}
       </div>
     </div>
-    <div className="radar-source-note"><FlaskConical size={13}/>
-      <span>集成预览 · Editorial API 开发样本，非真实外部发现结果</span>
+
+    <div className="radar-source-note">
+      <FlaskConical size={13}/>
+      <span>集成预览 · 当前列表来自 Editorial API 开发样本，不代表真实外部发现结果</span>
     </div>
   </header>
 }
