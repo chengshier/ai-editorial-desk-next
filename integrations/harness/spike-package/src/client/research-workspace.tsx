@@ -111,6 +111,14 @@ function parseOpportunity(value: unknown): OpportunityView | null {
   }
 }
 
+function parseOpportunityList(value: unknown): OpportunityView[] {
+  if (!isRecord(value) || !Array.isArray(value.items)) return []
+  return value.items.flatMap((item) => {
+    const parsed = parseOpportunity(item)
+    return parsed === null ? [] : [parsed]
+  })
+}
+
 function parseResearchStart(value: unknown): ResearchStartView | null {
   if (!isRecord(value)) return null
   const researchCaseId = stringField(value, 'research_case_id')
@@ -156,7 +164,11 @@ function parseUnknown(value: unknown): ResearchUnknownView | null {
 }
 
 function parseResearchResult(value: unknown): ResearchResultView | null {
-  if (!isRecord(value) || !Array.isArray(value.evidence) || !Array.isArray(value.unknowns)) return null
+  if (!isRecord(value)) return null
+  const rawEvidence = value.evidence
+  const rawUnknowns = value.unknowns
+  if (!Array.isArray(rawEvidence) || !Array.isArray(rawUnknowns)) return null
+
   const researchCaseId = stringField(value, 'research_case_id')
   const opportunityId = stringField(value, 'opportunity_id')
   const goal = stringField(value, 'goal')
@@ -165,8 +177,8 @@ function parseResearchResult(value: unknown): ResearchResultView | null {
   const conclusion = stringField(value, 'conclusion')
   const evidenceCount = numberField(value, 'evidence_count')
   const unknownCount = numberField(value, 'open_unknown_count')
-  const evidence = value.evidence.map(parseEvidence)
-  const unknowns = value.unknowns.map(parseUnknown)
+  const evidence = rawEvidence.map(parseEvidence)
+  const unknowns = rawUnknowns.map(parseUnknown)
   if (
     researchCaseId === null || opportunityId === null || goal === null || status === null
     || resultKind === null || conclusion === null || evidenceCount === null || unknownCount === null
@@ -187,38 +199,37 @@ function parseResearchResult(value: unknown): ResearchResultView | null {
   }
 }
 
-function collectWorkspaceProjection(root: unknown): WorkspaceProjection {
+/**
+ * Read only the stock Chat target's durable finalized ToolResult nodes.
+ *
+ * Do not recursively enumerate the whole Session snapshot: Cordis service
+ * proxies can appear elsewhere on that object graph and intentionally throw
+ * when arbitrary properties are read without a declared inject face.
+ */
+function durableToolMetadata(chatSnapshot: unknown): readonly unknown[] {
+  if (!isRecord(chatSnapshot)) return []
+  const legacy = chatSnapshot.legacy
+  if (!isRecord(legacy) || !Array.isArray(legacy.nodes)) return []
+  return legacy.nodes.flatMap((node) => {
+    if (!isRecord(node) || node.kind !== 'tool-result') return []
+    return [node.meta]
+  })
+}
+
+function collectWorkspaceProjection(chatSnapshot: unknown): WorkspaceProjection {
   const starts: ResearchStartView[] = []
   const results: ResearchResultView[] = []
   const opportunities: OpportunityView[] = []
-  const seen = new WeakSet<object>()
 
-  const visit = (value: unknown, depth: number): void => {
-    if (depth > 12 || value === null || value === undefined) return
-
-    const result = parseResearchResult(value)
+  for (const meta of durableToolMetadata(chatSnapshot)) {
+    const result = parseResearchResult(meta)
     if (result !== null) results.push(result)
-    const start = parseResearchStart(value)
+    const start = parseResearchStart(meta)
     if (start !== null) starts.push(start)
-    const opportunity = parseOpportunity(value)
+    const opportunity = parseOpportunity(meta)
     if (opportunity !== null) opportunities.push(opportunity)
-
-    if (typeof value !== 'object') return
-    if (seen.has(value)) return
-    seen.add(value)
-
-    if (value instanceof Map) {
-      for (const entry of value.values()) visit(entry, depth + 1)
-      return
-    }
-    if (Array.isArray(value)) {
-      for (const entry of value) visit(entry, depth + 1)
-      return
-    }
-    for (const entry of Object.values(value as Record<string, unknown>)) visit(entry, depth + 1)
+    opportunities.push(...parseOpportunityList(meta))
   }
-
-  visit(root, 0)
 
   const start = starts.at(-1) ?? null
   const result = start === null
@@ -291,7 +302,7 @@ function EmptyWorkspace() {
         <div style={{ fontSize: 22, fontWeight: 800 }}>研究工作台</div>
         <p style={{ marginTop: 10, color: '#64748b', lineHeight: 1.7 }}>
           当前会话还没有可重建的 Research Result。先回到“对话”页启动一次研究并取得结果，
-          本页会直接从该 Session 已持久化的 Tool Result 投影研究工作区，不读取项目源码。
+          本页会直接从该 Session 的 Chat target 持久 Tool Result 投影研究工作区。
         </p>
       </div>
     </div>
@@ -299,8 +310,8 @@ function EmptyWorkspace() {
 }
 
 export function ResearchWorkspaceView({ useSession }: ConvViewProps) {
-  const snapshot = useSession(value => value)
-  const projection = useMemo(() => collectWorkspaceProjection(snapshot), [snapshot])
+  const chatSnapshot = useSession(snapshot => snapshot.views.get('chat'))
+  const projection = useMemo(() => collectWorkspaceProjection(chatSnapshot), [chatSnapshot])
   const result = projection.result
   if (result === null) return <EmptyWorkspace />
 
@@ -323,11 +334,7 @@ export function ResearchWorkspaceView({ useSession }: ConvViewProps) {
     }}>
       <div style={{ minWidth: 1040, padding: '18px 20px 28px' }}>
         <header style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 18,
-          paddingBottom: 16,
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, paddingBottom: 16,
         }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -407,26 +414,16 @@ export function ResearchWorkspaceView({ useSession }: ConvViewProps) {
                       background: 'var(--dsw-alias-surface-subtle, #f8fafc)',
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                        <span style={{
-                          ...tone,
-                          borderRadius: 999,
-                          padding: '3px 8px',
-                          fontSize: 11,
-                          fontWeight: 750,
-                        }}>{stanceLabel(item.stance)}</span>
+                        <span style={{ ...tone, borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 750 }}>
+                          {stanceLabel(item.stance)}
+                        </span>
                         <span style={{ color: '#94a3b8', fontSize: 11 }}>#{index + 1} · {item.confidence}</span>
                       </div>
                       <div style={{ marginTop: 8, fontWeight: 750, fontSize: 14, lineHeight: 1.55 }}>{item.claim}</div>
                       <div style={{ marginTop: 6, color: '#64748b', fontSize: 12, lineHeight: 1.65 }}>{item.summary}</div>
                       <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: 12,
-                        marginTop: 9,
-                        paddingTop: 8,
-                        borderTop: '1px solid var(--dsw-alias-border-subtle, #eef2f7)',
-                        color: '#94a3b8',
-                        fontSize: 11,
+                        display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 9, paddingTop: 8,
+                        borderTop: '1px solid var(--dsw-alias-border-subtle, #eef2f7)', color: '#94a3b8', fontSize: 11,
                       }}>
                         <span>{item.source_title}</span>
                         <span>{item.source_type}</span>
@@ -446,10 +443,7 @@ export function ResearchWorkspaceView({ useSession }: ConvViewProps) {
             <Panel title={`来源 Sources · ${uniqueSources.length}`}>
               <div style={{ display: 'grid', gap: 9 }}>
                 {uniqueSources.map(source => (
-                  <div key={source.id} style={{
-                    paddingBottom: 9,
-                    borderBottom: '1px solid var(--dsw-alias-border-subtle, #eef2f7)',
-                  }}>
+                  <div key={source.id} style={{ paddingBottom: 9, borderBottom: '1px solid var(--dsw-alias-border-subtle, #eef2f7)' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.5 }}>{source.title}</div>
                     <div style={{ marginTop: 3, fontSize: 11, color: '#94a3b8' }}>{source.type} · {source.locator}</div>
                   </div>
@@ -471,7 +465,7 @@ export function ResearchWorkspaceView({ useSession }: ConvViewProps) {
                 <div>Research Case: {result.research_case_id}</div>
                 <div>Opportunity: {result.opportunity_id}</div>
                 {projection.start === null ? null : <div>Harness Job: {projection.start.job_id}</div>}
-                <div style={{ marginTop: 8 }}>本页直接作为 Harness `conversation.view` 投影运行。</div>
+                <div style={{ marginTop: 8 }}>本页作为 Harness `conversation.view`，从 Chat target 的 durable ToolResult.meta 投影。</div>
               </div>
             </Panel>
           </div>
