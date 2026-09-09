@@ -56,7 +56,7 @@ export function Sidebar({ onSubmit }: { onSubmit: () => void }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [location.pathname])
 
   return <aside className="sidebar">
     <div className="sidebar__cta">
