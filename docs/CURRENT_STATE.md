@@ -2,11 +2,11 @@
 
 ## 状态
 
-`TODAY_OPPORTUNITY_INSPECTOR_IN_PROGRESS`
+`OPPORTUNITIES_LIBRARY_IN_PROGRESS`
 
-Architecture + Functional Baseline v1、Harness Runtime / UI Spike、Hybrid Shell Contract 与 S1 Web Shell Foundation 已合并到 `main`。
+Architecture + Functional Baseline v1、Harness Runtime / UI Spike、Hybrid Shell Contract、S1 Web Shell Foundation 与 S2 Today / Opportunity Inspector 已合并到 `main`。
 
-截至 PR #11：
+截至 PR #12：
 
 ```text
 HARNESS_AS_AGENT_RUNTIME = ACCEPTED
@@ -15,6 +15,7 @@ HARNESS_FULL_WORKBENCH = REJECTED_FOR_V1
 HYBRID_WEB_HARNESS = ACCEPTED
 HYBRID_SHELL_CONTRACT = COMPLETE
 WEB_SHELL_FOUNDATION = COMPLETE
+TODAY_OPPORTUNITY_INSPECTOR = COMPLETE
 ```
 
 最终产品 UI 架构仍是：
@@ -30,8 +31,7 @@ Editorial Intelligence API / PostgreSQL canonical truth
 当前正式进入：
 
 ```text
-S2 Today / Editorial Radar + Opportunity Inspector
-→ S3 Opportunities Library
+S3 Opportunities Library
 → S4 Harness launch adapter + /research/:research_case_id
 → S5 Global Human Submission
 → S6 Programming foundation
@@ -63,51 +63,47 @@ Phase 0.5-B Acquisition Provider Spike 仍是独立并行工作流，不能被 S
 - PR #8：`conversation.view` 承载三栏 Research Workspace，并通过 refresh / Harness restart / Agent coexistence；
 - PR #9：Programming / Today / Opportunities / Publishing 等全局模块不应绑定 Harness Session；
 - PR #10：ADR-0009 + Hybrid Shell Contract 冻结 route / ownership / stable ID / launch-return / rehydrate；
-- PR #11：正式 `apps/web`、Router、TopNav、Sidebar、Inspector Host、Research Hub/Case route 与 Harness boundary 已建立。
+- PR #11：正式 `apps/web`、Router、TopNav、Sidebar、Inspector Host、Research Hub/Case route 与 Harness boundary 已建立；
+- PR #12：`/today` 已成为 API 驱动的 Editorial Radar，支持 URL-backed Opportunity Inspector、五个 Inspector Tab、Research Case 创建/复用与明确 Error/Loading/Empty 状态。
 
 ---
 
-## 当前 Gate：S2 Today / Editorial Radar + Opportunity Inspector
+## 当前 Gate：S3 Opportunities Library
 
-S2 允许：
+S3 目标：
 
-- `/today` 从 Editorial API 读取 Opportunity read model；
-- 使用 `opportunity_id` 驱动 URL-backed Inspector focus；
-- Inspector 使用 `overview / evidence / research / timeline / history` query state；
-- 从 Opportunity 创建或恢复业务 `research_case_id`，然后进入 `/research/:research_case_id`；
-- 复用 Stitch P01 的 Feed + Inspector 视觉结构，但继续使用 S1 已统一的 56px Header / 240px Sidebar / 416px Inspector 基线；
-- 为本地开发通过 Vite proxy 访问 Editorial API，而不是在浏览器关闭 CORS。
+- `/opportunities` 成为长期浏览 Opportunity corpus 的正式产品页，而不是 Placeholder；
+- 复用 S2 的 Opportunity Card / Inspector / Research entry；
+- 支持全文搜索；
+- 支持当前 read model 已有字段的多条件筛选：recommendation / research state / production readiness；
+- 支持基于当前真实字段的排序：readiness / confidence / research state / headline；
+- 支持卡片视图与紧凑列表视图；
+- 搜索、筛选、排序、布局、selected opportunity、Inspector tab 全部由 URL 表达并可刷新恢复；
+- 点击 Opportunity 默认复用右侧 Inspector，不创建重复的 Opportunity Detail 一级页面；
+- 从机会库创建或恢复 `research_case_id`，然后进入 `/research/:research_case_id`。
 
-S2 当前的事实边界：
+S3 当前事实边界继续继承 S2：
 
-- 正式 Opportunity persistence/read API 尚未完成；
-- 因此本批暂时复用 **Harness Spike read model**，并通过单独的 `/api/v1/spike/shell/*` transitional adapter 暴露 Shell 所需的 `latest_research_case_id`；
-- 该 adapter 是开发/集成 fixture，不是 PostgreSQL canonical truth；
-- 前端不得硬编码 Opportunity 列表；
-- **不得把 Spike fixture 表述为真实外部发现结果**；
-- 不得因为 fixture 中存在 `today_main / evergreen` 就推导尚未实现的真实 Momentum / Potential 算法结果。
+- 正式 PostgreSQL Opportunity persistence/read API 尚未完成；
+- 因此 S3 暂时继续消费 `/api/v1/spike/shell/opportunities` transitional integration adapter；
+- 该 read model 目前只有 3 条确定性集成 Opportunity，不代表生产全量 corpus；
+- 前端不得硬编码 Opportunity 列表，也不得把 fixture 表述为真实外部发现结果；
+- 当前缺少 Discovery Lane、Series Fit、Integrity、Attention、Human Seed、Time Range、Source Type 等 canonical 字段时，不得自行制造筛选维度的业务真相；
+- 当前缺少 Human Decision API，因此不得伪造批量 Watch / Archive 成功；
+- Saved View 若未来要求跨设备/团队同步，应进入正式用户偏好/配置 contract，本批不假装已完成。
 
-S2 不允许：
-
-- 在浏览器内制造 Opportunity / Evidence / Human Decision 假数据；
-- 把 Research Evidence 从 Harness Session 文本解析回 Shell；
-- 实现 Adopt / Watch / Drop 的假按钮成功态；
-- 写死 Harness URL / iframe / private store；
-- 把 `harness_session_id` 作为研究产品 URL；
-- 把当前 fixture 当作 Acquisition Provider Spike 已完成。
-
-S2 验收重点：
+S3 验收重点：
 
 ```text
-1. /today 能从 Editorial API 加载 Opportunity
-2. Opportunity Card → Inspector 可用
-3. URL 可表达 opportunity + inspector tab
-4. API unavailable 时明确失败，不显示伪造 0 数据
-5. “开始研究”创建 Research Case 并进入 /research/:research_case_id
-6. 已有 Research Case 时复用 latest_research_case_id
+1. /opportunities 从 Editorial API 读取当前可用 Opportunity corpus
+2. 搜索 / recommendation / research / readiness / sort / layout 使用 URL state
+3. Card / Compact 两种视图可切换并刷新恢复
+4. Opportunity → Inspector 复用 S2 的五个 Tab
+5. API unavailable 时明确失败，不回退 browser mock
+6. Research 创建/复用继续使用 research_case_id
 7. Shell 不暴露 harness_session_id / 私有 Harness URL
-8. Node typecheck + Vite build + Python tests 全绿
-9. 视觉结构接近 Stitch P01，同时保持统一响应式尺寸
+8. 未实现筛选与批量动作明确 unavailable，不伪造成功
+9. Node typecheck + Vite build + Python tests 全绿
 ```
 
 ---
