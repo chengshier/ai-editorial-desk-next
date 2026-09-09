@@ -1,10 +1,26 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-// Type-only imports: pull the shipped SlotMap declarations into this
-// compilation unit without taking runtime dependencies on the layout/sidebar
-// plugins. The exact-pinned Harness uses this declaration-merge pattern across
-// its own client plugins.
+// Pull only the layout SlotMap merge. Importing ui-sidebar/client directly
+// drags that package's source tree into this spike tsconfig rootDir at the
+// exact-pinned workspace. For the one additive sidebar seat we consume, keep
+// an out-of-tree copy of the public slot shape instead of compiling upstream
+// sidebar implementation sources into this plugin.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SlotMap {
+    /**
+     * Additive footer action rendered by the stock Harness sidebar beside
+     * Settings. This mirrors the exact-pinned public sidebar contract; the
+     * runtime declaration still belongs to Harness, not this plugin.
+     */
+    'sidebar.footer.action': {
+      kind: 'list'
+      scope: 'root'
+      owner: { wide: boolean }
+    }
+  }
+}
+
 import {
   EditorialWorkbenchRoot,
   NativeWorkbenchSwitch,
