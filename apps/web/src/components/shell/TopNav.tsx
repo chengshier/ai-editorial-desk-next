@@ -34,7 +34,7 @@ export function TopNav({ onSubmit }: { onSubmit: () => void }) {
         <Bell size={17}/>
       </button>
       <span className="runtime-pill">集成预览</span>
-      <button className="agent-button" type="button" title="S4 接入 Harness Agent" disabled><Bot size={16}/>问 AI</button>
+      <button className="agent-button" type="button" title="Research 已接入 Harness；通用 Agent 入口后续开放" disabled><Bot size={16}/>问 AI</button>
       <div className="top-nav__user" title="当前工作区">
         <span className="top-nav__avatar">ED</span>
         <span className="top-nav__user-name">编辑部<ChevronDown size={12}/></span>
