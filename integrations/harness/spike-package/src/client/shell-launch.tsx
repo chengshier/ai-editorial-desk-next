@@ -224,10 +224,16 @@ async function resolveLaunchSession(
     15_000,
     'Harness session baseline',
   )
-  const requestedSessionId = descriptor.harness_session_id
-  if (requestedSessionId && sessions.byId[requestedSessionId] !== undefined) {
-    ctx.sessions.open(requestedSessionId)
-    return { descriptor, sessionId: requestedSessionId }
+  const requestedSessionIdRaw = descriptor.harness_session_id
+  if (requestedSessionIdRaw) {
+    // SessionId is a compile-time brand in the exact-pinned Harness contract.
+    // The launch descriptor arrives over JSON, so restore that brand only at
+    // the runtime boundary after rejecting an empty wire value above.
+    const requestedSessionId = requestedSessionIdRaw as SessionId
+    if (sessions.byId[requestedSessionId] !== undefined) {
+      ctx.sessions.open(requestedSessionId)
+      return { descriptor, sessionId: requestedSessionId }
+    }
   }
 
   const workspaces = await waitForSnapshot(
@@ -257,7 +263,8 @@ async function bootstrapLaunch(
     let descriptor = await requestJson<LaunchDescriptorWire>(
       `${config.apiBase}/api/v1/integrations/harness/launches/${encodeURIComponent(config.launchId)}`,
     )
-    if (descriptor.intent !== 'research' || !descriptor.research_case_id) {
+    const researchCaseId = descriptor.research_case_id
+    if (descriptor.intent !== 'research' || !researchCaseId) {
       throw new Error('S4 embedded surface currently accepts research launches only')
     }
 
@@ -265,14 +272,17 @@ async function bootstrapLaunch(
     const resolved = await resolveLaunchSession(ctx, config, descriptor)
     descriptor = resolved.descriptor
     const sessionId = resolved.sessionId
+    if (descriptor.research_case_id !== researchCaseId) {
+      throw new Error('Harness session binding changed the canonical Research Case id')
+    }
 
     if (descriptor.bootstrap_required) {
       status.set({ phase: 'hydrating', message: '正在把 Research Case 重新注入 Harness durable replay…', sessionId })
       const binding = ctx.sessions.binding(sessionId)
       if (binding === undefined) throw new Error(`Harness Session ${sessionId} has no runtime binding`)
 
-      if (!hasDurableResearchResult(binding.session.getSnapshot(), descriptor.research_case_id)) {
-        await advanceResearchFixture(config.apiBase, descriptor.research_case_id)
+      if (!hasDurableResearchResult(binding.session.getSnapshot(), researchCaseId)) {
+        await advanceResearchFixture(config.apiBase, researchCaseId)
         const result = await binding.session.prompt(
           [{ type: 'text', text: bootstrapPrompt(descriptor) }],
           'queue',
@@ -282,7 +292,7 @@ async function bootstrapLaunch(
         }
         await waitForSnapshot(
           binding.session,
-          snapshot => hasDurableResearchResult(snapshot, descriptor.research_case_id as string),
+          snapshot => hasDurableResearchResult(snapshot, researchCaseId),
           90_000,
           'Research Tool Result replay',
         )
