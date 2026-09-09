@@ -309,9 +309,22 @@ async def create_research_case(payload: ResearchCreateRequest) -> ResearchCreate
     if opportunity is None:
         raise HTTPException(status_code=404, detail="opportunity not found")
 
-    research_case_id = f"rc_{uuid4().hex[:12]}"
-    goal = payload.goal or f"补齐 {opportunity.headline} 的主要证据、反方证据与未知项。"
+    # During the Hybrid Shell spike, Web Shell creates the stable Research Case
+    # before Harness takes over the Agent/Job surface. Starting research from
+    # Harness must therefore attach to that same unfinished business case rather
+    # than minting a second rc_* identity for the same Opportunity.
     with _RESEARCH_LOCK:
+        existing = _latest_record_unlocked(payload.opportunity_id)
+        if existing is not None and not existing.completed:
+            return ResearchCreated(
+                research_case_id=existing.research_case_id,
+                opportunity_id=existing.opportunity_id,
+                status="running" if existing.poll_count else "queued",
+                progress_url=f"/api/v1/spike/research-cases/{existing.research_case_id}",
+            )
+
+        research_case_id = f"rc_{uuid4().hex[:12]}"
+        goal = payload.goal or f"补齐 {opportunity.headline} 的主要证据、反方证据与未知项。"
         _RESEARCH[research_case_id] = _ResearchRecord(
             research_case_id=research_case_id,
             opportunity_id=payload.opportunity_id,
