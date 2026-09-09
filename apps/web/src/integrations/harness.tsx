@@ -71,8 +71,9 @@ async function createLaunch(
 }
 
 const surfaceCardStyle = {
-  minHeight: 0,
-  height: '100%',
+  minHeight: 560,
+  height: 'calc(100vh - var(--header) - 160px)',
+  maxHeight: 900,
   display: 'flex',
   flexDirection: 'column' as const,
   border: '1px solid var(--border)',
@@ -124,7 +125,7 @@ export function HarnessSurfaceHost({
   }, [intent, opportunityId, researchCaseId, returnPath, retryKey])
 
   if (error !== null) {
-    return <section style={{ ...surfaceCardStyle, minHeight: 420 }} aria-label="Harness integration error">
+    return <section style={surfaceCardStyle} aria-label="Harness integration error">
       <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 28 }}>
         <div style={{ maxWidth: 560, textAlign: 'center' }}>
           <AlertTriangle size={28} style={{ color: 'var(--amber-600)' }}/>
@@ -142,10 +143,10 @@ export function HarnessSurfaceHost({
   }
 
   if (launch === null) {
-    return <section style={{ ...surfaceCardStyle, minHeight: 420 }} aria-label="Harness integration loading">
+    return <section style={surfaceCardStyle} aria-label="Harness integration loading">
       <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 28 }}>
         <div style={{ display: 'grid', justifyItems: 'center', gap: 10, color: 'var(--muted)' }}>
-          <LoaderCircle size={24} className="spin"/>
+          <LoaderCircle size={24}/>
           <strong style={{ color: 'var(--heading)' }}>正在恢复 Research Workspace</strong>
           <span>通过稳定 launch contract 解析 Harness Session 与运行时入口…</span>
         </div>
@@ -154,7 +155,7 @@ export function HarnessSurfaceHost({
   }
 
   if (launch.transport !== 'embedded') {
-    return <section style={{ ...surfaceCardStyle, minHeight: 420 }} aria-label="Harness integration external transport">
+    return <section style={surfaceCardStyle} aria-label="Harness integration external transport">
       <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 28 }}>
         <div style={{ maxWidth: 560, textAlign: 'center' }}>
           <Bot size={28} style={{ color: 'var(--brand-600)' }}/>
@@ -179,12 +180,12 @@ export function HarnessSurfaceHost({
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 700, color: 'var(--heading)' }}>{title}</div>
           <div style={{ marginTop: 1, color: '#94a3b8', fontSize: 10 }}>
-            {launch.researchCaseId ?? researchCaseId} · {launch.harnessSessionId ?? '正在分配 Harness Session'}
+            {launch.researchCaseId ?? researchCaseId} · Harness runtime surface
           </div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--muted)', fontSize: 11 }}>
-        {!frameLoaded ? <><LoaderCircle size={13} className="spin"/>Harness 加载中</> : <><ShieldCheck size={13}/>业务 ID 优先</>}
+        {!frameLoaded ? <><LoaderCircle size={13}/>Harness 加载中</> : <><ShieldCheck size={13}/>业务 ID 优先</>}
         <a className="icon-button" href={launch.surfaceUrl} target="_blank" rel="noreferrer" title="在独立窗口打开 Harness surface">
           <ExternalLink size={14}/>
         </a>
