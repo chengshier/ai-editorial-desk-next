@@ -2,11 +2,11 @@
 
 ## 状态
 
-`OPPORTUNITIES_LIBRARY_IN_PROGRESS`
+`HARNESS_RESEARCH_INTEGRATION_IN_PROGRESS`
 
-Architecture + Functional Baseline v1、Harness Runtime / UI Spike、Hybrid Shell Contract、S1 Web Shell Foundation 与 S2 Today / Opportunity Inspector 已合并到 `main`。
+Architecture + Functional Baseline v1、Harness Runtime / UI Spike、Hybrid Shell Contract、S1 Web Shell Foundation、S2 Today / Opportunity Inspector 与 S3 Opportunities Library 已合并到 `main`。
 
-截至 PR #12：
+截至 PR #13：
 
 ```text
 HARNESS_AS_AGENT_RUNTIME = ACCEPTED
@@ -16,6 +16,7 @@ HYBRID_WEB_HARNESS = ACCEPTED
 HYBRID_SHELL_CONTRACT = COMPLETE
 WEB_SHELL_FOUNDATION = COMPLETE
 TODAY_OPPORTUNITY_INSPECTOR = COMPLETE
+OPPORTUNITIES_LIBRARY = COMPLETE
 ```
 
 最终产品 UI 架构仍是：
@@ -31,8 +32,7 @@ Editorial Intelligence API / PostgreSQL canonical truth
 当前正式进入：
 
 ```text
-S3 Opportunities Library
-→ S4 Harness launch adapter + /research/:research_case_id
+S4 Harness launch adapter + /research/:research_case_id
 → S5 Global Human Submission
 → S6 Programming foundation
 ```
@@ -64,47 +64,81 @@ Phase 0.5-B Acquisition Provider Spike 仍是独立并行工作流，不能被 S
 - PR #9：Programming / Today / Opportunities / Publishing 等全局模块不应绑定 Harness Session；
 - PR #10：ADR-0009 + Hybrid Shell Contract 冻结 route / ownership / stable ID / launch-return / rehydrate；
 - PR #11：正式 `apps/web`、Router、TopNav、Sidebar、Inspector Host、Research Hub/Case route 与 Harness boundary 已建立；
-- PR #12：`/today` 已成为 API 驱动的 Editorial Radar，支持 URL-backed Opportunity Inspector、五个 Inspector Tab、Research Case 创建/复用与明确 Error/Loading/Empty 状态。
+- PR #12：`/today` 已成为 API 驱动的 Editorial Radar，支持 URL-backed Opportunity Inspector、五个 Inspector Tab、Research Case 创建/复用与明确 Error/Loading/Empty 状态；
+- PR #13：`/opportunities` 已成为 Opportunity Library，支持搜索、筛选、排序、Card/Compact、URL-backed state，并复用 Inspector / Research entry。
 
 ---
 
-## 当前 Gate：S3 Opportunities Library
+## 当前 Gate：S4 Harness Launch Adapter + Research Integration
 
-S3 目标：
-
-- `/opportunities` 成为长期浏览 Opportunity corpus 的正式产品页，而不是 Placeholder；
-- 复用 S2 的 Opportunity Card / Inspector / Research entry；
-- 支持全文搜索；
-- 支持当前 read model 已有字段的多条件筛选：recommendation / research state / production readiness；
-- 支持基于当前真实字段的排序：readiness / confidence / research state / headline；
-- 支持卡片视图与紧凑列表视图；
-- 搜索、筛选、排序、布局、selected opportunity、Inspector tab 全部由 URL 表达并可刷新恢复；
-- 点击 Opportunity 默认复用右侧 Inspector，不创建重复的 Opportunity Detail 一级页面；
-- 从机会库创建或恢复 `research_case_id`，然后进入 `/research/:research_case_id`。
-
-S3 当前事实边界继续继承 S2：
-
-- 正式 PostgreSQL Opportunity persistence/read API 尚未完成；
-- 因此 S3 暂时继续消费 `/api/v1/spike/shell/opportunities` transitional integration adapter；
-- 该 read model 目前只有 3 条确定性集成 Opportunity，不代表生产全量 corpus；
-- 前端不得硬编码 Opportunity 列表，也不得把 fixture 表述为真实外部发现结果；
-- 当前缺少 Discovery Lane、Series Fit、Integrity、Attention、Human Seed、Time Range、Source Type 等 canonical 字段时，不得自行制造筛选维度的业务真相；
-- 当前缺少 Human Decision API，因此不得伪造批量 Watch / Archive 成功；
-- Saved View 若未来要求跨设备/团队同步，应进入正式用户偏好/配置 contract，本批不假装已完成。
-
-S3 验收重点：
+S4 目标：
 
 ```text
-1. /opportunities 从 Editorial API 读取当前可用 Opportunity corpus
-2. 搜索 / recommendation / research / readiness / sort / layout 使用 URL state
-3. Card / Compact 两种视图可切换并刷新恢复
-4. Opportunity → Inspector 复用 S2 的五个 Tab
-5. API unavailable 时明确失败，不回退 browser mock
-6. Research 创建/复用继续使用 research_case_id
-7. Shell 不暴露 harness_session_id / 私有 Harness URL
-8. 未实现筛选与批量动作明确 unavailable，不伪造成功
-9. Node typecheck + Vite build + Python tests 全绿
+Opportunity
+→ Research Case
+→ /research/:research_case_id
+→ Shell 请求 Harness launch descriptor
+→ Harness 打开或恢复正确 Agent Session
+→ Research Workspace / Tool Result / Replay
+→ 保持 AI Editorial Desk 产品 Shell 与业务 URL
 ```
+
+### 已在 S4 分支实现的 integration seam
+
+- 新增 `POST /api/v1/integrations/harness/launches`；
+- Shell 只消费服务端返回的 opaque `surface_url`，不构造 Harness Session URL；
+- `return_path` 必须是允许的本地产品路由，拒绝外部跳转；
+- Research launch 以 `research_case_id` 为产品主身份，并由 Editorial API 校验其 `opportunity_id`；
+- integration layer 可记录 `research_case_id ↔ harness_session_id` 运行时关联；
+- Session 丢失时可通过 Harness 公开 `workspaces / sessions` outward API 创建新 Session 并重新 hydrate Research context；
+- 首次 hydrate 只把 `get_editorial_research_result` 的结构化 Tool Result 写入 Harness durable replay，不重新创建 Research Case；
+- embedded transport 使用 Harness 公开 slot seam 替换内部 root presentation，只渲染既有 `ResearchWorkspaceView`，避免双 Sidebar / 双 Header；
+- 正常直接访问 Harness Web 时不触发 embedded root replacement，仍保持原 Harness Shell；
+- API 增加显式 CORS allowlist，供本地 Shell/Harness 双 origin 集成验证。
+
+### S4 当前事实边界
+
+S4 仍然运行在 transitional integration fixture 上：
+
+- Opportunity / Research Case 还没有正式 PostgreSQL persistence/read API；
+- Research Case 当前仍来自 `/api/v1/spike/research-cases` 内存 fixture；
+- 当前 deterministic Research Result 仍是 `deterministic_spike_mock`，只用于验证 Evidence / Unknown / Conclusion / replay；
+- Harness launch/session association 当前也是 integration runtime metadata，不是 canonical domain truth；
+- API 进程重启后这份临时 launch/session mapping 可以丢失，但 Research correctness 的长期目标仍是从正式 Editorial API / PostgreSQL 重建；
+- 当前不得把 S4 描述为真实互联网研究、正式生产 persistence 或 Acquisition 已完成。
+
+### S4 验收重点
+
+```text
+1. /research/:research_case_id 仍是稳定产品 URL
+2. Shell 请求 /api/v1/integrations/harness/launches，不拼 Harness 私有 URL
+3. surface_url 对 Shell 保持 opaque
+4. embedded Harness 只展示 Research Workspace，不出现第二套 Sidebar/Header
+5. Existing Harness Session 可恢复
+6. Session 丢失时可新建 Session，并从 research_case_id 重新 hydrate
+7. hydrate 不创建新的 Research Case
+8. Research Tool Result 可重放 Evidence / Unknown / Conclusion
+9. Harness unavailable 时 Shell 显式失败，但不把 Research Case 标为 missing
+10. 无 document.querySelector / private store / Shell import Harness internal package
+11. Python tests + ruff + Web typecheck/build + exact-pin Harness compile/bundle 全绿
+12. 本地浏览器人工验收 refresh / Harness restart / iframe/CORS 行为
+```
+
+---
+
+## S3 已完成，但事实边界继续有效
+
+S3 `/opportunities` 已完成当前 contract 下的：
+
+- 全文搜索；
+- recommendation / research / readiness 筛选；
+- readiness / confidence / research / headline 排序；
+- Card / Compact 两种视图；
+- `q / recommendation / research / readiness / sort / layout / opportunity / inspector` URL-backed state；
+- shared Opportunity Inspector；
+- shared Research Case 创建/复用链。
+
+但当前 `/api/v1/spike/shell/opportunities` 仍只有 3 条确定性集成 Opportunity，不代表生产全量 corpus，也不代表正式 Acquisition Provider 已完成。
 
 ---
 
