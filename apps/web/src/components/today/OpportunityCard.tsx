@@ -1,4 +1,4 @@
-import { ArrowUpRight, BookOpen, CircleHelp, Leaf, Loader2, Sparkles } from 'lucide-react'
+import { ArrowUpRight, BookOpen, Leaf, Loader2, Sparkles } from 'lucide-react'
 import type { OpportunitySummary } from '../../lib/editorial'
 import { levelLabel, recommendationLabel, researchLabel } from './presentation'
 
@@ -10,6 +10,12 @@ export function OpportunityCard({ item, selected, onSelect, onResearch, research
   researchBusy: boolean
 }) {
   const RecommendationIcon = item.recommendation === 'evergreen' ? Leaf : Sparkles
+  const metrics: Array<[string, string]> = [
+    ['未知', String(item.evidence_state.open_unknown_count)],
+    ['置信度', levelLabel(item.confidence)],
+    ['生产就绪', levelLabel(item.production_readiness)],
+    ['研究', researchLabel(item.research_status)],
+  ]
 
   return <article className={`opportunity-card${selected ? ' is-selected' : ''}`} onClick={onSelect}>
     <div className="opportunity-card__topline">
@@ -33,21 +39,19 @@ export function OpportunityCard({ item, selected, onSelect, onResearch, research
 
     <p className="opportunity-card__angle">{item.angle}</p>
 
-    <div className="opportunity-card__promise">
-      <span>读者承诺</span>
-      <p>{item.audience_promise}</p>
-    </div>
-
     {item.value_highlights.length > 0 ? <div className="opportunity-card__tags">
       {item.value_highlights.map((highlight) => <span key={highlight}>{highlight}</span>)}
     </div> : null}
 
     <footer className="opportunity-card__footer">
       <div className="opportunity-card__metrics">
-        <span><small>未知</small><strong><CircleHelp size={12}/>{item.evidence_state.open_unknown_count}</strong></span>
-        <span><small>置信度</small><strong>{levelLabel(item.confidence)}</strong></span>
-        <span><small>生产就绪</small><strong>{levelLabel(item.production_readiness)}</strong></span>
-        <span><small>研究</small><strong>{researchLabel(item.research_status)}</strong></span>
+        {metrics.map(([label, value], index) => (
+          <span key={label} className="opportunity-card__metric">
+            {index > 0 ? <span className="opportunity-card__metric-sep">|</span> : null}
+            <small>{label}</small>
+            <strong>{value}</strong>
+          </span>
+        ))}
       </div>
 
       <div className="opportunity-card__actions">

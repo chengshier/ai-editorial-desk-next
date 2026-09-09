@@ -32,7 +32,7 @@ export function TodayToolbar({ count, loading, failed, activeFilter, onFilter, o
 
     <div className="radar-source-note">
       <FlaskConical size={13}/>
-      <span>集成预览 · 当前列表来自 Editorial API 开发样本，不代表真实外部发现结果</span>
+      <span>集成预览 · 当前列表来自 Editorial API 开发样本，并非真实外部发现结果</span>
     </div>
   </header>
 }

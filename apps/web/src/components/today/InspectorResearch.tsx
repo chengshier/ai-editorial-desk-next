@@ -19,12 +19,11 @@ export function InspectorResearch({ item }: { item: OpportunitySummary }) {
     </section>
 
     <section className="inspector-section">
-      <h3><CircleHelp size={14}/>开放未知项</h3>
-      <div className="inspector-question-card">
-        <CircleHelp size={16}/>
-        <div>
-          <strong>{item.evidence_state.open_unknown_count} 项待澄清</strong>
-          <p>Research Workspace 会围绕证据、反方信息与这些未知项继续推进，不在 Web Shell 中伪造研究结论。</p>
+      <h3>开放未知项</h3>
+      <div className="inspector-questions">
+        <div className="inspector-question">
+          <CircleHelp size={14}/>
+          <span>{item.evidence_state.open_unknown_count} 项待澄清；Research Workspace 会围绕证据、反方信息与这些未知项继续推进，不在 Web Shell 中伪造研究结论。</span>
         </div>
       </div>
     </section>

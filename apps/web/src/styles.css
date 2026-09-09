@@ -19,6 +19,24 @@
   --header: 56px;
   --shadow-xs: 0 1px 2px rgba(15,23,42,.04);
   --shadow-sm: 0 1px 3px rgba(15,23,42,.08);
+  --shadow-brand: 0 1px 2px rgba(99,102,241,.25);
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --amber-50: #fffbeb;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --amber-700: #b45309;
+  --emerald-50: #ecfdf5;
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
+  --emerald-700: #047857;
 }
 
 * { box-sizing: border-box; }
@@ -91,6 +109,13 @@ button:disabled { cursor: not-allowed; }
 .sidebar-list a.is-active svg { color: var(--brand-600); }
 .global-search small { font-size: 10px; }
 .agent-button:disabled, .top-nav .icon-button:disabled { color: #94a3b8; }
+.top-nav__user { display: flex; align-items: center; gap: 8px; padding-left: 10px; border-left: 1px solid var(--border); }
+.top-nav__avatar { width: 28px; height: 28px; border-radius: 999px; background: var(--slate-100); border: 1px solid var(--border); display: grid; place-items: center; color: var(--brand-700); font-size: 12px; font-weight: 650; }
+.top-nav__user-name { font-size: 12px; font-weight: 500; color: var(--slate-700); display: flex; align-items: center; gap: 4px; }
+.top-nav__user-name svg { color: var(--slate-400); }
+.sidebar-link__count { margin-left: auto; color: var(--slate-400); font-size: 12px; font-weight: 400; }
+.sidebar-link:hover .sidebar-link__count { color: var(--slate-600); }
+.sidebar-link.is-active .sidebar-link__count { padding: 0 6px; border-radius: 4px; background: rgba(224,231,255,.6); color: var(--brand-700); font-weight: 650; }
 .sidebar__footer { min-height: 56px; padding: 10px 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 9px; }
 .workspace-avatar { width: 30px; height: 30px; border-radius: 50%; background: #f1f5f9; border: 1px solid var(--border); display: grid; place-items: center; color: var(--brand-600); font-size: 11px; font-weight: 800; }
 .workspace-copy { min-width: 0; display: grid; gap: 1px; }
@@ -172,7 +197,7 @@ button:disabled { cursor: not-allowed; }
 }
 
 @media (max-width: 1280px) {
-  .runtime-pill, .agent-button { display: none; }
+  .runtime-pill, .agent-button, .top-nav__user { display: none; }
   .global-search { width: 190px; }
 }
 

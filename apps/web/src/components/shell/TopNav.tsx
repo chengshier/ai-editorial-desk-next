@@ -1,4 +1,4 @@
-import { Bell, Bot, Search, Sparkles } from 'lucide-react'
+import { Bell, Bot, ChevronDown, Search, Sparkles } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const primaryItems = [
@@ -35,6 +35,10 @@ export function TopNav({ onSubmit }: { onSubmit: () => void }) {
       </button>
       <span className="runtime-pill">集成预览</span>
       <button className="agent-button" type="button" title="S4 接入 Harness Agent" disabled><Bot size={16}/>问 AI</button>
+      <div className="top-nav__user" title="当前工作区">
+        <span className="top-nav__avatar">ED</span>
+        <span className="top-nav__user-name">编辑部<ChevronDown size={12}/></span>
+      </div>
       <button className="primary-button primary-button--compact" type="button" onClick={onSubmit}>
         交给编辑部
       </button>

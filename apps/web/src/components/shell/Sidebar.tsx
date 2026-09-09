@@ -1,5 +1,9 @@
 import { Archive, BookOpen, Boxes, CircleHelp, Compass, Flame, FolderKanban, Leaf, Settings, ShieldCheck, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { listEditorialOpportunities } from '../../lib/editorial'
+
+type ViewKey = 'all' | 'today-main' | 'high-confidence' | 'needs-research' | 'evergreen' | 'research'
 
 const todayViews = [
   ['/today', '全部机会', Sparkles],
@@ -9,6 +13,15 @@ const todayViews = [
   ['/today?view=evergreen', '长期储备', Leaf],
   ['/research', '正在研究', FolderKanban],
 ] as const
+
+const countKeys: Record<string, ViewKey> = {
+  全部机会: 'all',
+  今日主推: 'today-main',
+  高置信: 'high-confidence',
+  待研究: 'needs-research',
+  长期储备: 'evergreen',
+  正在研究: 'research',
+}
 
 const manageItems = [
   ['/manage/acquisition', '采集任务', Boxes],
@@ -21,6 +34,29 @@ export function Sidebar({ onSubmit }: { onSubmit: () => void }) {
   const isToday = location.pathname === '/today'
   const isResearch = location.pathname.startsWith('/research')
   const activeView = new URLSearchParams(location.search).get('view') ?? 'all'
+  const [counts, setCounts] = useState<Partial<Record<ViewKey, number>> | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    listEditorialOpportunities()
+      .then(({ items }) => {
+        if (cancelled) return
+        setCounts({
+          all: items.length,
+          'today-main': items.filter((item) => item.recommendation === 'today_main').length,
+          'high-confidence': items.filter((item) => item.confidence === 'high').length,
+          'needs-research': items.filter((item) => item.research_status === 'not_started').length,
+          evergreen: items.filter((item) => item.recommendation === 'evergreen').length,
+          research: items.filter((item) => item.research_status === 'running').length,
+        })
+      })
+      .catch(() => {
+        // API 不可用时隐藏数量徽标，不阻断导航，也不伪造数字。
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return <aside className="sidebar">
     <div className="sidebar__cta">
@@ -38,6 +74,7 @@ export function Sidebar({ onSubmit }: { onSubmit: () => void }) {
             const active = to === '/research'
               ? isResearch
               : isToday && activeView === targetView
+            const count = counts?.[countKeys[label]]
 
             return (
               <Link
@@ -47,6 +84,7 @@ export function Sidebar({ onSubmit }: { onSubmit: () => void }) {
                 className={`sidebar-link${active ? ' is-active' : ''}`}
               >
                 <Icon size={15}/><span>{label}</span>
+                {count !== undefined ? <span className="sidebar-link__count">{count}</span> : null}
               </Link>
             )
           })}
