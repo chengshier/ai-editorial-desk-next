@@ -118,6 +118,9 @@ function waitForSnapshot<T>(
 
   return new Promise<T>((resolve, reject) => {
     let settled = false
+    let unsubscribe: () => void = () => {}
+    let timer = 0
+
     const finish = (value: T): void => {
       if (settled) return
       settled = true
@@ -135,8 +138,9 @@ function waitForSnapshot<T>(
       const snapshot = source.getSnapshot()
       if (predicate(snapshot)) finish(snapshot)
     }
-    const unsubscribe = source.subscribe(check)
-    const timer = window.setTimeout(fail, timeoutMs)
+
+    unsubscribe = source.subscribe(check)
+    timer = window.setTimeout(fail, timeoutMs)
     check()
   })
 }
@@ -146,9 +150,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function advanceResearchFixture(apiBase: string, researchCaseId: string): Promise<void> {
-  // The S4 integration still sits on the deterministic spike Research API.
-  // Polling is intentionally outside Harness Session truth; in production the
-  // same loop becomes an ordinary durable Research Case status read.
+  // S4 currently sits on the deterministic Research fixture. Polling here is
+  // compatibility choreography only; the Research Case remains Editorial API truth.
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const state = await requestJson<{ status: string }>(
       `${apiBase}/api/v1/spike/research-cases/${encodeURIComponent(researchCaseId)}`,
@@ -201,7 +204,7 @@ async function markBootstrapComplete(
   config: EditorialLaunchConfig,
   sessionId: SessionId,
 ): Promise<void> {
-  await requestJson(
+  await requestJson<LaunchDescriptorWire>(
     `${config.apiBase}/api/v1/integrations/harness/launches/${encodeURIComponent(config.launchId)}/bootstrap-complete`,
     {
       method: 'POST',
