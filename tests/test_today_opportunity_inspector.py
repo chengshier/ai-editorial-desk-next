@@ -49,6 +49,7 @@ def test_dev_server_proxies_editorial_api_without_browser_cors_hack() -> None:
 def test_s2_state_does_not_claim_spike_fixture_is_production_truth() -> None:
     state = CURRENT_STATE.read_text(encoding="utf-8")
 
-    assert "TODAY_OPPORTUNITY_INSPECTOR_IN_PROGRESS" in state
-    assert "Harness Spike read model" in state
-    assert "不得把 Spike fixture 表述为真实外部发现结果" in state
+    assert "TODAY_OPPORTUNITY_INSPECTOR = COMPLETE" in state
+    assert "OPPORTUNITIES_LIBRARY_IN_PROGRESS" in state
+    assert "Harness Spike" in state or "transitional integration adapter" in state
+    assert "不代表生产全量 corpus" in state
