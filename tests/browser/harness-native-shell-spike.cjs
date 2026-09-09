@@ -49,6 +49,24 @@ async function main() {
     assert.equal(await page.getByRole('heading', { name: '今日视野', exact: true }).count(), 0)
     console.log('PASS: stock Harness AppFrame returns when the plugin stops occupying root')
 
+    // A pristine Harness profile shows its stock first-use Internal Testing
+    // Notice when the native AppFrame becomes visible. This is part of Harness
+    // UX, not our plugin. Follow the same path a real user would: acknowledge
+    // the notice before interacting with the sidebar footer action. Never
+    // force-click through the presentation mask because that would hide a real
+    // product interaction problem.
+    const internalTestingNotice = page.getByText('Internal Testing Notice', { exact: true })
+    const noticeVisible = await internalTestingNotice
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false)
+
+    if (noticeVisible) {
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await internalTestingNotice.waitFor({ state: 'hidden', timeout: 10_000 })
+      console.log('INFO: dismissed stock Harness Internal Testing Notice')
+    }
+
     await page.getByRole('button', { name: '进入 AI Editorial Desk', exact: true }).click()
     await page.getByRole('heading', { name: '今日视野', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
     assert.equal(
