@@ -4,6 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "apps" / "web" / "src"
 APP = WEB / "App.tsx"
 LIBRARY = WEB / "pages" / "OpportunitiesLibraryPage.tsx"
+SIDEBAR = WEB / "components" / "shell" / "Sidebar.tsx"
 STATE = ROOT / "docs" / "CURRENT_STATE.md"
 
 
@@ -29,6 +30,14 @@ def test_library_uses_api_url_state_and_shared_inspector() -> None:
     assert "/research/${encodeURIComponent(researchCaseId)}" in library
     assert "harness_session_id" not in library
     assert "127.0.0.1:3080" not in library
+
+
+def test_sidebar_counts_refresh_when_product_route_changes() -> None:
+    sidebar = SIDEBAR.read_text(encoding="utf-8")
+
+    assert "listEditorialOpportunities" in sidebar
+    assert "[location.pathname]" in sidebar
+    assert "research: items.filter((item) => item.research_status === 'running').length" in sidebar
 
 
 def test_library_does_not_fake_missing_canonical_capabilities() -> None:
