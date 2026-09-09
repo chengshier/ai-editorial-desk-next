@@ -50,10 +50,12 @@ def test_library_does_not_fake_missing_canonical_capabilities() -> None:
     assert "Attention" in library
 
 
-def test_current_state_moves_to_s3() -> None:
+def test_current_state_marks_s3_complete_before_s4() -> None:
     state = STATE.read_text(encoding="utf-8")
 
-    assert "OPPORTUNITIES_LIBRARY_IN_PROGRESS" in state
+    assert "OPPORTUNITIES_LIBRARY = COMPLETE" in state
     assert "TODAY_OPPORTUNITY_INSPECTOR = COMPLETE" in state
-    assert "当前 Gate：S3 Opportunities Library" in state
+    assert "HARNESS_RESEARCH_INTEGRATION_IN_PROGRESS" in state
+    assert "## 当前 Gate：S4 Harness Launch Adapter + Research Integration" in state
+    assert "S4 Harness launch adapter + /research/:research_case_id" in state
     assert "不代表生产全量 corpus" in state

@@ -84,15 +84,15 @@ function ResearchIndexPage() {
       <div className="placeholder-page__hero">
         <FolderKanban size={30}/>
         <div>
-          <h2>研究入口已经可用</h2>
-          <p>Today 的 Opportunity Inspector 已能创建或恢复 Research Case；S4 再接真实 Research Case 列表与 Harness launch。</p>
+          <h2>Research Case 入口已经可用</h2>
+          <p>Today / Opportunities 可以创建或恢复 Research Case，并进入由 Harness 驱动的 case-level Research Workspace。</p>
         </div>
       </div>
       <div className="foundation-grid foundation-grid--compact">
-        <FoundationPanel icon={RouteIcon} title="Research Hub" description="/research 是全局入口，不依赖用户先知道某个 Research Case ID。"/>
-        <FoundationPanel icon={Bot} title="Case Workspace" description="具体研究使用 /research/:researchCaseId；页面外壳属于 AI Editorial Desk，Agent / Tool / Replay 由 Harness 驱动。"/>
+        <FoundationPanel icon={RouteIcon} title="Research Hub" description="/research 是全局入口，不依赖用户先知道某个 Harness Session ID。"/>
+        <FoundationPanel icon={Bot} title="Harness-powered Workspace" description="具体研究使用 /research/:researchCaseId；页面外壳属于 AI Editorial Desk，内部 Research Workspace 由 Harness compatibility layer 驱动。"/>
       </div>
-      <div className="next-batch">S4 将把 <strong>Research Hub → Research Case → Harness Workspace</strong> 正式串起来。</div>
+      <div className="next-batch">当前 S4 已接入 case-level Harness Workspace；全局 Research Case 列表等待正式 persistence/read contract 后再实现。</div>
     </div>
   </WorkspaceLayout>
 }
@@ -101,15 +101,15 @@ function ResearchPage() {
   const { researchCaseId = 'unknown' } = useParams()
   return <WorkspaceLayout
     eyebrow="P03 · Research Case"
-    title="研究"
-    badge="Hybrid"
-    description="这是某一个 Research Case 的产品工作区。Web Shell 保留产品导航与业务 URL；Harness 负责内部 Agent / Tool / Replay / Research Workspace 交互。"
+    title="研究工作台"
+    badge="Hybrid · Harness"
+    description="Research Case 是产品主身份。Web Shell 保留全局导航与业务 URL；Harness compatibility layer 负责 Session 恢复、Agent Tool replay 与 Research Workspace 内部交互。"
   >
     <HarnessSurfaceHost
       intent="research"
       researchCaseId={researchCaseId}
       returnPath={`/research/${encodeURIComponent(researchCaseId)}`}
-      title="Research Workspace 宿主边界"
+      title="Research Workspace"
     />
   </WorkspaceLayout>
 }

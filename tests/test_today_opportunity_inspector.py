@@ -50,6 +50,9 @@ def test_s2_state_does_not_claim_spike_fixture_is_production_truth() -> None:
     state = CURRENT_STATE.read_text(encoding="utf-8")
 
     assert "TODAY_OPPORTUNITY_INSPECTOR = COMPLETE" in state
-    assert "OPPORTUNITIES_LIBRARY_IN_PROGRESS" in state
-    assert "Harness Spike" in state or "transitional integration adapter" in state
-    assert "不代表生产全量 corpus" in state
+    assert "OPPORTUNITIES_LIBRARY = COMPLETE" in state
+    assert "HARNESS_RESEARCH_INTEGRATION_IN_PROGRESS" in state
+    assert "Research Case 当前仍来自 `/api/v1/spike/research-cases` 内存 fixture" in state
+    assert "deterministic_spike_mock" in state
+    assert "当前不得把 S4 描述为" in state
+    assert "真实互联网研究" in state

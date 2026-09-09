@@ -8,6 +8,7 @@ import type {
 import type { ChatNodeViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import { ResearchWorkspaceView } from './research-workspace.tsx'
+import { applyEditorialShellLaunch } from './shell-launch.tsx'
 import '../events.ts'
 
 /** Legacy-only projection for sessions written before the cold-replay fix. */
@@ -694,9 +695,11 @@ function ResearchResultToolView({ block }: ToolCallViewProps) {
 }
 
 export const name = 'ai-editorial-desk-harness-spike-client'
-export const inject = ['conversationEvents', 'slots']
+export const inject = ['conversationEvents', 'slots', 'sessions', 'workspaces']
 
 export function apply(ctx: ClientContext): void {
+  applyEditorialShellLaunch(ctx)
+
   // Legacy-only: repaired pre-fix sessions can still project their old Research Node.
   ctx.conversationEvents.register(researchDefinition)
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
