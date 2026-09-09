@@ -15,10 +15,13 @@ export const inject = ['slots']
 
 export function apply(ctx: ClientContext): void {
   if (readMode() === 'editorial') {
-    // `root` is the built-in single slot. A dynamic registration shadows the
-    // shipped AppFrame without patching Harness core. Reloading with mode
-    // `harness` simply skips this registration, restoring the stock UI.
-    ctx.slots.register({ name: 'root' }, EditorialWorkbenchRoot)
+    // `root` is the built-in single slot. The shipped AppFrame currently
+    // occupies priority 0. Single slots reject two registrations at the same
+    // priority, and the exact-pinned Harness renders the lowest priority.
+    // Use an explicit negative priority so Editorial mode deterministically
+    // shadows AppFrame without patching Harness core. Reloading with mode
+    // `harness` skips this registration entirely and restores the stock UI.
+    ctx.slots.register({ name: 'root', priority: -100 }, EditorialWorkbenchRoot)
     return
   }
 
