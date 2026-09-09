@@ -56,5 +56,5 @@ def test_current_state_marks_s3_complete_before_s4() -> None:
     assert "OPPORTUNITIES_LIBRARY = COMPLETE" in state
     assert "TODAY_OPPORTUNITY_INSPECTOR = COMPLETE" in state
     assert "HARNESS_RESEARCH_INTEGRATION_IN_PROGRESS" in state
-    assert "当前 Gate：S4 Harness Research Integration" in state
+    assert "当前 Gate：S4 Harness launch adapter + Research Workspace" in state
     assert "不代表生产全量 corpus" in state
