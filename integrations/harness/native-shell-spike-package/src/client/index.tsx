@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only import: pull the stock AppFrame's SlotMap declarations into this
 // compilation unit so `shell.overlay` is typed without taking a runtime
