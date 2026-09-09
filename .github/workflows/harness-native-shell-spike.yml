@@ -141,5 +141,8 @@ jobs:
             /tmp/native-shell-api.log
             /tmp/native-shell-harness.log
             /tmp/native-shell-opportunities.json
+            /tmp/native-shell-browser.log
+            /tmp/native-shell-browser.png
+            /tmp/native-shell-browser-body.txt
           if-no-files-found: ignore
           retention-days: 7
