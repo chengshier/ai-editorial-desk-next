@@ -1,9 +1,10 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-// Type-only import: pull the stock AppFrame's SlotMap declarations into this
-// compilation unit so `shell.overlay` is typed without taking a runtime
-// dependency on the layout plugin. The exact-pinned Harness uses this same
-// declaration-merge pattern across its own client plugins.
+// Type-only imports: pull the shipped SlotMap declarations into this
+// compilation unit without taking runtime dependencies on the layout/sidebar
+// plugins. The exact-pinned Harness uses this declaration-merge pattern across
+// its own client plugins.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import {
   EditorialWorkbenchRoot,
   NativeWorkbenchSwitch,
@@ -25,10 +26,12 @@ export function apply(ctx: ClientContext): void {
     return
   }
 
-  // In stock Harness mode, keep the shipped AppFrame and add only an opt-in
-  // switch through its additive overlay seat.
-  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-    name: 'shell.overlay',
+  // In stock Harness mode, leave AppFrame untouched and expose the return
+  // switch through the sidebar's additive footer-action seat. This is a normal
+  // sidebar control beside Settings, rather than a shell overlay that can sit
+  // underneath Harness modal/presentation masks and become unclickable.
+  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+    name: 'sidebar.footer.action',
     id: 'ai-editorial-desk-workbench-switch',
     order: 1000,
   }, NativeWorkbenchSwitch))
