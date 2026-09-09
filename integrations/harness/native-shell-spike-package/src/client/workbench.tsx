@@ -166,18 +166,26 @@ export function EditorialWorkbenchRoot() {
   </div>
 }
 
-export function NativeWorkbenchSwitch() {
-  return <div style={{ position: 'fixed', left: 14, bottom: 14, pointerEvents: 'auto', zIndex: 10000 }}>
-    <button type="button" onClick={() => setMode('editorial')} style={{
-      border: '1px solid rgba(255,255,255,.2)',
-      borderRadius: 10,
-      background: '#111827',
-      color: '#fff',
-      padding: '9px 12px',
+export function NativeWorkbenchSwitch({ wide }: { wide: boolean }) {
+  return <button
+    type="button"
+    aria-label="进入 AI Editorial Desk"
+    title="进入 AI Editorial Desk"
+    onClick={() => setMode('editorial')}
+    style={{
+      height: 36,
+      minWidth: wide ? 92 : 36,
+      border: `1px solid ${colors.border}`,
+      borderRadius: 9,
+      background: colors.panel,
+      color: colors.brand,
+      padding: wide ? '0 10px' : 0,
       fontSize: 12,
       fontWeight: 800,
-      boxShadow: '0 8px 24px rgba(15,23,42,.22)',
       cursor: 'pointer',
-    }}>进入 AI Editorial Desk</button>
-  </div>
+      display: 'inline-grid',
+      placeItems: 'center',
+      whiteSpace: 'nowrap',
+    }}
+  >{wide ? 'AI 编辑部' : 'AI'}</button>
 }
