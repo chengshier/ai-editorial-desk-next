@@ -69,7 +69,11 @@ jobs:
 
       - name: Typecheck native shell plugin
         working-directory: .harness-upstream
-        run: pnpm exec tsc -b packages/client/editorial-native-shell-spike/tsconfig.json
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm exec tsc -b packages/client/editorial-native-shell-spike/tsconfig.json 2>&1 \
+            | tee /tmp/native-shell-typecheck.log
 
       - name: Bundle native shell plugin
         working-directory: .harness-upstream
@@ -133,6 +137,7 @@ jobs:
         with:
           name: harness-native-shell-spike-${{ github.run_id }}
           path: |
+            /tmp/native-shell-typecheck.log
             /tmp/native-shell-api.log
             /tmp/native-shell-harness.log
             /tmp/native-shell-opportunities.json
