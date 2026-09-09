@@ -2,8 +2,9 @@ import { ArrowLeft, ArrowRight, Bot, Construction, Database, FolderKanban, Route
 import type { ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { HarnessSurfaceHost } from './integrations/harness'
-import { TodayRadarPage } from './pages/TodayRadarPage'
 import { AppShell } from './layouts/AppShell'
+import { OpportunitiesLibraryPage } from './pages/OpportunitiesLibraryPage'
+import { TodayRadarPage } from './pages/TodayRadarPage'
 
 function WorkspaceLayout({
   title, description, eyebrow, badge, children,
@@ -127,7 +128,7 @@ export function App() {
     <Route element={<AppShell/>}>
       <Route index element={<Navigate to="/today" replace/>}/>
       <Route path="/today" element={<TodayRadarPage/>}/>
-      <Route path="/opportunities" element={<PlaceholderPage code="P02" title="机会库" description="长期浏览、筛选与管理完整 Opportunity corpus。" nextBatch="S3 · Opportunities Library"/>}/>
+      <Route path="/opportunities" element={<OpportunitiesLibraryPage/>}/>
       <Route path="/research" element={<ResearchIndexPage/>}/>
       <Route path="/research/:researchCaseId" element={<ResearchPage/>}/>
       <Route path="/programming" element={<PlaceholderPage code="P04" title="编排" description="跨 Session 的 Candidate Pool / Today Main / Series / Watch / Evergreen 编排空间。" nextBatch="S6 · Programming foundation"/>}/>
