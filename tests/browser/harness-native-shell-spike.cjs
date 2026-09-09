@@ -5,6 +5,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const DIAGNOSTIC_LOG = '/tmp/native-shell-browser.log'
 const DIAGNOSTIC_SCREENSHOT = '/tmp/native-shell-browser.png'
 const DIAGNOSTIC_BODY = '/tmp/native-shell-browser-body.txt'
+const WORKSPACE_MODE_KEY = 'ai-editorial-desk:workspace-mode'
 
 async function main() {
   const base = process.env.HARNESS_BASE_URL || 'http://127.0.0.1:3080'
@@ -36,21 +37,24 @@ async function main() {
     assert.equal(await page.getByText('机会总数').locator('..').getByText('3', { exact: true }).count(), 1)
     console.log('PASS: Harness root is replaced by the AI Editorial Desk product shell and reads Editorial API data')
 
-    // Mode switches call location.reload(). Wait for that concrete navigation
-    // rather than waiting for all Harness background connections to go idle.
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30_000 }),
-      page.getByRole('button', { name: '切换到 Harness 原生工作台', exact: true }).click(),
-    ])
+    // Mode switching currently persists a workspace mode and reloads the same
+    // Harness URL. waitForNavigation() is unnecessarily racy for this same-URL
+    // reload, so accept the switch on the destination workbench DOM instead.
+    await page.getByRole('button', { name: '切换到 Harness 原生工作台', exact: true }).click()
     await page.getByRole('button', { name: '进入 AI Editorial Desk', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
+    assert.equal(
+      await page.evaluate(key => window.localStorage.getItem(key), WORKSPACE_MODE_KEY),
+      'harness',
+    )
     assert.equal(await page.getByRole('heading', { name: '今日视野', exact: true }).count(), 0)
     console.log('PASS: stock Harness AppFrame returns when the plugin stops occupying root')
 
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30_000 }),
-      page.getByRole('button', { name: '进入 AI Editorial Desk', exact: true }).click(),
-    ])
+    await page.getByRole('button', { name: '进入 AI Editorial Desk', exact: true }).click()
     await page.getByRole('heading', { name: '今日视野', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
+    assert.equal(
+      await page.evaluate(key => window.localStorage.getItem(key), WORKSPACE_MODE_KEY),
+      'editorial',
+    )
     console.log('PASS: workbench mode can switch back to AI Editorial Desk')
 
     assert.deepEqual(pageErrors, [])
