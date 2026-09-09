@@ -1,5 +1,10 @@
 import { createElement, useEffect, useState } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+// Type-only import: pull the stock AppFrame's SlotMap declarations into this
+// compilation unit so `shell.overlay` is typed without taking a runtime
+// dependency on the layout plugin. The exact-pinned Harness uses this same
+// declaration-merge pattern across its own client plugins.
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 
 const MODE_KEY = 'ai-editorial-desk:workspace-mode'
 const API_BASE_KEY = 'ai-editorial-desk:api-base'
