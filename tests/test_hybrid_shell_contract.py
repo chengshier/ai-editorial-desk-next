@@ -9,15 +9,21 @@ DECISIONS = DOCS / "DECISIONS.md"
 UI_STRATEGY = DOCS / "03_ARCHITECTURE" / "HARNESS_UI_STRATEGY.md"
 
 
-def test_hybrid_architecture_is_frozen_after_harness_ui_gate() -> None:
+def test_harness_native_architecture_supersedes_hybrid_host_after_spike() -> None:
     adr = ADR.read_text(encoding="utf-8")
     state = CURRENT_STATE.read_text(encoding="utf-8")
     decisions = DECISIONS.read_text(encoding="utf-8")
 
+    # ADR/DECISIONS preserve the historical Hybrid gate that led to the spike.
     assert "HYBRID_WEB_HARNESS" in adr
-    assert "HYBRID_WEB_HARNESS = ACCEPTED" in state
     assert "HYBRID_WEB_HARNESS = ACCEPTED" in decisions
     assert "HARNESS_FULL_WORKBENCH = REJECTED_FOR_V1" in decisions
+
+    # PR #15 replaced the external Web Shell + iframe host direction without
+    # changing the canonical business/runtime ownership rules.
+    assert "HARNESS_NATIVE_EDITORIAL_PRODUCT_SHELL = ACCEPTED" in state
+    assert "EXTERNAL_WEB_SHELL_IFRAME_HARNESS = SUPERSEDED" in state
+    assert "HARNESS_UPSTREAM_CORE_PATCH = FORBIDDEN_BY_DEFAULT" in state
 
 
 def test_product_routes_use_business_scope_not_harness_session_scope() -> None:
