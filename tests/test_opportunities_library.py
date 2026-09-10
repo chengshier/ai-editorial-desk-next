@@ -9,14 +9,19 @@ OPPORTUNITIES = CLIENT / "opportunity-workspace.tsx"
 def test_opportunities_library_exposes_filters_sort_and_layout() -> None:
     library = OPPORTUNITIES.read_text(encoding="utf-8")
 
-    assert "搜索机会" in library
-    assert "recommendation" in library
-    assert "research" in library
-    assert "readiness" in library
-    assert "sort" in library
-    assert "card" in library
-    assert "compact" in library
-    assert "全部机会" in library
+    assert 'aria-label="搜索机会"' in library
+    assert 'aria-label="推荐去向"' in library
+    assert 'aria-label="研究状态"' in library
+    assert 'aria-label="生产就绪度"' in library
+    assert 'aria-label="排序"' in library
+    assert 'aria-label="卡片视图"' in library
+    assert 'aria-label="紧凑列表"' in library
+    assert "library_q" in library
+    assert "library_recommendation" in library
+    assert "library_research" in library
+    assert "library_readiness" in library
+    assert "library_sort" in library
+    assert "library_layout" in library
 
 
 def test_opportunities_library_preserves_canonical_business_ids() -> None:
@@ -32,7 +37,9 @@ def test_opportunities_library_does_not_fake_unavailable_actions() -> None:
     library = OPPORTUNITIES.read_text(encoding="utf-8")
 
     assert "保存视图、批量 Watch / Archive" in library
-    assert "本批不伪造这些行为" in library
+    assert "当前不伪造" in library
+    assert "本批不伪造时间线" in library
+    assert "本批不伪造 Adopt / Watch / Drop 历史" in library
     assert "Series Fit" in library
     assert "Integrity" in library
     assert "Attention" in library
