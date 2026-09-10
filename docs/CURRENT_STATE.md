@@ -26,21 +26,23 @@ S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
   N4-B Manual Run vertical slice         COMPLETE / CI PASS
   N4-C Durable Task / Run model          COMPLETE / CI PASS
   N4-D Interval / Schedule trigger       COMPLETE / CI PASS
-  N4-E Retry / Catch-up / History        IN_PROGRESS
+  N4-E Retry / Catch-up / History        COMPLETE / CI PASS
+  N4-F Event trigger + Product status UI IN_PROGRESS
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
 N3 收口 head：`5fcc37dd1800087f564abb0dea5a70d8dbf9662a`。  
 N4-B 收口 head：`6dc7a883cec849e25509cbc5f085ac351e3383de`。  
-N4-D 收口 head：`ead02f8c3f3623f90c5ab7d51b1599d0d78fa497`。
+N4-D 收口 head：`ead02f8c3f3623f90c5ab7d51b1599d0d78fa497`。  
+N4-E 收口验证 head：`ecb15704372767cc267a3834d6c03d7370f25b41`。
 
-N4-D 的四套 workflow 均已在该 head 全绿：
+N4-E 收口验证 head 的四套 workflow 全绿：
 
 ```text
-CI                         PASS
-Harness Spike              PASS
-Harness Editorial Shell    PASS
-Harness Native Shell Spike PASS
+CI                         #234 PASS
+Harness Spike              #188 PASS
+Harness Editorial Shell    #96  PASS
+Harness Native Shell Spike #102 PASS
 ```
 
 ---
@@ -211,11 +213,11 @@ Durable SchedulerTask
 
 ### N4-E — Retry / Catch-up / History
 
-**状态：IN_PROGRESS**
+**状态：COMPLETE / CI PASS**
 
-当前已提交第一批实现：
+已验证：
 
-- `20260910_02` migration：新增 Task catch-up / retry policy、Run `scheduled_for / next_retry_at`、`scheduler_run_attempts`；
+- `20260910_02` migration：Task catch-up / retry policy、Run `scheduled_for / next_retry_at`、`scheduler_run_attempts`；
 - retry 保持同一 `run_id / idempotency_key / business_object_id`，只递增 attempt，不生成新的业务对象 ID；
 - attempt 级 runtime/execution provenance durable history；
 - exponential backoff：`retry_backoff_seconds * 2^(attempt-1)`；
@@ -224,15 +226,42 @@ Durable SchedulerTask
 - bounded catch-up 超过 `catch_up_limit` 的历史 backlog 不无界补跑；
 - Task `last_run_at` 由 canonical Scheduler state 写入；
 - `/tasks/{task_id}/policy`、`/runs/{run_id}/attempts`、`/retry-tick` API；
-- retry claim 同样使用 PostgreSQL row lock / `SKIP LOCKED`。
+- retry claim 使用 PostgreSQL row lock / `SKIP LOCKED`；
+- Task disable 会清理待执行 retry；
+- retry attempt 清理旧 Harness Session / completion metadata，再获取本 attempt 的 runtime provenance。
 
-当前 N4-E 仍等待最新 CI 与 exact-pin Harness 回归全部通过后再标记 COMPLETE。
+### N4-F — Event trigger + Product status UI
+
+**状态：IN_PROGRESS**
+
+当前已提交第一批实现：
+
+```text
+research.completed
+→ durable event SchedulerTask
+→ event:{task_id}:{event_id} idempotency
+→ SchedulerRun(trigger_kind=event)
+→ exact-pinned headless research.rehydrate
+→ N4-E retry / attempt history
+→ Product Shell Scheduler status projection
+```
+
+已实现：
+
+- `research.completed` 第一条 canonical event trigger；
+- durable Event Task create / read / enable / disable；
+- 同 Task + 同 `event_id` 重复投递复用同一 logical SchedulerRun，不重复 headless execution；
+- event Run 复用 N4-E retry queue，仍保持同一 Run / business identity；
+- `/research/{research_case_id}/status` 只读状态投影；
+- Product Shell Research 页面新增 `Scheduler / Headless` 状态卡；
+- 未配置 PostgreSQL 时状态卡诚实显示 process-memory fallback，但 event Task 不静默降级；
+- PostgreSQL integration test 已加入 CI，等待最新 head Gate 完成后再收口 N4-F。
 
 ### N4 后续
 
 ```text
-N4-E Retry / Catch-up / History
-→ N4-F Event trigger + Product status UI
+N4-F Event trigger + Product status UI
+→ S4-N5 Web Shell Retirement
 ```
 
 ---
