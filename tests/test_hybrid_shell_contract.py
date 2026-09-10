@@ -90,6 +90,7 @@ def test_ui_strategy_and_current_state_close_n3_and_start_n4() -> None:
     assert "N4-B Manual Run vertical slice         COMPLETE / CI PASS" in state
     assert "N4-C Durable Task / Run model          COMPLETE / CI PASS" in state
     assert "N4-D Interval / Schedule trigger       COMPLETE / CI PASS" in state
-    assert "N4-E Retry / Catch-up / History        IN_PROGRESS" in state
+    assert "N4-E Retry / Catch-up / History        COMPLETE / CI PASS" in state
+    assert "N4-F Event trigger + Product status UI IN_PROGRESS" in state
     assert "ai-editorial-desk-runtime" in state
     assert "IWorkspaces" in state
