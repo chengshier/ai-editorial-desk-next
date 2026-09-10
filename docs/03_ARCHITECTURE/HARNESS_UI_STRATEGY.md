@@ -137,7 +137,8 @@ Host home
 - 用 Harness Session ID 替代业务 ID；
 - 把 Candidate / Decision / Draft / Publication 真相只写进 Session；
 - 用 browser/localStorage/Harness transcript 作为 Scheduler Task / Run truth；
-- 在没有 durable Scheduler 状态时伪造后台执行结果。
+- 在没有 durable Scheduler 状态时伪造后台执行结果；
+- 把 `apps/web` 恢复为第二个 production Product Shell。
 
 ## 9. 当前 Gate
 
@@ -145,17 +146,26 @@ Host home
 S4-N1 Product Shell Foundation           COMPLETE
 S4-N2 Today / Opportunities Migration    COMPLETE
 S4-N3 Research Runtime Adapter           COMPLETE
-S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
+S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
   N4-A exact-pin audit + Contract        COMPLETE
   N4-B Manual Run vertical slice         COMPLETE
   N4-C Durable Task / Run model          COMPLETE
   N4-D Interval / Schedule trigger       COMPLETE
   N4-E Retry / Catch-up / History        COMPLETE
-  N4-F Event trigger + Product status UI IN_PROGRESS
-S4-N5 Web Shell Retirement               NOT_STARTED
+  N4-F Event trigger + Product status UI COMPLETE
+S4-N5 Web Shell Retirement               IN_PROGRESS
 ```
 
-N4 当前只剩 N4-F Gate：验证 `research.completed` durable event trigger、事件幂等/重试，以及 Product Shell 的 canonical Scheduler status projection。N4 完整收口后再进入 S4-N5，不重新讨论 Product Shell 宿主。
+N4 已在 head `06ca19f629d22b39f28948c11ac10744feafa04b` 完成四套 Gate。N5 当前只处理宿主退役和 reference quarantine，不重新讨论 Product Shell 宿主，也不把旧 Web Shell placeholder 路由误认为独占正式业务能力。
+
+`apps/web` 当前定义为：
+
+```text
+RETIRED_AS_PRODUCTION_HOST
+MIGRATION_REFERENCE_ONLY
+```
+
+正式 Product acceptance 继续由 exact-pin Harness Editorial Shell browser Gate 承担。
 
 ## 10. 依据
 
@@ -163,5 +173,6 @@ N4 当前只剩 N4-F Gate：验证 `research.completed` durable event trigger、
 - `../04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
 - `../04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
 - `../07_DELIVERY/S4_HARNESS_NATIVE_PRODUCT_SHELL_MIGRATION.md`
+- `../07_DELIVERY/S4_N5_WEB_SHELL_RETIREMENT_AUDIT.md`
 - `HARNESS_INTEGRATION.md`
 - `HARNESS_RUNTIME_TOPOLOGY.md`
