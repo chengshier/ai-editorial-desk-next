@@ -54,12 +54,13 @@ def test_current_state_records_s3_complete_and_s4_native_migration() -> None:
     assert "S4-N1 Product Shell Foundation           COMPLETE / CI PASS" in state
     assert "S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS" in state
     assert "S4-N3 Research Runtime Adapter           COMPLETE / CI PASS" in state
-    assert "S4-N4 Scheduler / Headless Orchestration IN_PROGRESS" in state
+    assert "S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS" in state
     assert "N4-A exact-pin audit + Contract        COMPLETE" in state
     assert "N4-B Manual Run vertical slice         COMPLETE / CI PASS" in state
     assert "N4-C Durable Task / Run model          COMPLETE / CI PASS" in state
     assert "N4-D Interval / Schedule trigger       COMPLETE / CI PASS" in state
     assert "N4-E Retry / Catch-up / History        COMPLETE / CI PASS" in state
-    assert "N4-F Event trigger + Product status UI IN_PROGRESS" in state
+    assert "N4-F Event trigger + Product status UI COMPLETE / CI PASS" in state
+    assert "S4-N5 Web Shell Retirement               IN_PROGRESS" in state
     assert "Transitional data boundary" in state
     assert "deterministic / in-memory Spike fixture" in state
