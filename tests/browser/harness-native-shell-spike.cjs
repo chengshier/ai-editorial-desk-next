@@ -7,6 +7,34 @@ const DIAGNOSTIC_SCREENSHOT = '/tmp/native-shell-browser.png'
 const DIAGNOSTIC_BODY = '/tmp/native-shell-browser-body.txt'
 const WORKSPACE_MODE_KEY = 'ai-editorial-desk:workspace-mode'
 
+async function optionalVisible(locator, timeout = 5_000) {
+  return locator
+    .waitFor({ state: 'visible', timeout })
+    .then(() => true)
+    .catch(() => false)
+}
+
+async function dismissHarnessFirstUseModals(page) {
+  // A pristine Harness profile shows two stock onboarding layers in sequence.
+  // They intentionally make the AppFrame background non-interactive, so the
+  // sidebar footer action is not part of the accessible interaction surface
+  // until both layers are handled. Follow the real user path instead of using
+  // force-clicks or hiding upstream UI from the test.
+  const internalTestingNotice = page.getByText('Internal Testing Notice', { exact: true })
+  if (await optionalVisible(internalTestingNotice)) {
+    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await internalTestingNotice.waitFor({ state: 'hidden', timeout: 10_000 })
+    console.log('INFO: dismissed stock Harness Internal Testing Notice')
+  }
+
+  const apiKeyOnboarding = page.getByText('Add an API key to get started', { exact: true })
+  if (await optionalVisible(apiKeyOnboarding)) {
+    await page.getByRole('button', { name: 'Configure later', exact: true }).click()
+    await apiKeyOnboarding.waitFor({ state: 'hidden', timeout: 10_000 })
+    console.log('INFO: deferred stock Harness API-key onboarding')
+  }
+}
+
 async function main() {
   const base = process.env.HARNESS_BASE_URL || 'http://127.0.0.1:3080'
   const browser = await chromium.launch({ headless: true })
@@ -37,11 +65,11 @@ async function main() {
     assert.equal(await page.getByText('机会总数').locator('..').getByText('3', { exact: true }).count(), 1)
     console.log('PASS: Harness root is replaced by the AI Editorial Desk product shell and reads Editorial API data')
 
-    // Mode switching currently persists a workspace mode and reloads the same
-    // Harness URL. waitForNavigation() is unnecessarily racy for this same-URL
-    // reload, so accept the switch on the destination workbench DOM instead.
+    // Mode switching persists a workspace mode and reloads the same Harness
+    // URL. Prove that stock AppFrame content is back before touching any
+    // onboarding modal or our additive sidebar action.
     await page.getByRole('button', { name: '切换到 Harness 原生工作台', exact: true }).click()
-    await page.getByRole('button', { name: '进入 AI Editorial Desk', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
+    await page.getByText('Workspaces', { exact: true }).first().waitFor({ state: 'visible', timeout: 30_000 })
     assert.equal(
       await page.evaluate(key => window.localStorage.getItem(key), WORKSPACE_MODE_KEY),
       'harness',
@@ -49,25 +77,11 @@ async function main() {
     assert.equal(await page.getByRole('heading', { name: '今日视野', exact: true }).count(), 0)
     console.log('PASS: stock Harness AppFrame returns when the plugin stops occupying root')
 
-    // A pristine Harness profile shows its stock first-use Internal Testing
-    // Notice when the native AppFrame becomes visible. This is part of Harness
-    // UX, not our plugin. Follow the same path a real user would: acknowledge
-    // the notice before interacting with the sidebar footer action. Never
-    // force-click through the presentation mask because that would hide a real
-    // product interaction problem.
-    const internalTestingNotice = page.getByText('Internal Testing Notice', { exact: true })
-    const noticeVisible = await internalTestingNotice
-      .waitFor({ state: 'visible', timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false)
+    await dismissHarnessFirstUseModals(page)
 
-    if (noticeVisible) {
-      await page.getByRole('button', { name: 'Continue', exact: true }).click()
-      await internalTestingNotice.waitFor({ state: 'hidden', timeout: 10_000 })
-      console.log('INFO: dismissed stock Harness Internal Testing Notice')
-    }
-
-    await page.getByRole('button', { name: '进入 AI Editorial Desk', exact: true }).click()
+    const returnToEditorial = page.getByRole('button', { name: '进入 AI Editorial Desk', exact: true })
+    await returnToEditorial.waitFor({ state: 'visible', timeout: 30_000 })
+    await returnToEditorial.click()
     await page.getByRole('heading', { name: '今日视野', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
     assert.equal(
       await page.evaluate(key => window.localStorage.getItem(key), WORKSPACE_MODE_KEY),
