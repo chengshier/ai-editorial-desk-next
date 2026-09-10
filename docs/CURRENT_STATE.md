@@ -15,6 +15,16 @@ Harness-native Product Shell Spike     ACCEPTED
 Windows local native-shell acceptance  PASS
 ```
 
+PR #16 当前正式迁移状态：
+
+```text
+S4-N1 Product Shell Foundation          COMPLETE / CI PASS
+S4-N2 Today / Opportunities Migration   IN_PROGRESS
+S4-N3 Research Runtime Adapter          NOT_STARTED
+S4-N4 Scheduler / Headless Orchestration NOT_STARTED
+S4-N5 Web Shell Retirement              NOT_STARTED
+```
+
 ## 当前正式架构
 
 PR #15 证明并冻结新的最终宿主方向：
@@ -45,26 +55,48 @@ AI Editorial Desk 与 stock Harness 工作台在同一个 Harness Web（当前�
 
 ---
 
-## 当前 Gate：S4 Harness-native Product Shell Migration
+## 当前 Gate：S4-N2 Today / Opportunities Migration
 
-正式迁移从最新 `main` 新建 `feat/s4-harness-native-product-shell`，不从 Spike 分支继续派生。
+S4-N1 已通过正式 exact-pin Gate：
 
-### S4-N1 Product Shell Foundation
-
-当前正在实现：
-
-- 正式 `@ai-editorial-desk/harness-editorial-shell` 包；
-- exact-pin Harness prepare / typecheck / bundle / isolated profile install / browser smoke；
+- `@ai-editorial-desk/harness-editorial-shell` 正式包；
+- pinned Harness prepare / typecheck / bundle；
+- isolated profile install；
 - Harness `root` shadow + `sidebar.footer.action` 双向工作台切换；
-- Editorial API Base 统一为 `http://127.0.0.1:18000`；
-- API 加载失败提供明确错误与“重新连接”，不要求整页手工刷新；
-- Product Shell 导航骨架可承接现有 `apps/web` 页面迁移。
+- Editorial API Base `http://127.0.0.1:18000`；
+- Browser smoke；
+- 普通 CI / Harness Spike / Harness Editorial Shell 全绿。
 
-### 后续批次
+S4-N2 当前正在把原 `apps/web` 的真实业务交互迁入正式 Product Shell，而不是复制外部 Web App：
+
+- Today 使用 `/api/v1/spike/shell/opportunities` 读取当前真实 integration read model；
+- Today 支持 Opportunity 选择、筛选与共享 Inspector；
+- Opportunities 支持搜索、recommendation / research / readiness 筛选、排序、卡片/紧凑列表；
+- Opportunity Inspector 保留概览 / 证据 / 研究 / 时间线 / 历史五个 Tab；
+- 缺少 canonical Evidence / Timeline / Human Decision 时继续明确 unavailable，不伪造；
+- “开始研究 / 进入研究”创建或复用业务 `research_case_id`；
+- N2 只把 Research Case 带入 Product Shell 研究区，不宣称 Harness Agent 已执行；
+- 产品状态通过 namespaced `ed_*` URL query + localStorage section 持久化，避免依赖 `react-router-dom`；
+- Product Shell 不使用 iframe / `surface_url` / `editorial_embed`。
+
+N2 Browser Gate：
 
 ```text
-S4-N2 Today / Opportunities Migration
-→ S4-N3 Research Runtime Adapter
+Today
+→ 选择 Opportunity
+→ 五 Tab Inspector
+→ Opportunities 搜索/筛选
+→ 创建/复用 Research Case
+→ URL / UI 只暴露 rc_xxx 业务 ID
+→ stock Harness
+→ 返回 Product Shell
+→ section / search 状态恢复
+```
+
+后续：
+
+```text
+S4-N3 Research Runtime Adapter
 → S4-N4 Scheduler / Headless Orchestration
 → S4-N5 Web Shell Retirement
 ```
