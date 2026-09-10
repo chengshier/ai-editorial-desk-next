@@ -1,5 +1,4 @@
 from fastapi.testclient import TestClient
-
 from apps.editorial_api.main import app
 
 
