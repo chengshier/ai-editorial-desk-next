@@ -24,41 +24,15 @@ S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
 S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
   N4-A exact-pin audit + Contract        COMPLETE
   N4-B Manual Run vertical slice         COMPLETE / CI PASS
-  N4-C Durable Task / Run model          NEXT
+  N4-C Durable Task / Run model          COMPLETE / CI PASS
+  N4-D Interval / Schedule trigger       NEXT
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
-N3 收口 head：
+N3 收口 head：`5fcc37dd1800087f564abb0dea5a70d8dbf9662a`。  
+N4-B 收口 head：`6dc7a883cec849e25509cbc5f085ac351e3383de`。
 
-```text
-5fcc37dd1800087f564abb0dea5a70d8dbf9662a
-```
-
-该 head 四套 workflow 全绿：
-
-```text
-CI                         PASS
-Harness Spike              PASS
-Harness Editorial Shell    PASS
-Harness Native Shell Spike PASS
-```
-
-N4-B 收口验证 head：
-
-```text
-6dc7a883cec849e25509cbc5f085ac351e3383de
-```
-
-该 head 四套 workflow 全绿：
-
-```text
-CI                         PASS
-Harness Spike              PASS
-Harness Editorial Shell    PASS
-Harness Native Shell Spike PASS
-```
-
-其中 Harness Editorial Shell 已实际通过 exact-pin headless SDK `--probe`、Product Shell typecheck/bundle、isolated profile 与 Browser Gate。
+N4-C 已新增 PostgreSQL Scheduler Task/Run schema、Alembic migration、durable repository、Manual Run durable path、restart-safe run history 与 PostgreSQL CI integration Gate。N4-C 代码 Gate 首次通过于 `a55904a34a7980bf9ad31e7d88c2f1468d0f1407` 的 CI：Ruff / baseline tests / Alembic migration / PostgreSQL restart-safe integration 全部 PASS；Harness 三套 exact-pin workflow 继续作为 PR #16 的独立回归 Gate。
 
 ---
 
@@ -90,7 +64,7 @@ ADR-0009 / `HYBRID_WEB_HARNESS` 与 `HYBRID_SHELL_CONTRACT.md` 现在是历史�
 
 AI Editorial Desk 与 stock Harness 工作台在同一个 Harness Web（当前本地 `3080`）中双向切换。AI Editorial Desk 作为结构化业务工作台；stock Harness 保留为自由 Agent / Session 工作台。
 
-业务数据仍由 Editorial API / PostgreSQL 持有。Harness Session / Job / Replay / Workspace 属于运行时对象，不得替代 `opportunity_id`、`research_case_id`、`candidate_id`、`draft_id`、`publication_id` 等业务主键。
+业务数据由 Editorial API / PostgreSQL 持有。Harness Session / Job / Replay / Workspace 属于运行时对象，不得替代 `opportunity_id`、`research_case_id`、`candidate_id`、`draft_id`、`publication_id` 等业务主键。
 
 活动 Contract：
 
@@ -126,15 +100,10 @@ Product Shell Research Case
 - Harness Session ID 只作为 runtime metadata；
 - Runtime failure 不删除 Research Case。
 
-### Fresh profile bootstrap
-
-本轮最终修复并验证了 isolated Harness profile **没有 Workspace** 的真实边界。
-
-现在 Product Shell 会通过 pinned Harness 公开 `IWorkspaces` API：
+Fresh profile 没有 Workspace 时，Product Shell 通过 pinned public `IWorkspaces` 自动：
 
 ```text
 listDirectory()
-→ Host home
 → create/reuse ai-editorial-desk-runtime directory
 → create({path}) Workspace
 → connectWorkspace()
@@ -142,32 +111,17 @@ listDirectory()
 → Research Case binding
 ```
 
-不再要求用户先进入 stock Harness 手工建立 Workspace，也没有 browser 侧硬编码 Host path。
-
-### N3 验证边界
-
-当前“COMPLETE / CI PASS”表示正式代码、exact-pin compatibility、isolated profile 和 Browser Gate 已通过。
-
-不得把它扩大解释为：
-
-- 已完成 production model/provider 的全面质量验收；
-- 已完成真实外部 Research Provider；
-- deterministic/in-memory fixture 已变成生产持久化；
-- Acquisition Provider Spike 已结束。
-
 ---
 
 ## 当前 Gate：S4-N4 Scheduler / Headless Orchestration
 
-当前活动 Contract：
-
-`docs/04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
+当前活动 Contract：`docs/04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`。
 
 ### N4-A — exact-pin audit + Contract
 
 **状态：COMPLETE**
 
-exact-pinned Harness 审计结论：
+冻结结论：
 
 - 主路径使用公开 `@deepseek-ai/dsh-sdk-client`；
 - transport 为 subprocess + stdio JSON-RPC；
@@ -198,32 +152,39 @@ research.rehydrate
 → SchedulerRun succeeded / failed
 ```
 
-已验证：
-
-- `SchedulerRun` 业务 ID 与 Harness Session runtime metadata 分离；
-- manual run idempotency / duplicate protection；
-- 同 idempotency key 不允许绑定不同业务输入；
-- timeout 时终止本次独占 headless runner process；
-- explicit failure code / reason；
-- credential/error redaction；
-- execution/runtime provenance；
-- exact-pin headless runner `--probe` CI seam；
-- 不依赖 Web UI / iframe / DOM / private Harness API；
-- N4 新测试不会向其他 Spike tests 泄漏 process-memory Research fixture 状态。
-
-当前 `SchedulerRun` ledger 仍明确是 `transitional_in_memory`。**N4-C 完成 PostgreSQL durable Task/Run 前，不得宣称 Scheduler persistence 已完成。**
+已验证：business ID / runtime ID 分层、idempotency、duplicate protection、timeout、explicit failure、credential redaction、execution/runtime provenance、exact-pin headless SDK probe，且不依赖 Web UI / iframe / DOM / private Harness API。
 
 ### N4-C — Durable Task / Run model
 
+**状态：COMPLETE / CI PASS**
+
+已落地：
+
+- `scheduler_tasks` durable schema：`task_id / operation / business object / trigger / enabled / schedule / next_run_at`；
+- `scheduler_runs` durable schema：业务身份、状态、attempt、时间、failure、runtime provenance、execution provenance；
+- `idempotency_key` PostgreSQL UNIQUE constraint；
+- `business_object_id` / `task_id` / `status` history indexes；
+- Alembic 基线与 `20260910_01` migration；
+- `SchedulerPostgresStore` durable repository；
+- `DATABASE_URL` 配置存在时 Manual Run 自动使用 PostgreSQL，未配置时仅保留开发/测试用 `transitional_in_memory` fallback；
+- `GET /api/v1/integrations/harness/scheduler/research/{research_case_id}/runs` 提供按业务对象的历史查询；
+- 新 repository 实例可恢复之前 Run，证明 run history 不依赖 API process memory；
+- duplicate idempotency 在数据库唯一约束下保持单一 Run；
+- Harness Session ID 仍只保存在 `runtime_provenance`，不进入 Scheduler 主键；
+- CI 启动真实 PostgreSQL 16，实际执行 `alembic upgrade head` 与 restart-safe integration test。
+
+N4-C 只完成 Scheduler Task/Run 持久化基础，不表示 Opportunity / Research fixture 已全部迁入 PostgreSQL，也不表示 interval/event trigger 已实现。
+
+### N4-D — Interval / Schedule trigger
+
 **状态：NEXT**
 
-下一 Gate 是把当前已验证的 SchedulerRun contract 从 transitional in-memory ledger 迁入正式 repository / PostgreSQL，并建立 durable SchedulerTask / SchedulerRun schema、migration 与 repository tests；不改变 N4-A/B 已冻结的 SDK outward seam。
+下一 Gate：在 N4-C durable `scheduler_tasks` 之上实现 enable/disable、interval/schedule 表达、`next_run_at`、due-task claim、manual clock-independent tick，以及避免多实例重复领取的数据库级 claim 语义。仍使用 N4-A 冻结的 Harness headless execution seam，不回退到 Harness Chat 手工 prompt。
 
 ### N4 后续
 
 ```text
-N4-C Durable Task / Run model
-→ N4-D Interval / Schedule trigger
+N4-D Interval / Schedule trigger
 → N4-E Retry / Catch-up / History
 → N4-F Event trigger + Product status UI
 ```
@@ -232,49 +193,23 @@ N4-C Durable Task / Run model
 
 ## S4-N5 后续
 
-Product Shell 达到所需功能等价后：
-
-- 删除 `apps/web`；或
-- 明确降级为 dev-preview/reference 壳。
-
-不允许长期维护两套生产入口。
+Product Shell 达到所需功能等价后：删除 `apps/web`，或明确降级为 dev-preview/reference 壳；不允许长期维护两套生产入口。
 
 ---
 
 ## PR #14 处理
 
-PR #14 的：
+PR #14 的 iframe / `embedded` transport / `surface_url` 路线已经 superseded，**不得合并为正式架构**。
 
-```text
-apps/web
-→ launch descriptor
-→ surface_url
-→ embedded / iframe Harness
-```
+已吸收：Research Case ↔ Session runtime binding、Session 丢失后 rehydrate、公开 outward API、bootstrap/rebind 幂等、runtime failure 不等于业务对象丢失。
 
-已经 superseded，**不得合并为正式架构**。
-
-已经吸收的设计思想：
-
-- `research_case_id ↔ harness_session_id` 仅为 runtime binding；
-- Session 丢失后允许新 Session + canonical Research Case rehydrate；
-- 只使用公开 Harness runtime outward API；
-- bootstrap / rebind 幂等；
-- Harness runtime failure 不等于业务 Research Case 丢失。
-
-明确废弃：
-
-- iframe Harness；
-- `embedded` transport；
-- `surface_url` 作为正式 Product UI seam；
-- `editorial_embed` / `editorial_launch` URL host 模式；
-- 外部 `apps/web` 作为最终生产 Shell。
+明确废弃：iframe Harness、`embedded` transport、`surface_url` 正式 Product UI seam、`editorial_embed` / `editorial_launch` URL host 模式、外部 `apps/web` 最终生产 Shell。
 
 ---
 
 ## 自动执行原则
 
-标准业务动作不能要求用户进入 Harness 聊天框手工 prompt。
+标准业务动作不能要求用户进入 Harness 聊天框手工 prompt：
 
 ```text
 Schedule / Event / Manual Product Command
@@ -303,28 +238,20 @@ Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数�
 
 ## Transitional data boundary
 
-目前 Today / Opportunities / Research 的一部分集成仍使用 deterministic / in-memory Spike fixture。
+当前 Today / Opportunities / Research 的一部分集成仍使用 deterministic / in-memory Spike fixture。N4-C 之后 **Scheduler Task/Run 在配置 `DATABASE_URL` 的正式运行环境中已使用 PostgreSQL durable store**；只有未配置数据库的开发/测试场景保留 process-memory fallback。
 
-不得因此宣称：
+仍不得宣称：
 
 - 真实外部 Acquisition 已完成；
 - PostgreSQL Opportunity / Research persistence 已完成；
-- deterministic mock 是生产研究结果；
-- API restart 后的 in-memory Research / runtime binding / SchedulerRun fixture 具备 durable persistence。
-
-Product Shell / Runtime integration 的完成不自动完成业务持久化与真实采集。
+- deterministic mock 是 production research result；
+- in-memory Research / runtime binding fixture 具备 durable persistence。
 
 ---
 
 ## Acquisition Provider Spike 仍未关闭
 
-Phase 0.5-B 必须继续独立验证：
-
-- high-momentum discovery；
-- low/no-momentum but high-potential discovery；
-- community/non-official first discovery → reliable evidence follow-up。
-
-HumanSubmission 不参加 Provider 胜负比较；它作为产品自身入口，复用最终选定 Provider 做 fetch / verification / research。
+Phase 0.5-B 必须继续独立验证 high-momentum discovery、low/no-momentum but high-potential discovery、community/non-official first discovery → reliable evidence follow-up。HumanSubmission 不参加 Provider 胜负比较。
 
 ---
 
@@ -341,9 +268,4 @@ Machine Discovery + HumanSubmission
 → Adopt / Watch / Drop
 ```
 
-MVP 第一成功标准不是功能数量，而是：
-
-1. 系统能主动发现真实值得看的内容；
-2. 用户能把低结构化线索交给编辑部并得到可验证、可解释的 Opportunity；
-3. 两类入口最终都形成可追溯 Human Decision；
-4. Product Shell 与 Harness Runtime 不复制或破坏同一业务真相。
+MVP 第一成功标准不是功能数量，而是：系统能主动发现真实值得看的内容；用户能投喂低结构化线索并得到可验证、可解释的 Opportunity；两类入口最终形成可追溯 Human Decision；Product Shell 与 Harness Runtime 不复制或破坏同一业务真相。
