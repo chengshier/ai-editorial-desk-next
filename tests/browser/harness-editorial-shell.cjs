@@ -6,6 +6,7 @@ const DIAGNOSTIC_LOG = '/tmp/editorial-shell-browser.log'
 const DIAGNOSTIC_SCREENSHOT = '/tmp/editorial-shell-browser.png'
 const DIAGNOSTIC_BODY = '/tmp/editorial-shell-browser-body.txt'
 const WORKSPACE_MODE_KEY = 'ai-editorial-desk:workspace-mode'
+const EDITORIAL_API_BASE = 'http://127.0.0.1:18000'
 
 async function optionalVisible(locator, timeout = 5_000) {
   return locator.waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false)
@@ -23,6 +24,20 @@ async function dismissHarnessFirstUseModals(page) {
     await page.getByRole('button', { name: 'Configure later', exact: true }).click()
     await apiKeyOnboarding.waitFor({ state: 'hidden', timeout: 10_000 })
   }
+}
+
+async function waitForRuntimeBinding(page, researchCaseId) {
+  const deadline = Date.now() + 25_000
+  while (Date.now() < deadline) {
+    const binding = await page.evaluate(async ({ apiBase, researchCaseId: caseId }) => {
+      const response = await fetch(`${apiBase}/api/v1/integrations/harness/runtime/research/${encodeURIComponent(caseId)}`)
+      if (!response.ok) return null
+      return response.json()
+    }, { apiBase: EDITORIAL_API_BASE, researchCaseId })
+    if (binding?.harness_session_id) return binding
+    await page.waitForTimeout(250)
+  }
+  throw new Error(`Harness runtime binding for ${researchCaseId} did not acquire a Session`)
 }
 
 async function main() {
@@ -78,6 +93,15 @@ async function main() {
     assert.doesNotMatch(page.url(), /session-/)
     console.log('PASS: Product actions create/restore a canonical Research Case without routing through Harness Session ids')
 
+    const runtimeBinding = await waitForRuntimeBinding(page, researchCaseText)
+    assert.equal(runtimeBinding.research_case_id, researchCaseText)
+    assert.equal(runtimeBinding.opportunity_id, 'opp_job_scam_yes')
+    assert.equal(typeof runtimeBinding.harness_session_id, 'string')
+    assert.ok(runtimeBinding.harness_session_id.length > 0)
+    assert.equal(page.url().includes(runtimeBinding.harness_session_id), false)
+    await page.getByText('harness_session_id · runtime metadata', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
+    console.log('PASS: Product Research automatically binds a Harness Session while keeping Session identity out of the business URL')
+
     await page.getByRole('button', { name: '返回机会', exact: true }).click()
     await page.getByRole('heading', { name: '全部机会', exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
     await expectValue(search, '招聘骗局')
@@ -96,7 +120,7 @@ async function main() {
     assert.equal(await page.evaluate(key => window.localStorage.getItem(key), WORKSPACE_MODE_KEY), 'editorial')
     assert.deepEqual(pageErrors, [])
 
-    console.log('PASS: formal Product Shell migrates Today/Opportunities and round-trips to stock Harness with product state intact')
+    console.log('PASS: formal Product Shell migrates Today/Opportunities, auto-binds Research runtime, and round-trips to stock Harness')
   } catch (error) {
     diagnostics.push(`[failure] ${error?.stack || String(error)}`)
     diagnostics.push(`[state] url=${page.url()}`)
