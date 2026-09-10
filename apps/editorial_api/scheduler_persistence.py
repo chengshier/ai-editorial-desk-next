@@ -230,9 +230,10 @@ class SchedulerPostgresStore:
                         task_claims += 1
                         cursor = cursor + timedelta(seconds=interval_seconds)
 
-                    if row.catch_up_policy == "skip":
-                        row.next_run_at = now + timedelta(seconds=interval_seconds)
-                    elif task_claims >= per_task_limit and cursor <= now:
+                    discard_backlog = row.catch_up_policy == "skip" or (
+                        task_claims >= per_task_limit and cursor <= now
+                    )
+                    if discard_backlog:
                         row.next_run_at = now + timedelta(seconds=interval_seconds)
                     else:
                         row.next_run_at = cursor
