@@ -21,28 +21,29 @@ PR #16 当前正式迁移状态：
 S4-N1 Product Shell Foundation           COMPLETE / CI PASS
 S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
 S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
-S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
+S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
   N4-A exact-pin audit + Contract        COMPLETE
   N4-B Manual Run vertical slice         COMPLETE / CI PASS
   N4-C Durable Task / Run model          COMPLETE / CI PASS
   N4-D Interval / Schedule trigger       COMPLETE / CI PASS
   N4-E Retry / Catch-up / History        COMPLETE / CI PASS
-  N4-F Event trigger + Product status UI IN_PROGRESS
-S4-N5 Web Shell Retirement               NOT_STARTED
+  N4-F Event trigger + Product status UI COMPLETE / CI PASS
+S4-N5 Web Shell Retirement               IN_PROGRESS
 ```
 
 N3 收口 head：`5fcc37dd1800087f564abb0dea5a70d8dbf9662a`。  
 N4-B 收口 head：`6dc7a883cec849e25509cbc5f085ac351e3383de`。  
 N4-D 收口 head：`ead02f8c3f3623f90c5ab7d51b1599d0d78fa497`。  
-N4-E 收口验证 head：`ecb15704372767cc267a3834d6c03d7370f25b41`。
+N4-E 收口验证 head：`ecb15704372767cc267a3834d6c03d7370f25b41`。  
+N4-F / N4 完整收口验证 head：`06ca19f629d22b39f28948c11ac10744feafa04b`。
 
-N4-E 收口验证 head 的四套 workflow 全绿：
+N4-F / N4 收口验证 head 的四套 workflow 全绿：
 
 ```text
-CI                         #234 PASS
-Harness Spike              #188 PASS
-Harness Editorial Shell    #96  PASS
-Harness Native Shell Spike #102 PASS
+CI                         #254 PASS
+Harness Spike              #208 PASS
+Harness Editorial Shell    #116 PASS
+Harness Native Shell Spike #122 PASS
 ```
 
 ---
@@ -124,7 +125,7 @@ listDirectory()
 
 ---
 
-## 当前 Gate：S4-N4 Scheduler / Headless Orchestration
+## 已完成 Gate：S4-N4 Scheduler / Headless Orchestration
 
 当前活动 Contract：`docs/04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`。
 
@@ -200,16 +201,7 @@ Durable SchedulerTask
 → SchedulerRun
 ```
 
-已验证：
-
-- durable interval task create / read / enable / disable；
-- `next_run_at` 跨 repository restart 保留；
-- PostgreSQL row lock + `SKIP LOCKED` 防止多实例重复领取；
-- 同一 scheduled occurrence 使用 `schedule:{task_id}:{scheduled_time}` 稳定幂等键；
-- 第二次同时间 Tick 不重复生成同一 Task Run；
-- scheduled run 保持 business ID / runtime metadata 分层；
-- 真实 PostgreSQL 16 migration + integration test 通过；
-- exact-pin Harness 三套回归 Gate 未被 interval trigger 破坏。
+已验证 durable interval task、restart-safe `next_run_at`、`FOR UPDATE SKIP LOCKED` 多实例防重、stable scheduled occurrence idempotency、scheduled Run 的 business/runtime identity 分层，以及 PostgreSQL 16 migration/integration Gate。
 
 ### N4-E — Retry / Catch-up / History
 
@@ -220,55 +212,73 @@ Durable SchedulerTask
 - `20260910_02` migration：Task catch-up / retry policy、Run `scheduled_for / next_retry_at`、`scheduler_run_attempts`；
 - retry 保持同一 `run_id / idempotency_key / business_object_id`，只递增 attempt，不生成新的业务对象 ID；
 - attempt 级 runtime/execution provenance durable history；
-- exponential backoff：`retry_backoff_seconds * 2^(attempt-1)`；
-- `retry_max_attempts` 上限；
-- `skip | bounded` catch-up policy；
-- bounded catch-up 超过 `catch_up_limit` 的历史 backlog 不无界补跑；
-- Task `last_run_at` 由 canonical Scheduler state 写入；
-- `/tasks/{task_id}/policy`、`/runs/{run_id}/attempts`、`/retry-tick` API；
-- retry claim 使用 PostgreSQL row lock / `SKIP LOCKED`；
-- Task disable 会清理待执行 retry；
-- retry attempt 清理旧 Harness Session / completion metadata，再获取本 attempt 的 runtime provenance。
+- exponential backoff / max attempts；
+- `skip | bounded` catch-up；
+- Task `last_run_at`；
+- retry claim row lock / `SKIP LOCKED`；
+- Task disable 清理待执行 retry；
+- 新 attempt 不继承旧 Harness Session / completion metadata。
 
 ### N4-F — Event trigger + Product status UI
 
-**状态：IN_PROGRESS**
+**状态：COMPLETE / CI PASS**
 
-当前已提交第一批实现：
+正式链路：
 
 ```text
 research.completed
-→ durable event SchedulerTask
+→ durable Event SchedulerTask
 → event:{task_id}:{event_id} idempotency
 → SchedulerRun(trigger_kind=event)
 → exact-pinned headless research.rehydrate
-→ N4-E retry / attempt history
+→ retry / attempt history
 → Product Shell Scheduler status projection
 ```
 
-已实现：
+已验证：
 
 - `research.completed` 第一条 canonical event trigger；
 - durable Event Task create / read / enable / disable；
-- 同 Task + 同 `event_id` 重复投递复用同一 logical SchedulerRun，不重复 headless execution；
-- event Run 复用 N4-E retry queue，仍保持同一 Run / business identity；
-- `/research/{research_case_id}/status` 只读状态投影；
-- Product Shell Research 页面新增 `Scheduler / Headless` 状态卡；
-- 未配置 PostgreSQL 时状态卡诚实显示 process-memory fallback，但 event Task 不静默降级；
-- PostgreSQL integration test 已加入 CI，等待最新 head Gate 完成后再收口 N4-F。
-
-### N4 后续
-
-```text
-N4-F Event trigger + Product status UI
-→ S4-N5 Web Shell Retirement
-```
+- 同 Task + 同 `event_id` 重复投递复用同一 logical SchedulerRun；
+- Event Run 复用 N4-E retry queue，并保持同一 Run / business identity；
+- `/research/{research_case_id}/status` 只读 canonical 状态投影；
+- Product Shell Research 页面 `Scheduler / Headless` 状态卡；
+- 未配置 PostgreSQL 时状态卡诚实显示 process-memory fallback，Event Task 不静默降级；
+- PostgreSQL event idempotency / restart / retry integration tests；
+- FastAPI query metadata 不泄漏到直接函数调用的 repository limit 参数；
+- exact-pin Harness Product Shell / browser / native-shell 回归全部 PASS。
 
 ---
 
-## S4-N5 后续
+## 当前 Gate：S4-N5 Web Shell Retirement
 
-Product Shell 达到所需功能等价后：删除 `apps/web`，或明确降级为 dev-preview/reference 壳；不允许长期维护两套生产入口。
+**状态：IN_PROGRESS**
+
+审计文档：`docs/07_DELIVERY/S4_N5_WEB_SHELL_RETIREMENT_AUDIT.md`。
+
+已确认 `apps/web` 当前只包含：
+
+- 已迁移到 Product Shell 的 Today / Opportunities；
+- 已被 N3 正式 Runtime Adapter supersede 的旧 `HarnessSurfaceHost` Research 宿主；
+- Programming / Creation / Publication / Performance / Knowledge / Management 等 placeholder 路由。
+
+因此当前没有只存在于 standalone Web Shell、却会阻塞生产宿主退役的独占正式业务能力。
+
+N5 当前执行方式：
+
+```text
+apps/web = RETIRED_AS_PRODUCTION_HOST
+apps/web = MIGRATION_REFERENCE_ONLY
+formal product host = DeepSeek Harness Product Shell
+```
+
+已开始：
+
+- `apps/web/README.md` 明确 reference-only；
+- package metadata 明确 retired production host；
+- standalone 页面启动后显示 legacy migration reference notice；
+- 保留 build 仅作为 migration/regression reference，不作为 production Product acceptance；
+- 下一 Gate 为文档/测试/CI 一致性与 formal Harness Product Shell 回归。
 
 ---
 
@@ -313,7 +323,7 @@ Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数�
 
 ## Transitional data boundary
 
-当前 Today / Opportunities / Research 的一部分集成仍使用 deterministic / in-memory Spike fixture。N4-C 之后 **Scheduler Task/Run 在配置 `DATABASE_URL` 的正式运行环境中已使用 PostgreSQL durable store**；只有未配置数据库的开发/测试场景保留 process-memory fallback。
+当前 Today / Opportunities / Research 的一部分集成仍使用 deterministic / in-memory Spike fixture。Scheduler Task/Run/Attempt 在配置 `DATABASE_URL` 的正式运行环境中已使用 PostgreSQL durable store；只有未配置数据库的开发/测试场景保留 process-memory fallback。
 
 仍不得宣称：
 
