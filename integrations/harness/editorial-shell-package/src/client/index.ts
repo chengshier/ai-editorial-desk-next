@@ -1,3 +1,4 @@
+import { createElement } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 
@@ -11,21 +12,25 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
+import { createHarnessRuntimeAdapter } from './runtime-adapter.ts'
 import {
   EditorialWorkbenchRoot,
   NativeWorkbenchSwitch,
+  readApiBase,
   readMode,
 } from './workbench.tsx'
 
 export const name = 'ai-editorial-desk-harness-editorial-shell-client'
-export const inject = ['slots']
+export const inject = ['slots', 'sessions', 'workspaces']
 
 export function apply(ctx: ClientContext): void {
   if (readMode() === 'editorial') {
+    const runtimeAdapter = createHarnessRuntimeAdapter(ctx, readApiBase())
+    const EditorialProductRoot = () => createElement(EditorialWorkbenchRoot, { runtimeAdapter })
     // Stock Harness AppFrame owns root at priority 0. The exact-pinned slot
     // contract renders the lowest priority occupant, so use a stable negative
     // priority rather than patching Harness core.
-    ctx.slots.register({ name: 'root', priority: -100 }, EditorialWorkbenchRoot)
+    ctx.slots.register({ name: 'root', priority: -100 }, EditorialProductRoot)
     return
   }
 
