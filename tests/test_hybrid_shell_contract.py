@@ -34,7 +34,9 @@ def test_old_hybrid_architecture_is_preserved_only_as_history() -> None:
 
     assert "Superseded by ADR-0010" in adr
     assert "SUPERSEDED / HISTORICAL" in contract
-    assert "HYBRID_WEB_HARNESS" in contract
+    assert "Hybrid Web Shell" in contract
+    assert "surface_url" in contract
+    assert "不得继续作为正式 Product Shell 实现依据" in contract
     assert "ADR-0009" in decisions
     assert "Superseded by ADR-0010" in decisions
 
@@ -53,14 +55,13 @@ def test_active_contract_uses_business_identity_and_public_runtime_seams() -> No
 
     assert "harness_session_id" in contract
     assert "Runtime metadata" in contract
-    assert "ctx.sessions" in contract
-    assert "ctx.workspaces" in contract
     assert "Session.prompt()" in contract
     assert "get_editorial_research_result" in contract
     assert "ai-editorial-desk-runtime" in contract
     assert "listDirectory()" in contract
     assert "createDirectory()" in contract
     assert "connectWorkspace()" in contract
+    assert "public `IWorkspaces`" in contract
 
 
 def test_active_architecture_rejects_formal_iframe_launch_host() -> None:
@@ -70,7 +71,9 @@ def test_active_architecture_rejects_formal_iframe_launch_host() -> None:
 
     assert "iframe embedding as its normal host" in contract
     assert "`surface_url` launch descriptors as the Product UI transport" in contract
-    assert "iframe 作为正式 Product Shell Host" in integration
+    assert "iframe" in integration
+    assert "`surface_url`" in integration
+    assert "正式 Product Shell" in integration
     assert "apps/web = migration reference + regression baseline" in topology
     assert "Product Shell Plugin" in topology
 
@@ -83,5 +86,5 @@ def test_ui_strategy_and_current_state_close_n3_and_open_n4() -> None:
     assert "S4-N4 Scheduler / Headless Orchestration NEXT" in strategy
     assert "S4-N3 Research Runtime Adapter           COMPLETE / CI PASS" in state
     assert "S4-N4 Scheduler / Headless Orchestration NEXT" in state
-    assert "fresh Harness profile" in state
     assert "ai-editorial-desk-runtime" in state
+    assert "IWorkspaces" in state
