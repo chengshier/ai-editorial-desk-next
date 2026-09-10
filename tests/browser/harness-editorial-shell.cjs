@@ -100,9 +100,6 @@ async function main() {
     // the migrated five-tab Inspector without manufacturing unavailable data.
     await page.getByRole('button', { name: /洗碗机真的可能比手洗更省水吗？/ }).click()
     await page.getByText('Opportunity Inspector', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
-    // Playwright's accessible-name lookup for role=tab is not stable when this
-    // out-of-tree root shadows Harness AppFrame. Assert the actual ARIA DOM
-    // contract instead: one tablist with exactly these five role=tab children.
     const inspectorTabs = page.locator('[role="tablist"][aria-label="Opportunity Inspector"] [role="tab"]')
     assert.deepEqual(await inspectorTabs.allTextContents(), ['概览', '证据', '研究', '时间线', '历史'])
     await inspectorTabs.filter({ hasText: '证据' }).click()
@@ -111,8 +108,6 @@ async function main() {
     await page.getByText('N2 负责创建/复用业务 Research Case；N3 再由 Runtime Adapter 主动绑定 Harness Session 并执行 Agent。', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
     console.log('PASS: Today migrates Opportunity selection and the five-tab Inspector into the Harness-native Product Shell')
 
-    // Opportunities migrates the real search/filter surface and keeps the
-    // business Research Case id as the next-hop identity.
     await page.getByRole('button', { name: '全部机会', exact: true }).click()
     await page.getByRole('heading', { name: '全部机会', exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
     const search = page.getByRole('textbox', { name: '搜索机会', exact: true })
@@ -136,13 +131,14 @@ async function main() {
     assert.ok(runtimeBinding.harness_session_id.length > 0)
     assert.equal(page.url().includes(runtimeBinding.harness_session_id), false)
     await page.getByText('harness_session_id · runtime metadata', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
-    console.log('PASS: Product Research automatically binds a Harness Session while keeping Session identity out of the business URL')
+    await page.getByText('Scheduler / Headless', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
+    await page.getByText('暂无后台运行记录；Product Shell 不会伪造 Scheduler 状态。', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
+    console.log('PASS: Product Research exposes an honest Scheduler status projection without leaking runtime identity into business routing')
 
     await page.getByRole('button', { name: '返回机会', exact: true }).click()
     await page.getByRole('heading', { name: '全部机会', exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
     await expectValue(search, '招聘骗局')
 
-    // Preserve product state while round-tripping to the stock Harness workbench.
     await page.getByRole('button', { name: '切换到 Harness 原生工作台', exact: true }).click()
     await page.getByText('Workspaces', { exact: true }).first().waitFor({ state: 'visible', timeout: 30_000 })
     assert.equal(await page.evaluate(key => window.localStorage.getItem(key), WORKSPACE_MODE_KEY), 'harness')
