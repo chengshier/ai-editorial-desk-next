@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
@@ -392,7 +392,7 @@ async def dispatch_research_completed_event(
 @router.get("/research/{research_case_id}/status", response_model=ResearchSchedulerStatus)
 async def get_research_scheduler_status(
     research_case_id: str,
-    limit: int = Query(default=10, ge=1, le=50),
+    limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> ResearchSchedulerStatus:
     _research_case(research_case_id)
     database_url = scheduler_database_url()
