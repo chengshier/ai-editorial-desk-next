@@ -17,7 +17,8 @@ Editorial API / PostgreSQL
 因此 S4 的正式方向为 **Harness-native Product Shell**。`apps/web -> iframe -> Harness` 不再作为最终产品架构。
 
 活动 ADR：`../ADR/ADR-0010-harness-native-product-shell.md`  
-活动 Contract：`../04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
+活动 Product Shell Contract：`../04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`  
+活动 Scheduler Contract：`../04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
 
 ## 当前批次状态
 
@@ -25,7 +26,9 @@ Editorial API / PostgreSQL
 S4-N1 Product Shell Foundation           COMPLETE / CI PASS
 S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
 S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
-S4-N4 Scheduler / Headless Orchestration NEXT
+S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
+  N4-A exact-pin audit + Contract        COMPLETE
+  N4-B Manual Run vertical slice         IMPLEMENTED / CI PENDING
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
@@ -142,7 +145,7 @@ listDirectory()
 
 ## S4-N4 — Scheduler / Headless Orchestration
 
-**状态：NEXT**
+**状态：IN_PROGRESS**
 
 目标：标准业务任务无需人工 Chat prompt。
 
@@ -171,20 +174,73 @@ Schedule / Event / Manual Product Command
 - execution provenance；
 - explicit failure state。
 
-### N4 开始前必须先做
+### N4-A — exact-pin audit + Contract
 
-审计 exact-pinned Harness 当前公开的 SDK / JSON-RPC / ACP / headless execution API，明确：
+**状态：COMPLETE**
 
-- 如何创建/复用执行 Session；
-- 如何发送 structured prompt/task；
-- 如何等待 completion；
-- Tool availability / profile selection；
-- process/restart semantics；
-- cancellation / timeout；
-- error shape；
-- 如何在服务端运行，而不依赖 browser private API。
+已审计 exact-pinned Harness 的 SDK / JSON-RPC / ACP / Schedule outward contract，并冻结：
 
-不得凭经验猜测 upstream private contract。
+- `@deepseek-ai/dsh-sdk-client` 为 N4 主 headless seam；
+- 使用 SDK-owned subprocess + stdio JSON-RPC；
+- `run()` 从 durable inbox receipt 收集到 whole-agent `idle`，但 `idle` 本身不等于业务成功；
+- `messageId` 只是 enqueue receipt；
+- exact pin SDK 没有 per-prompt cancel，因此首版每个 SchedulerRun 独占 runtime subprocess，timeout/cancel 通过结束该 process 完成；
+- ACP 只作为不需要 session continuity 的备选；其当前 fresh-session-only 限制不适合作为主路径；
+- Harness `schedule/` 是 Session-local reminder，不是外部 durable Scheduler。
+
+详细规则见 `../04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`。
+
+### N4-B — Manual Run vertical slice
+
+**状态：IMPLEMENTED / CI PENDING**
+
+首个 operation：
+
+```text
+research.rehydrate
+```
+
+执行骨架：
+
+```text
+POST /api/v1/integrations/harness/scheduler/research/{research_case_id}/run-now
+→ SchedulerRun
+→ @ai-editorial-desk/harness-editorial-headless-runner
+→ @deepseek-ai/dsh-sdk-client
+→ exact-pinned JSON-RPC runtime
+→ get_editorial_research_result(research_case_id)
+→ agent idle + canonical Tool Result observed
+→ SchedulerRun succeeded / failed
+```
+
+本批实现：
+
+- 新增 N4 Scheduler API；
+- `SchedulerRun` 与 Harness runtime id 分层；
+- manual idempotency key 与 payload hash duplicate protection；
+- explicit failure code / reason；
+- timeout process termination；
+- provider credential 不进入 API payload/response，失败文本做 secret redaction；
+- runtime/execution provenance；
+- 新增 out-of-tree headless runner package，不 patch Harness core；
+- `prepare_editorial_shell.py` 在 exact pin checkout 中同时准备 Product Shell 与 headless runner；
+- Harness Editorial Shell CI 新增 `runner.mjs --probe`，机械验证 exact-pin SDK public package 可解析；
+- pytest 覆盖 success / failed / idempotency / conflict / unknown/incomplete Research Case。
+
+当前限制：
+
+- `SchedulerRun` ledger 仍为 `transitional_in_memory`；
+- CI `--probe` 不使用真实 provider credential，因此不宣称 production model/provider headless content quality 已验收；
+- N4-C 前不宣称 PostgreSQL Scheduler persistence 已完成。
+
+### N4 后续顺序
+
+```text
+N4-C Durable Task / Run model
+→ N4-D Interval / Schedule trigger
+→ N4-E Retry / Catch-up / History
+→ N4-F Event trigger + Product status UI
+```
 
 ## S4-N5 — Web Shell Retirement
 
@@ -214,13 +270,23 @@ fresh-profile behavior where relevant
 no upstream core patch
 ```
 
+N4 额外要求：
+
+```text
+headless SDK public-seam probe
+Scheduler run idempotency
+explicit failure / timeout behavior
+runtime provenance
+credential boundary
+```
+
 ## 当前未被 S4 自动解决的事项
 
 S4 是 Product Shell / Runtime migration，不等于完成全部产品数据层。
 
 仍然不得宣称：
 
-- PostgreSQL Opportunity / Research 正式 persistence 已完整落地；
+- PostgreSQL Opportunity / Research / Scheduler 正式 persistence 已完整落地；
 - deterministic/in-memory Spike fixture 是 production data；
 - 真实外部 Acquisition 已完成；
 - production model/provider 的内容质量已经全面验收。
