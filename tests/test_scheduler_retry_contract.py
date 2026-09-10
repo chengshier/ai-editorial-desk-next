@@ -49,8 +49,10 @@ def test_retry_migration_and_api_expose_bounded_policy_and_history() -> None:
     assert "retry_backoff_seconds" in api
 
 
-def test_current_state_records_n4e_complete_and_n4f_active() -> None:
+def test_current_state_records_n4_complete_and_n5_active() -> None:
     state = STATE.read_text(encoding="utf-8")
     assert "N4-D Interval / Schedule trigger       COMPLETE / CI PASS" in state
     assert "N4-E Retry / Catch-up / History        COMPLETE / CI PASS" in state
-    assert "N4-F Event trigger + Product status UI IN_PROGRESS" in state
+    assert "N4-F Event trigger + Product status UI COMPLETE / CI PASS" in state
+    assert "S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS" in state
+    assert "S4-N5 Web Shell Retirement               IN_PROGRESS" in state
