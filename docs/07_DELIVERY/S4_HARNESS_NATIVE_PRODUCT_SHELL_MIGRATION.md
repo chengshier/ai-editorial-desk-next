@@ -18,7 +18,8 @@ Editorial API / PostgreSQL
 
 活动 ADR：`../ADR/ADR-0010-harness-native-product-shell.md`  
 活动 Product Shell Contract：`../04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`  
-活动 Scheduler Contract：`../04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
+活动 Scheduler Contract：`../04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`  
+N5 退役审计：`S4_N5_WEB_SHELL_RETIREMENT_AUDIT.md`
 
 ## 当前批次状态
 
@@ -26,28 +27,23 @@ Editorial API / PostgreSQL
 S4-N1 Product Shell Foundation           COMPLETE / CI PASS
 S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
 S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
-S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
+S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
   N4-A exact-pin audit + Contract        COMPLETE
   N4-B Manual Run vertical slice         COMPLETE / CI PASS
-  N4-C Durable Task / Run model          NEXT
-S4-N5 Web Shell Retirement               NOT_STARTED
+  N4-C Durable Task / Run model          COMPLETE / CI PASS
+  N4-D Interval / Schedule trigger       COMPLETE / CI PASS
+  N4-E Retry / Catch-up / History        COMPLETE / CI PASS
+  N4-F Event trigger + Product status UI COMPLETE / CI PASS
+S4-N5 Web Shell Retirement               IN_PROGRESS
 ```
 
-N3 收口验证 head：
+N4 完整收口验证 head：
 
 ```text
-5fcc37dd1800087f564abb0dea5a70d8dbf9662a
+06ca19f629d22b39f28948c11ac10744feafa04b
 ```
 
-该 head：CI / Harness Spike / Harness Editorial Shell / Harness Native Shell Spike 全部 PASS。
-
-N4-B 收口验证 head：
-
-```text
-6dc7a883cec849e25509cbc5f085ac351e3383de
-```
-
-该 head：CI / Harness Spike / Harness Editorial Shell / Harness Native Shell Spike 全部 PASS；Harness Editorial Shell 的 exact-pin headless SDK `--probe`、Product Shell typecheck/bundle、isolated profile 与 Browser Gate 均通过。
+该 head：CI #254、Harness Spike #208、Harness Editorial Shell #116、Harness Native Shell Spike #122 全部 PASS。
 
 ## 不变边界
 
@@ -57,7 +53,7 @@ N4-B 收口验证 head：
 4. 标准业务动作由 Product UI 或 Scheduler / Orchestrator 主动驱动 Harness，不要求用户进入 stock Chat 手工 prompt。
 5. stock Harness workbench 继续保留，作为自由 Agent / Session 模式，并可与 AI Editorial Desk 双向切换。
 6. 不修改 DeepSeek Harness upstream core；只使用公开 Client Plugin / Slot / Runtime / SDK / JSON-RPC seam。
-7. `apps/web` 只在 S4-N5 前作为迁移 reference/regression baseline。
+7. `apps/web` 已进入 S4-N5 retirement quarantine：只允许作为 migration/reference regression surface，不再是 production host。
 
 ## PR #14 处理结论
 
@@ -124,37 +120,11 @@ Product Shell Research Case
 → durable Harness Tool Result / replay
 ```
 
-已完成：
-
-- runtime binding GET / bind / rebind / bootstrap-complete API；
-- 已绑定 Session 存在则复用；丢失则获得新 Session 并 rebind；
-- Product Shell 自动触发 Adapter，不要求用户去 Harness Chat 手工 prompt；
-- 正式 Host Tool 只读取既有 Research Case，不重复创建 Case；
-- bootstrap 只有 durable structured Tool Result 出现后才完成；
-- Session ID 仅为 runtime metadata；
-- Runtime failure 不删除 Research Case。
-
-### N3 fresh-profile bootstrap
-
-Browser Gate 暴露了真实问题：isolated Harness profile 可能没有任何 Workspace。
-
-最终实现不要求用户手工准备，而是通过 pinned public `IWorkspaces`：
-
-```text
-listDirectory()
-→ Host home
-→ create/reuse ai-editorial-desk-runtime directory
-→ create({path}) Workspace
-→ connectWorkspace()
-→ Session
-→ bind Research Case
-```
-
-并包含并发创建目录后的 re-list/reuse 恢复逻辑。browser 侧不硬编码 Host filesystem path。
+已完成 runtime binding / rebind / bootstrap-complete、public `IWorkspaces` fresh-profile bootstrap、自动 `Session.prompt()`、只读 canonical Research Tool，以及 runtime failure 不删除业务 Research Case。
 
 ## S4-N4 — Scheduler / Headless Orchestration
 
-**状态：IN_PROGRESS**
+**状态：COMPLETE / CI PASS**
 
 目标：标准业务任务无需人工 Chat prompt。
 
@@ -169,117 +139,94 @@ Schedule / Event / Manual Product Command
 → Product Shell
 ```
 
-最低能力：
-
-- enable / disable；
-- schedule / interval；
-- event trigger；
-- manual run now；
-- Catch-up；
-- retry / backoff；
-- Last Run / Next Run；
-- run history；
-- idempotency / duplicate-run protection；
-- execution provenance；
-- explicit failure state。
-
 ### N4-A — exact-pin audit + Contract
 
 **状态：COMPLETE**
 
-已审计 exact-pinned Harness 的 SDK / JSON-RPC / ACP / Schedule outward contract，并冻结：
-
-- `@deepseek-ai/dsh-sdk-client` 为 N4 主 headless seam；
-- 使用 SDK-owned subprocess + stdio JSON-RPC；
-- `run()` 从 durable inbox receipt 收集到 whole-agent `idle`，但 `idle` 本身不等于业务成功；
-- `messageId` 只是 enqueue receipt；
-- exact pin SDK 没有 per-prompt cancel，因此首版每个 SchedulerRun 独占 runtime subprocess，timeout/cancel 通过结束该 process 完成；
-- ACP 只作为不需要 session continuity 的备选；其当前 fresh-session-only 限制不适合作为主路径；
-- Harness `schedule/` 是 Session-local reminder，不是外部 durable Scheduler。
-
-详细规则见 `../04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`。
+冻结：`@deepseek-ai/dsh-sdk-client` + subprocess + stdio JSON-RPC 是主 headless seam；每个 SchedulerRun 首版独占 runtime subprocess；Harness `schedule/` 不作为系统 Scheduler。
 
 ### N4-B — Manual Run vertical slice
 
 **状态：COMPLETE / CI PASS**
 
-首个 operation：
-
-```text
-research.rehydrate
-```
-
-执行骨架：
-
-```text
-POST /api/v1/integrations/harness/scheduler/research/{research_case_id}/run-now
-→ SchedulerRun
-→ @ai-editorial-desk/harness-editorial-headless-runner
-→ @deepseek-ai/dsh-sdk-client
-→ exact-pinned JSON-RPC runtime
-→ get_editorial_research_result(research_case_id)
-→ agent idle + canonical Tool Result observed
-→ SchedulerRun succeeded / failed
-```
-
-本批已完成并自动验证：
-
-- N4 Scheduler API；
-- `SchedulerRun` 与 Harness runtime id 分层；
-- manual idempotency key 与 payload hash duplicate protection；
-- explicit failure code / reason；
-- timeout process termination；
-- provider credential 不进入 API payload/response，失败文本做 secret redaction；
-- runtime/execution provenance；
-- out-of-tree headless runner package，不 patch Harness core；
-- `prepare_editorial_shell.py` 在 exact pin checkout 中同时准备 Product Shell 与 headless runner；
-- Harness Editorial Shell CI 的 `runner.mjs --probe` 机械验证 exact-pin SDK public package 可解析；
-- pytest 覆盖 success / failed / idempotency / conflict / unknown/incomplete Research Case；
-- Scheduler tests 清理自己的 process-memory Research fixture，不污染后续 read-model tests。
-
-当前限制：
-
-- `SchedulerRun` ledger 仍为 `transitional_in_memory`；
-- CI `--probe` 不使用真实 provider credential，因此不宣称 production model/provider headless content quality 已验收；
-- N4-C 前不宣称 PostgreSQL Scheduler persistence 已完成。
+第一条 operation：`research.rehydrate`。已验证 Manual Run API、business/runtime identity 分层、idempotency、timeout、explicit failure、credential redaction、runtime/execution provenance 与 exact-pin SDK probe。
 
 ### N4-C — Durable Task / Run model
 
-**状态：NEXT**
+**状态：COMPLETE / CI PASS**
 
-下一步把 N4-B 已验证的 Scheduler contract 落到正式 durable repository / PostgreSQL：
+已落地 PostgreSQL `scheduler_tasks` / `scheduler_runs`、Alembic migration、DB UNIQUE idempotency、repository、runtime/execution provenance persistence、restart-safe Run History。
 
-- SchedulerTask / SchedulerRun schema；
-- migration；
-- task/run repository；
-- idempotency unique constraint；
-- runtime/execution provenance 持久化；
-- API restart 后 run history 仍可恢复；
-- repository / migration tests。
+### N4-D — Interval / Schedule trigger
 
-N4-C 不改变 N4-A/B 已冻结的 exact-pin Harness SDK outward seam。
+**状态：COMPLETE / CI PASS**
 
-### N4 后续顺序
+已落地 durable interval task、`next_run_at`、`FOR UPDATE SKIP LOCKED` due claim、stable `schedule:{task_id}:{scheduled_time}` occurrence key 与 clock-independent scheduler tick。
+
+### N4-E — Retry / Catch-up / History
+
+**状态：COMPLETE / CI PASS**
+
+已落地 durable `scheduler_run_attempts`、同 logical Run retry、exponential backoff、max attempts、bounded catch-up、`last_run_at`、retry queue row locking、disable 清理 pending retry，以及新 attempt runtime metadata reset。
+
+### N4-F — Event trigger + Product status UI
+
+**状态：COMPLETE / CI PASS**
+
+正式事件链：
 
 ```text
-N4-C Durable Task / Run model
-→ N4-D Interval / Schedule trigger
-→ N4-E Retry / Catch-up / History
-→ N4-F Event trigger + Product status UI
+research.completed
+→ durable Event SchedulerTask
+→ event:{task_id}:{event_id} idempotency
+→ SchedulerRun(trigger_kind=event)
+→ exact-pinned headless research.rehydrate
+→ N4-E retry / attempt history
+→ Product Shell Scheduler status projection
 ```
+
+已验证 Event Task create/read/enable/disable、重复事件复用同一 Run、Event Run retry、canonical `/research/{research_case_id}/status`、Product Shell Scheduler/Headless 状态卡、PostgreSQL restart/idempotency/retry integration，以及 direct-call FastAPI Query metadata 不泄漏到 repository limit。
 
 ## S4-N5 — Web Shell Retirement
 
-**状态：NOT_STARTED**
+**状态：IN_PROGRESS**
 
-在 Product Shell 达到所需功能等价前保留 `apps/web` 作为 migration reference/regression baseline。
+审计结论：当前 `apps/web` 没有阻塞退役的独占正式业务能力。
 
-达到 Gate 后：
+当前 standalone Web Shell 只有：
 
-- 删除；或
-- 明确降级为 dev-preview/reference 壳。
+- 已迁移到 Product Shell 的 Today / Opportunities；
+- 已被 N3 Runtime Adapter supersede 的旧 `HarnessSurfaceHost` Research host；
+- Programming / Creation / Publication / Performance / Knowledge / Management 等 placeholder routes。
 
-禁止同时维护两套生产入口。
+因此 N5 采用允许的 reference quarantine 模式：
+
+```text
+apps/web = RETIRED_AS_PRODUCTION_HOST
+apps/web = MIGRATION_REFERENCE_ONLY
+```
+
+已执行：
+
+- 新增 `apps/web/README.md`，明确不可作为第二 production entry；
+- package metadata 标记 retired production host；
+- standalone app 启动后显示 legacy migration reference notice；
+- architecture/current-state docs 切换到 N5；
+- 新增 mechanical retirement tests。
+
+N5 仍需最新 head 通过：
+
+```text
+Python / baseline CI
+legacy Web reference build
+Harness exact-pin typecheck
+Harness bundle
+isolated profile install
+formal Product Shell browser Gate
+Harness native-shell regression
+```
+
+这些 Gate 全绿后，S4 可整体收口；`apps/web` 后续可在独立 cleanup PR 中物理删除，不影响“唯一 production Product Shell”不变量。
 
 ## Gate
 
@@ -296,15 +243,7 @@ fresh-profile behavior where relevant
 no upstream core patch
 ```
 
-N4 额外要求：
-
-```text
-headless SDK public-seam probe
-Scheduler run idempotency
-explicit failure / timeout behavior
-runtime provenance
-credential boundary
-```
+N4 额外要求的 headless SDK public-seam、Scheduler idempotency、failure/timeout、runtime provenance 和 credential boundary 已完成。
 
 ## 当前未被 S4 自动解决的事项
 
@@ -312,7 +251,7 @@ S4 是 Product Shell / Runtime migration，不等于完成全部产品数据层�
 
 仍然不得宣称：
 
-- PostgreSQL Opportunity / Research / Scheduler 正式 persistence 已完整落地；
+- PostgreSQL Opportunity / Research 正式 persistence 已完整落地；
 - deterministic/in-memory Spike fixture 是 production data；
 - 真实外部 Acquisition 已完成；
 - production model/provider 的内容质量已经全面验收。
