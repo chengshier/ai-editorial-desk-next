@@ -148,6 +148,28 @@ class SchedulerPostgresStore:
             await session.commit()
             return _task_to_wire(row)
 
+    async def set_task_policy(
+        self,
+        task_id: str,
+        *,
+        catch_up_policy: str,
+        catch_up_limit: int,
+        retry_max_attempts: int,
+        retry_backoff_seconds: int,
+        updated_at: datetime,
+    ) -> dict[str, Any] | None:
+        async with self.sessions() as session:
+            row = await session.get(SchedulerTaskRow, task_id)
+            if row is None:
+                return None
+            row.catch_up_policy = catch_up_policy
+            row.catch_up_limit = catch_up_limit
+            row.retry_max_attempts = retry_max_attempts
+            row.retry_backoff_seconds = retry_backoff_seconds
+            row.updated_at = updated_at
+            await session.commit()
+            return _task_to_wire(row)
+
     async def set_task_enabled(
         self,
         task_id: str,
@@ -163,20 +185,6 @@ class SchedulerPostgresStore:
             row.updated_at = updated_at
             await session.commit()
             return _task_to_wire(row)
-
-    async def mark_task_last_run(
-        self,
-        task_id: str,
-        *,
-        last_run_at: datetime,
-    ) -> None:
-        async with self.sessions() as session:
-            row = await session.get(SchedulerTaskRow, task_id)
-            if row is None:
-                return
-            row.last_run_at = last_run_at
-            row.updated_at = last_run_at
-            await session.commit()
 
     async def claim_due_interval_tasks(
         self,
@@ -275,11 +283,30 @@ class SchedulerPostgresStore:
             row.attempt = int(run["attempt"])
             row.started_at = run["started_at"]
             row.finished_at = run.get("finished_at")
-            row.next_retry_at = run.get("next_retry_at")
             row.failure_code = run.get("failure_code")
             row.failure_reason = run.get("failure_reason")
             row.runtime_provenance = dict(run["runtime_provenance"])
             row.execution_provenance = dict(run["execution_provenance"])
+            row.next_retry_at = None
+
+            task: SchedulerTaskRow | None = None
+            if row.task_id is not None:
+                task = await session.get(SchedulerTaskRow, row.task_id)
+                if task is not None and row.finished_at is not None:
+                    task.last_run_at = row.finished_at
+                    task.updated_at = row.finished_at
+
+            if (
+                row.status == "failed"
+                and row.finished_at is not None
+                and task is not None
+                and task.enabled
+                and row.attempt < task.retry_max_attempts
+            ):
+                multiplier = 2 ** (row.attempt - 1)
+                row.next_retry_at = row.finished_at + timedelta(
+                    seconds=task.retry_backoff_seconds * multiplier
+                )
 
             attempt_result = await session.execute(
                 select(SchedulerRunAttemptRow).where(
