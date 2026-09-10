@@ -6,7 +6,12 @@ on:
       - "integrations/harness/editorial-shell-package/**"
       - "integrations/harness/scripts/prepare_editorial_shell.py"
       - "apps/editorial_api/main.py"
+      - "apps/editorial_api/harness_runtime.py"
+      - "apps/editorial_api/shell_spike.py"
+      - "apps/editorial_api/spike_harness.py"
       - "tests/browser/harness-editorial-shell.cjs"
+      - "tests/test_harness_runtime_adapter.py"
+      - "tests/test_harness_editorial_shell_migration.py"
       - ".github/workflows/harness-editorial-shell.yml"
 
 jobs:
@@ -112,6 +117,7 @@ jobs:
           (
             cd .harness-upstream
             export DSH_HOME="$PWD/.dsh-editorial-shell-home"
+            export EDITORIAL_API_BASE_URL="http://127.0.0.1:18000"
             pnpm dsh web >/tmp/editorial-shell-harness.log 2>&1
           ) &
           HARNESS_PID=$!
