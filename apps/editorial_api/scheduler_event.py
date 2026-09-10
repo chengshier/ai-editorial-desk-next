@@ -10,12 +10,12 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from apps.editorial_api.scheduler import (
+    _RUN_LOCK,
+    _RUNS,
     EXECUTION_SEAM,
     HARNESS_COMMIT,
     HARNESS_RELEASE,
     OPERATION_RESEARCH_REHYDRATE,
-    _RUN_LOCK,
-    _RUNS,
     _execute_headless,
     _redact,
     _research_case,
