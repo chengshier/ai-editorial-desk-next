@@ -103,6 +103,21 @@ def _store() -> SchedulerPostgresStore:
     return SchedulerPostgresStore(database_url)
 
 
+async def _finish_claimed_retry(
+    wire: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    run_id = str(wire["run_id"])
+    if wire.get("trigger_kind") == "event":
+        # Imported lazily to keep router registration acyclic while allowing
+        # event-triggered runs to reuse the same durable retry queue.
+        from apps.editorial_api.scheduler_event import finish_event_run
+
+        await finish_event_run(run_id, result)
+        return
+    await _finish_run(run_id, result)
+
+
 @router.post("/tasks/{task_id}/policy", response_model=SchedulerTaskPolicyView)
 async def set_scheduler_task_policy(
     task_id: str,
@@ -152,8 +167,8 @@ async def run_scheduler_retry_tick(payload: RetryTickRequest) -> list[RetryRunVi
         research_case_id = str(wire["business_object_id"])
         opportunity_id, completed = _research_case_for_tick(research_case_id)
         if opportunity_id is None:
-            await _finish_run(
-                str(wire["run_id"]),
+            await _finish_claimed_retry(
+                wire,
                 {
                     "ok": False,
                     "tool_result_observed": False,
@@ -163,8 +178,8 @@ async def run_scheduler_retry_tick(payload: RetryTickRequest) -> list[RetryRunVi
                 },
             )
         elif not completed:
-            await _finish_run(
-                str(wire["run_id"]),
+            await _finish_claimed_retry(
+                wire,
                 {
                     "ok": False,
                     "tool_result_observed": False,
@@ -182,7 +197,7 @@ async def run_scheduler_retry_tick(payload: RetryTickRequest) -> list[RetryRunVi
                     "opportunity_id": opportunity_id,
                 }
             )
-            await _finish_run(str(wire["run_id"]), result)
+            await _finish_claimed_retry(wire, result)
 
         refresh = _store()
         try:
