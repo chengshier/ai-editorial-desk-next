@@ -207,15 +207,49 @@ N4-B 只有读型 `research.rehydrate`，仍实现 run-level duplicate protectio
 
 ## 11. Retry / Catch-up
 
-N4-E 才实现完整策略，但语义冻结：
+N4-E 实现完整策略，语义如下：
 
 - retry 是同一 SchedulerRun logical operation 的新 attempt；
-- exponential backoff / max attempts 必须可配置；
-- Catch-up 必须由 SchedulerTask policy 决定，不能由 Harness session-local reminder 隐式决定；
+- exponential backoff / max attempts 可配置；
+- Catch-up 由 SchedulerTask policy 决定，不能由 Harness session-local reminder 隐式决定；
 - missed interval 不得无界补跑；
-- `Last Run` / `Next Run` 由 canonical Scheduler state 计算，不从 Harness transcript 推断。
+- `Last Run` / `Next Run` 由 canonical Scheduler state 计算，不从 Harness transcript 推断；
+- retry 可以获得新的 Harness Session/runtime metadata，但必须保留同一 `run_id`、`idempotency_key` 与 business object id。
 
-## 12. Secret boundary
+## 12. Event trigger / Product status projection
+
+N4-F 第一条正式事件纵向链路冻结为 `research.completed`：
+
+```text
+Research Case completed
+→ structured research.completed event
+→ durable SchedulerTask(trigger_kind=event)
+→ SchedulerRun(trigger_kind=event)
+→ exact-pinned Harness headless execution
+→ retry/attempt history when required
+→ Product Shell status projection
+```
+
+结构化事件至少包含：
+
+```text
+- event_id
+- research_case_id
+- occurred_at?
+```
+
+强制规则：
+
+- `event_id` 是事件投递幂等身份，不得使用 Harness Session/Message id 替代；
+- 同一个 `event_id` 对同一个 SchedulerTask 的重复投递必须复用同一个 logical SchedulerRun；首版稳定键为 `event:{task_id}:{event_id}`；
+- event retry 继续使用 N4-E 的同一 Run / 多 attempt 模型，不创建新的 Research Case 或新的 business object id；
+- 事件 Task 必须由 PostgreSQL 持久化；browser/localStorage/Harness transcript 不得成为事件调度 truth；
+- `research.completed` 只有在 canonical Research Case 已完成时才可派发；
+- `occurred_at` 是事件时间语义，不替代 `event_id` 或业务主键；
+- Product Shell 只消费 Scheduler 的只读状态投影，展示 Task/Run/trigger/attempt/failure 等可诊断字段；没有状态时必须明确显示为空，不得伪造后台任务；
+- Product Shell 可以诚实显示未配置 PostgreSQL 时的 process-memory fallback，但 event Task 创建与派发不得静默降级到内存调度。
+
+## 13. Secret boundary
 
 禁止进入 Product Shell / browser state：
 
@@ -223,11 +257,11 @@ N4-E 才实现完整策略，但语义冻结：
 - bearer token；
 - cookie；
 - credential material；
--完整 child environment。
+- 完整 child environment。
 
 允许展示：provider/model 名称、run status、failure reason（脱敏后）、runtime session id 作为诊断 metadata。
 
-## 13. N4-B transitional implementation boundary
+## 14. N4-B transitional implementation boundary
 
 为了先证明真实 headless execution skeleton，N4-B 允许 `SchedulerRun` 使用进程内 ledger 作为 **transitional test/store**，但必须满足：
 
@@ -236,7 +270,9 @@ N4-E 才实现完整策略，但语义冻结：
 - 不宣称 PostgreSQL Scheduler persistence 已完成；
 - N4-C 必须把 Task / Run 迁入正式 durable repository / PostgreSQL 后，才能标记 durable model COMPLETE。
 
-## 14. Gate
+N4-C 之后，配置 `DATABASE_URL` 的正式 Scheduler 路径使用 PostgreSQL durable store；未配置数据库的 process-memory 行为只保留给 Manual Run / 状态读取的开发测试 fallback，不得用于 durable schedule/event Task。
+
+## 15. Gate
 
 N4-B 可以标记 COMPLETE 需要同时满足：
 
@@ -247,4 +283,4 @@ N4-B 可以标记 COMPLETE 需要同时满足：
 - PR #16 继续保持 Draft；
 - 未要求用户手工 Chat prompt。
 
-N4 完整 Gate 仍需 N4-C～N4-F：durable Task/Run、interval/schedule、retry/catch-up/history、event trigger 与 Product status UI。
+N4 完整 Gate 需要同时验证：durable Task/Run、interval/schedule、retry/catch-up/history、event trigger、Product status UI、PostgreSQL restart-safe/idempotency，以及 exact-pin Harness Product Shell 回归；任何一项未通过时均不得把 S4-N4 标记 COMPLETE。
