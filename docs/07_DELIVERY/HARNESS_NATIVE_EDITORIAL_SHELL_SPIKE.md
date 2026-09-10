@@ -78,7 +78,7 @@ CI 使用 pinned Harness SDK Server 的 mock OpenAI-compatible endpoint 测试�
 
 ## 自动运行架构含义
 
-若 Headless 验收通过，则未来 Today / Opportunity 等周期任务应由 AI Editorial Desk 自己的 Scheduler / Orchestrator 发起，而不是要求用户进入 Harness 手工输入。
+Headless 验收通过后，未来 Today / Opportunity 等周期任务应由 AI Editorial Desk 自己的 Scheduler / Orchestrator 发起，而不是要求用户进入 Harness 手工输入。
 
 ```text
 Schedule / Event / Manual Command
@@ -119,8 +119,59 @@ stock Harness → AI Editorial Desk      PASS
 
 其中原生 Harness 首次进入时的 `Internal Testing Notice` 与 API Key onboarding 均按真实用户流程处理，不通过 force click、DOM hack 或修改 upstream core 绕过。
 
+## Windows 本地人工验收结果
+
+已在 Windows 本地按固定 Harness commit 完成真实安装与人工验收：
+
+```text
+Editorial API       http://127.0.0.1:18000
+Harness Web         http://127.0.0.1:3080
+apps/web            未启动 / 不参与本 Spike
+```
+
+本地验收结果：
+
+```text
+AI Editorial Desk 直接接管 3080 root        PASS
+无 iframe / 无 4173 外部 Shell             PASS
+Editorial API 读取 3 条 Opportunity          PASS
+AI Editorial Desk → stock Harness           PASS
+stock Harness → AI Editorial Desk           PASS
+Editorial 模式刷新后保持当前工作台           PASS
+Harness 模式刷新后保持当前工作台             PASS
+```
+
+本地验收过程中曾发现插件 profile 仍加载旧的 `8000` 端口产物；重新执行 prepare / bundle / profile reinstall 后已恢复为项目统一端口 `18000`。该问题属于本地已安装插件产物未刷新，不构成架构阻断。
+
+## 架构结论
+
+本 Spike 已证明以下构想在固定 DeepSeek Harness 基线上成立：
+
+```text
+DeepSeek Harness
+= Agent Runtime + stock free-form workbench
+
+AI Editorial Desk Plugin
+= 默认 structured product workbench
+
+两者
+= 同一 Harness Web 中双向切换
+```
+
+因此：
+
+- AI Editorial Desk 不需要通过 iframe 嵌入完整 Harness UI；
+- AI Editorial Desk 可以作为 out-of-tree Client Plugin 接管 Harness `root`；
+- 原生 Harness 工作台可以保留，作为自由 Agent / Session 工作区；
+- 结构化业务工作流由 AI Editorial Desk 页面驱动；
+- Scheduler / Orchestrator 可以在无浏览器、无人工聊天输入的情况下主动驱动 Harness；
+- Editorial API / PostgreSQL 继续作为业务事实源；
+- Harness Session / Job / Replay 继续作为执行与追溯运行时对象，不替代业务 ID 与业务持久化。
+
 ## 当前状态
 
-`AUTOMATED_ACCEPTANCE_PASS / LOCAL_WINDOWS_ACCEPTANCE_PENDING`
+`ACCEPTED / AUTOMATED_PASS / WINDOWS_LOCAL_PASS`
 
-自动化 Spike 已证明该路线在固定 Harness 基线上技术可行；在 Windows 本地真实安装、启动和人工工作台切换验收完成前，不把本路线标记为最终正式架构，也不替换当前正式 S4。
+该架构 Spike 已完成并通过。后续不再继续扩展本 Spike 页面；正式实施应转入 Harness-native Product Shell 迁移工作，将现有 AI Editorial Desk 业务页面逐步迁入正式插件，并建设 Scheduler / Orchestrator 与 Harness Runtime Adapter。
+
+PR #14 的 external Web Shell + iframe Harness 路线不再作为最终产品方向，仅保留其 Runtime Integration 验证价值；是否关闭、保留或摘取其中可复用代码，应在正式迁移批次中处理。
