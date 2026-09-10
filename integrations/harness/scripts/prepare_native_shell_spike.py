@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+PACKAGE_NAME = "@ai-editorial-desk/harness-native-shell-spike"
+TARGET_RELATIVE = Path("packages/client/editorial-native-shell-spike")
+
+
+def _git_head(path: Path) -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
+
+
+def _safe_replace(source: Path, target: Path) -> None:
+    if target.exists():
+        package_json = target / "package.json"
+        if not package_json.exists():
+            raise SystemExit(f"refusing to replace non-spike directory: {target}")
+        current = json.loads(package_json.read_text(encoding="utf-8"))
+        if current.get("name") != PACKAGE_NAME:
+            raise SystemExit(f"refusing to replace package {current.get('name')!r}: {target}")
+        shutil.rmtree(target)
+    shutil.copytree(source, target)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Prepare the Harness-native AI Editorial Desk shell spike in an exact-pinned Harness checkout."
+    )
+    parser.add_argument("harness_root", type=Path)
+    args = parser.parse_args()
+
+    script_dir = Path(__file__).resolve().parent
+    integration_root = script_dir.parent
+    source = integration_root / "native-shell-spike-package"
+    pin = json.loads((integration_root / "HARNESS_PIN.json").read_text(encoding="utf-8"))
+
+    harness_root = args.harness_root.resolve()
+    if not (harness_root / "package.json").exists():
+        raise SystemExit(f"not a DeepSeek Harness checkout: {harness_root}")
+
+    actual_head = _git_head(harness_root)
+    expected_head = pin["commit"]
+    if actual_head != expected_head:
+        raise SystemExit(
+            "Harness checkout is not at the pinned commit:\n"
+            f"  expected: {expected_head}\n"
+            f"  actual:   {actual_head}"
+        )
+
+    target = harness_root / TARGET_RELATIVE
+    _safe_replace(source, target)
+
+    print(f"Prepared {PACKAGE_NAME}")
+    print(f"Harness pin: {expected_head}")
+    print(f"Target: {target}")
+    print("Next:")
+    print("  pnpm install --no-frozen-lockfile")
+    print("  pnpm exec tsc -b packages/client/editorial-native-shell-spike/tsconfig.json")
+    print("  pnpm --filter @ai-editorial-desk/harness-native-shell-spike run bundle")
+    print("  export DSH_HOME=\"$PWD/.dsh-native-shell-spike-home\"")
+    print("  pnpm dsh plugin --profile web add ./packages/client/editorial-native-shell-spike")
+    print("  pnpm dsh web")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
