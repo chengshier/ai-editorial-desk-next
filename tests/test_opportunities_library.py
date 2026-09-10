@@ -56,6 +56,7 @@ def test_current_state_records_s3_complete_and_s4_native_migration() -> None:
     assert "S2 Today / Opportunity Inspector       COMPLETE" in state
     assert "S3 Opportunities Library               COMPLETE" in state
     assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_IN_PROGRESS" in state
-    assert "当前 Gate：S4 Harness-native Product Shell Migration" in state
+    assert "S4-N1 Product Shell Foundation          COMPLETE / CI PASS" in state
+    assert "S4-N2 Today / Opportunities Migration   IN_PROGRESS" in state
     assert "Transitional data boundary" in state
     assert "deterministic / in-memory Spike fixture" in state
