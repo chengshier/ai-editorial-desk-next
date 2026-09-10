@@ -1,17 +1,20 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CLIENT = ROOT / "integrations" / "harness" / "editorial-shell-package" / "src" / "client"
+PACKAGE = ROOT / "integrations" / "harness" / "editorial-shell-package" / "src"
+CLIENT = PACKAGE / "client"
 WORKBENCH = CLIENT / "workbench.tsx"
 OPPORTUNITIES = CLIENT / "opportunity-workspace.tsx"
 EDITORIAL = CLIENT / "editorial.ts"
 STATE = CLIENT / "product-state.ts"
+RUNTIME = CLIENT / "runtime-adapter.ts"
+HOST_TOOL = PACKAGE / "research-tool.ts"
 
 
 def test_formal_shell_is_native_plugin_not_embedded_web_shell() -> None:
     source = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in (WORKBENCH, OPPORTUNITIES, EDITORIAL, STATE)
+        for path in (WORKBENCH, OPPORTUNITIES, EDITORIAL, STATE, RUNTIME)
     )
 
     assert "react-router-dom" not in source
@@ -37,18 +40,31 @@ def test_n2_migrates_today_opportunities_and_five_tab_inspector() -> None:
     assert "本批不伪造" in opportunities
 
 
-def test_research_entry_uses_canonical_research_case_before_runtime_adapter() -> None:
+def test_n3_research_runtime_uses_canonical_case_and_public_harness_outward_api() -> None:
     workbench = WORKBENCH.read_text(encoding="utf-8")
     opportunities = OPPORTUNITIES.read_text(encoding="utf-8")
     editorial = EDITORIAL.read_text(encoding="utf-8")
+    runtime = RUNTIME.read_text(encoding="utf-8")
+    host_tool = HOST_TOOL.read_text(encoding="utf-8")
 
     assert "latest_research_case_id" in opportunities
     assert "createEditorialResearchCase" in opportunities
     assert "/api/v1/spike/research-cases" in editorial
-    assert "researchCaseId" in workbench
     assert "Research Case 已就绪" in workbench
-    assert "N3 未完成前，这里不会伪造“Agent 已开始研究”" in workbench
-    assert "Runtime Adapter 主动绑定 Harness Session" in opportunities
+    assert "harness_session_id · runtime metadata" in workbench
+
+    assert "ctx.sessions.open" in runtime
+    assert "ctx.sessions.binding" in runtime
+    assert "ctx.workspaces.connectWorkspace" in runtime
+    assert ".session.prompt(" in runtime
+    assert "/api/v1/integrations/harness/runtime/research/" in runtime
+    assert "research_case_id" in runtime
+    assert "harness_session_id" in runtime
+    assert "session-" not in workbench
+
+    assert "get_editorial_research_result" in host_tool
+    assert "Never creates a new Research Case" in host_tool
+    assert "start_editorial_research" not in host_tool
 
 
 def test_product_query_state_is_namespaced_and_refresh_safe() -> None:
