@@ -28,7 +28,8 @@ S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
 S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
 S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
   N4-A exact-pin audit + Contract        COMPLETE
-  N4-B Manual Run vertical slice         IMPLEMENTED / CI PENDING
+  N4-B Manual Run vertical slice         COMPLETE / CI PASS
+  N4-C Durable Task / Run model          NEXT
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
@@ -39,6 +40,14 @@ N3 收口验证 head：
 ```
 
 该 head：CI / Harness Spike / Harness Editorial Shell / Harness Native Shell Spike 全部 PASS。
+
+N4-B 收口验证 head：
+
+```text
+6dc7a883cec849e25509cbc5f085ac351e3383de
+```
+
+该 head：CI / Harness Spike / Harness Editorial Shell / Harness Native Shell Spike 全部 PASS；Harness Editorial Shell 的 exact-pin headless SDK `--probe`、Product Shell typecheck/bundle、isolated profile 与 Browser Gate 均通过。
 
 ## 不变边界
 
@@ -192,7 +201,7 @@ Schedule / Event / Manual Product Command
 
 ### N4-B — Manual Run vertical slice
 
-**状态：IMPLEMENTED / CI PENDING**
+**状态：COMPLETE / CI PASS**
 
 首个 operation：
 
@@ -213,25 +222,42 @@ POST /api/v1/integrations/harness/scheduler/research/{research_case_id}/run-now
 → SchedulerRun succeeded / failed
 ```
 
-本批实现：
+本批已完成并自动验证：
 
-- 新增 N4 Scheduler API；
+- N4 Scheduler API；
 - `SchedulerRun` 与 Harness runtime id 分层；
 - manual idempotency key 与 payload hash duplicate protection；
 - explicit failure code / reason；
 - timeout process termination；
 - provider credential 不进入 API payload/response，失败文本做 secret redaction；
 - runtime/execution provenance；
-- 新增 out-of-tree headless runner package，不 patch Harness core；
+- out-of-tree headless runner package，不 patch Harness core；
 - `prepare_editorial_shell.py` 在 exact pin checkout 中同时准备 Product Shell 与 headless runner；
-- Harness Editorial Shell CI 新增 `runner.mjs --probe`，机械验证 exact-pin SDK public package 可解析；
-- pytest 覆盖 success / failed / idempotency / conflict / unknown/incomplete Research Case。
+- Harness Editorial Shell CI 的 `runner.mjs --probe` 机械验证 exact-pin SDK public package 可解析；
+- pytest 覆盖 success / failed / idempotency / conflict / unknown/incomplete Research Case；
+- Scheduler tests 清理自己的 process-memory Research fixture，不污染后续 read-model tests。
 
 当前限制：
 
 - `SchedulerRun` ledger 仍为 `transitional_in_memory`；
 - CI `--probe` 不使用真实 provider credential，因此不宣称 production model/provider headless content quality 已验收；
 - N4-C 前不宣称 PostgreSQL Scheduler persistence 已完成。
+
+### N4-C — Durable Task / Run model
+
+**状态：NEXT**
+
+下一步把 N4-B 已验证的 Scheduler contract 落到正式 durable repository / PostgreSQL：
+
+- SchedulerTask / SchedulerRun schema；
+- migration；
+- task/run repository；
+- idempotency unique constraint；
+- runtime/execution provenance 持久化；
+- API restart 后 run history 仍可恢复；
+- repository / migration tests。
+
+N4-C 不改变 N4-A/B 已冻结的 exact-pin Harness SDK outward seam。
 
 ### N4 后续顺序
 
