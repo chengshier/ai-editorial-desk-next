@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.editorial_api.harness_runtime import router as harness_runtime_router
 from apps.editorial_api.shell_spike import router as shell_spike_router
 from apps.editorial_api.spike_harness import router as harness_spike_router
 
@@ -27,6 +28,7 @@ if _allowed_origins:
 
 app.include_router(harness_spike_router)
 app.include_router(shell_spike_router)
+app.include_router(harness_runtime_router)
 
 
 @app.get("/healthz")
