@@ -78,13 +78,15 @@ def test_active_architecture_rejects_formal_iframe_launch_host() -> None:
     assert "Product Shell Plugin" in topology
 
 
-def test_ui_strategy_and_current_state_close_n3_and_open_n4() -> None:
+def test_ui_strategy_and_current_state_close_n3_and_start_n4() -> None:
     strategy = UI_STRATEGY.read_text(encoding="utf-8")
     state = CURRENT_STATE.read_text(encoding="utf-8")
 
     assert "S4-N3 Research Runtime Adapter           COMPLETE" in strategy
     assert "S4-N4 Scheduler / Headless Orchestration NEXT" in strategy
     assert "S4-N3 Research Runtime Adapter           COMPLETE / CI PASS" in state
-    assert "S4-N4 Scheduler / Headless Orchestration NEXT" in state
+    assert "S4-N4 Scheduler / Headless Orchestration IN_PROGRESS" in state
+    assert "N4-A exact-pin audit + Contract        COMPLETE" in state
+    assert "N4-B Manual Run vertical slice         IMPLEMENTED / CI PENDING" in state
     assert "ai-editorial-desk-runtime" in state
     assert "IWorkspaces" in state
