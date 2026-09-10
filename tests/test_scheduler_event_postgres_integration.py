@@ -165,6 +165,9 @@ async def test_failed_event_run_retries_same_logical_run(
                 retry_backoff_seconds=1,
             ),
         )
+        assert task.business_object_id == research_case_id
+        assert task.retry_max_attempts == 2
+
         dispatched = await scheduler_event.dispatch_research_completed_event(
             scheduler_event.ResearchCompletedEventRequest(
                 event_id=f"evt_{suffix}",
