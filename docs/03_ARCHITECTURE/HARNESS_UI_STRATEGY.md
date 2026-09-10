@@ -47,6 +47,7 @@ PR #15 随后验证了不同的公开 seam：
 - Opportunities Library；
 - Opportunity Inspector；
 - Research business entry / status；
+- Scheduler / Headless Task/Run status；
 - Programming / Slate；
 - Creation / Draft Studio；
 - Publication Center；
@@ -94,9 +95,10 @@ Research Case
 Evidence
 Unknown
 Conclusion / canonical result
+Scheduler Task / Run / Attempt
 ```
 
-Product Shell 通过 `HarnessRuntimeAdapter` 把两层连接起来。
+Product Shell 通过 `HarnessRuntimeAdapter` 把两层连接起来；Scheduler 状态由 Editorial API 的只读投影提供，不从 Harness transcript 推断。
 
 ## 6. Conversation View 使用边界
 
@@ -133,7 +135,9 @@ Host home
 - 直接访问 Harness private store；
 - 为 Product Shell fork/patch Harness upstream core；
 - 用 Harness Session ID 替代业务 ID；
-- 把 Candidate / Decision / Draft / Publication 真相只写进 Session。
+- 把 Candidate / Decision / Draft / Publication 真相只写进 Session；
+- 用 browser/localStorage/Harness transcript 作为 Scheduler Task / Run truth；
+- 在没有 durable Scheduler 状态时伪造后台执行结果。
 
 ## 9. 当前 Gate
 
@@ -141,16 +145,23 @@ Host home
 S4-N1 Product Shell Foundation           COMPLETE
 S4-N2 Today / Opportunities Migration    COMPLETE
 S4-N3 Research Runtime Adapter           COMPLETE
-S4-N4 Scheduler / Headless Orchestration NEXT
+S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
+  N4-A exact-pin audit + Contract        COMPLETE
+  N4-B Manual Run vertical slice         COMPLETE
+  N4-C Durable Task / Run model          COMPLETE
+  N4-D Interval / Schedule trigger       COMPLETE
+  N4-E Retry / Catch-up / History        COMPLETE
+  N4-F Event trigger + Product status UI IN_PROGRESS
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
-N4 要解决的是“标准业务动作如何在没有人工 Chat prompt 的情况下由 Schedule / Event / Manual Command 主动驱动 Harness Runtime”，而不是重新讨论 Product Shell 宿主。
+N4 当前只剩 N4-F Gate：验证 `research.completed` durable event trigger、事件幂等/重试，以及 Product Shell 的 canonical Scheduler status projection。N4 完整收口后再进入 S4-N5，不重新讨论 Product Shell 宿主。
 
 ## 10. 依据
 
 - `../ADR/ADR-0010-harness-native-product-shell.md`
 - `../04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
+- `../04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
 - `../07_DELIVERY/S4_HARNESS_NATIVE_PRODUCT_SHELL_MIGRATION.md`
 - `HARNESS_INTEGRATION.md`
 - `HARNESS_RUNTIME_TOPOLOGY.md`
