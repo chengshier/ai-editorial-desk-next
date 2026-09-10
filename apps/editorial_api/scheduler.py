@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal
@@ -76,7 +76,7 @@ _RUN_INPUT_HASH: dict[str, str] = {}
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _input_hash(*, operation: str, research_case_id: str, opportunity_id: str) -> str:
@@ -120,7 +120,7 @@ async def _stop_process(process: asyncio.subprocess.Process) -> None:
     process.terminate()
     try:
         await asyncio.wait_for(process.wait(), timeout=5)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         process.kill()
         await process.wait()
 
@@ -172,7 +172,7 @@ async def _execute_headless(payload: dict[str, Any]) -> dict[str, Any]:
             process.communicate((json.dumps(payload) + "\n").encode("utf-8")),
             timeout=timeout_seconds,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await _stop_process(process)
         return {
             "ok": False,
