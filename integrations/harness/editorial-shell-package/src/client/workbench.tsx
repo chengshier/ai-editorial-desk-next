@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { OpportunityWorkspace, type ResearchTarget } from './opportunity-workspace.tsx'
+import type { HarnessRuntimeAdapter, ResearchRuntimeStatus } from './runtime-adapter.ts'
 import { persistSection, readProductParam, readSection, sections, type SectionId, writeProductParams } from './product-state.ts'
 
 const MODE_KEY = 'ai-editorial-desk:workspace-mode'
@@ -17,6 +18,9 @@ const colors = {
   muted: '#94a3b8',
   brand: '#4f46e5',
   brandSoft: '#eef2ff',
+  success: '#15803d',
+  warning: '#a16207',
+  danger: '#b91c1c',
 }
 
 export function readMode(): WorkspaceMode {
@@ -52,19 +56,51 @@ function MigrationPlaceholder({ section }: { section: SectionId }) {
   </section>
 }
 
-function ResearchCasePanel({ target, onBack }: { target: ResearchTarget | null; onBack(): void }) {
+function RuntimeStatusCard({ status, onRetry }: { status: ResearchRuntimeStatus | null; onRetry(): void }) {
+  if (!status) return <div style={{ marginTop: 14, padding: 10, borderRadius: 9, background: '#f8fafc', color: colors.muted, fontSize: 10, lineHeight: 1.6 }}>等待 Research Case 后建立 Harness runtime binding。</div>
+  const failed = status.phase === 'error'
+  const ready = status.phase === 'ready'
+  const palette = failed
+    ? { background: '#fff7f7', color: colors.danger, border: '#fecaca' }
+    : ready
+      ? { background: '#f0fdf4', color: colors.success, border: '#bbf7d0' }
+      : { background: '#fff7ed', color: colors.warning, border: '#fed7aa' }
+  return <div role={failed ? 'alert' : 'status'} style={{ marginTop: 14, padding: 10, borderRadius: 9, border: `1px solid ${palette.border}`, background: palette.background, color: palette.color, fontSize: 10, lineHeight: 1.65 }}>
+    <strong style={{ display: 'block', marginBottom: 3 }}>
+      {ready ? 'Runtime Ready' : failed ? 'Runtime Error' : 'Runtime Working'}
+    </strong>
+    <div>{status.message}</div>
+    {status.sessionId ? <div style={{ marginTop: 5, wordBreak: 'break-all' }}>Harness Session: <code>{status.sessionId}</code></div> : null}
+    {status.error ? <div style={{ marginTop: 5 }}>{status.error}</div> : null}
+    {failed ? <button type="button" onClick={onRetry} style={{ marginTop: 8, border: `1px solid ${palette.border}`, borderRadius: 7, background: '#fff', padding: '5px 8px', color: colors.danger, cursor: 'pointer', fontSize: 10 }}>重新连接 Runtime</button> : null}
+  </div>
+}
+
+function ResearchCasePanel({
+  target,
+  runtimeStatus,
+  onRetryRuntime,
+  onBack,
+}: {
+  target: ResearchTarget | null
+  runtimeStatus: ResearchRuntimeStatus | null
+  onRetryRuntime(): void
+  onBack(): void
+}) {
   return <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 14 }}>
     <div style={{ background: colors.panel, border: `1px solid ${colors.border}`, borderRadius: 14, padding: 22 }}>
-      <div style={{ color: colors.brand, fontSize: 10, fontWeight: 850 }}>S4-N2 · RESEARCH CASE ENTRY</div>
+      <div style={{ color: colors.brand, fontSize: 10, fontWeight: 850 }}>S4-N3 · RESEARCH RUNTIME ADAPTER</div>
       <h2 style={{ margin: '8px 0 6px', fontSize: 20 }}>{target ? 'Research Case 已就绪' : '研究'}</h2>
       {target ? <>
         <p style={{ color: colors.text, fontSize: 12, lineHeight: 1.7 }}>
-          Product Shell 已创建或恢复业务 Research Case。下一批 N3 会由 Runtime Adapter 自动绑定 Harness Session、rehydrate 业务上下文并执行 Agent；不要求用户进入聊天框手工 prompt。
+          Product Shell 保持 Research Case 为业务主身份，并主动恢复或创建 Harness Session。Research 完成后 Runtime Adapter 会通过 Session.prompt() 要求 Agent 读取这个既有 Case 的结构化结果，不需要进入 Harness 聊天框手工触发。
         </p>
         <dl style={{ display: 'grid', gap: 9, margin: '18px 0 0' }}>
-          <div><dt style={{ color: colors.muted, fontSize: 10 }}>research_case_id</dt><dd style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 800 }}>{target.researchCaseId}</dd></div>
-          <div><dt style={{ color: colors.muted, fontSize: 10 }}>opportunity_id</dt><dd style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 800 }}>{target.opportunityId}</dd></div>
+          <div><dt style={{ color: colors.muted, fontSize: 10 }}>research_case_id · business</dt><dd style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 800 }}>{target.researchCaseId}</dd></div>
+          <div><dt style={{ color: colors.muted, fontSize: 10 }}>opportunity_id · business</dt><dd style={{ margin: '3px 0 0', fontSize: 12, fontWeight: 800 }}>{target.opportunityId}</dd></div>
+          {runtimeStatus?.sessionId ? <div><dt style={{ color: colors.muted, fontSize: 10 }}>harness_session_id · runtime metadata</dt><dd style={{ margin: '3px 0 0', fontSize: 11, color: colors.text, wordBreak: 'break-all' }}>{runtimeStatus.sessionId}</dd></div> : null}
         </dl>
+        <RuntimeStatusCard status={runtimeStatus} onRetry={onRetryRuntime}/>
       </> : <p style={{ color: colors.text, fontSize: 12, lineHeight: 1.7 }}>从“今日视野”或“全部机会”的 Inspector 进入研究；Product Shell 始终以 Research Case 业务 ID 为主键。</p>}
       <button type="button" onClick={onBack} style={{ marginTop: 18, border: `1px solid ${colors.border}`, borderRadius: 8, background: colors.panel, padding: '8px 11px', color: colors.text, fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>返回机会</button>
     </div>
@@ -73,18 +109,36 @@ function ResearchCasePanel({ target, onBack }: { target: ResearchTarget | null; 
       <div style={{ marginTop: 10, color: colors.text, fontSize: 11, lineHeight: 1.75 }}>
         <div>业务事实：Editorial API</div>
         <div>Agent Runtime：DeepSeek Harness</div>
-        <div>Session / Job：运行时对象</div>
+        <div>Session / Replay：运行时对象</div>
         <div>业务主键：Research Case</div>
       </div>
-      <div style={{ marginTop: 14, padding: 10, borderRadius: 9, background: '#fff7ed', color: '#9a3412', fontSize: 10, lineHeight: 1.6 }}>N3 未完成前，这里不会伪造“Agent 已开始研究”。</div>
+      <div style={{ marginTop: 14, padding: 10, borderRadius: 9, background: '#eef2ff', color: colors.brand, fontSize: 10, lineHeight: 1.6 }}>Session 丢失时可以重建并 rehydrate；Harness runtime failure 不会删除或替代 Research Case。</div>
     </aside>
   </section>
 }
 
-export function EditorialWorkbenchRoot() {
+export function EditorialWorkbenchRoot({ runtimeAdapter }: { runtimeAdapter: HarnessRuntimeAdapter }) {
   const [section, setSection] = useState<SectionId>(() => readSection())
   const [researchTarget, setResearchTarget] = useState<ResearchTarget | null>(() => readResearchTarget())
+  const [runtimeStatus, setRuntimeStatus] = useState<ResearchRuntimeStatus | null>(null)
+  const [runtimeRevision, setRuntimeRevision] = useState(0)
   const apiBase = readApiBase()
+
+  useEffect(() => {
+    if (!researchTarget) {
+      setRuntimeStatus(null)
+      return
+    }
+    let active = true
+    setRuntimeStatus({ phase: 'resolving', message: '正在建立 Research Case 的 Harness runtime binding…' })
+    void runtimeAdapter.ensureResearch(researchTarget, status => {
+      if (active) setRuntimeStatus(status)
+    }).catch(() => {
+      // Runtime Adapter already publishes the structured error. Research Case
+      // remains canonical and the Product Shell stays usable.
+    })
+    return () => { active = false }
+  }, [runtimeAdapter, researchTarget, runtimeRevision])
 
   const chooseSection = (next: SectionId): void => {
     if (next !== section) {
@@ -99,6 +153,7 @@ export function EditorialWorkbenchRoot() {
 
   const openResearchTarget = (target: ResearchTarget): void => {
     setResearchTarget(target)
+    setRuntimeStatus({ phase: 'resolving', message: 'Research Case 已建立，正在连接 Harness Runtime…' })
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href)
       url.searchParams.set('ed_research_case', target.researchCaseId)
@@ -142,7 +197,7 @@ export function EditorialWorkbenchRoot() {
     <main style={{ minWidth: 0, padding: '22px 24px 40px' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', gap: 20, marginBottom: 18 }}>
         <div>
-          <div style={{ color: colors.brand, fontSize: 10, fontWeight: 850, letterSpacing: '.06em' }}>S4-N2 · HARNESS-NATIVE</div>
+          <div style={{ color: colors.brand, fontSize: 10, fontWeight: 850, letterSpacing: '.06em' }}>S4-N3 · HARNESS-NATIVE</div>
           <h1 style={{ margin: '6px 0 5px', fontSize: 24 }}>{sections.find(item => item.id === section)?.label}</h1>
           <p style={{ margin: 0, color: colors.text, fontSize: 12 }}>结构化业务工作台直接运行在 DeepSeek Harness Web 内；业务事实来自 Editorial API。</p>
         </div>
@@ -153,7 +208,12 @@ export function EditorialWorkbenchRoot() {
 
       {section === 'today' ? <OpportunityWorkspace key="today" apiBase={apiBase} kind="today" onResearchTarget={openResearchTarget}/>
         : section === 'opportunities' ? <OpportunityWorkspace key="opportunities" apiBase={apiBase} kind="library" onResearchTarget={openResearchTarget}/>
-          : section === 'research' ? <ResearchCasePanel target={researchTarget} onBack={() => chooseSection('opportunities')}/>
+          : section === 'research' ? <ResearchCasePanel
+              target={researchTarget}
+              runtimeStatus={runtimeStatus}
+              onRetryRuntime={() => setRuntimeRevision(value => value + 1)}
+              onBack={() => chooseSection('opportunities')}
+            />
             : <MigrationPlaceholder section={section}/>} 
     </main>
   </div>
