@@ -1,0 +1,141 @@
+name: Harness Editorial Shell
+
+on:
+  pull_request:
+    paths:
+      - "integrations/harness/editorial-shell-package/**"
+      - "integrations/harness/scripts/prepare_editorial_shell.py"
+      - "apps/editorial_api/main.py"
+      - "tests/browser/harness-editorial-shell.cjs"
+      - ".github/workflows/harness-editorial-shell.yml"
+
+jobs:
+  editorial-shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout AI Editorial Desk Next
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned DeepSeek Harness
+        uses: actions/checkout@v4
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
+          path: .harness-upstream
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Ruff
+        run: python -m ruff check apps packages tests integrations/harness/scripts
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+
+      - name: Install pristine Harness workspace
+        working-directory: .harness-upstream
+        run: pnpm install --frozen-lockfile
+
+      - name: Build pristine pinned Harness
+        working-directory: .harness-upstream
+        run: pnpm run build
+
+      - name: Prepare formal Editorial Shell
+        run: python integrations/harness/scripts/prepare_editorial_shell.py .harness-upstream
+
+      - name: Reconcile Harness workspace
+        working-directory: .harness-upstream
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Typecheck formal Editorial Shell
+        working-directory: .harness-upstream
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm exec tsc -b packages/client/editorial-shell/tsconfig.json 2>&1 \
+            | tee /tmp/editorial-shell-typecheck.log
+
+      - name: Bundle formal Editorial Shell
+        working-directory: .harness-upstream
+        run: pnpm --filter @ai-editorial-desk/harness-editorial-shell run bundle
+
+      - name: Install formal Editorial Shell into isolated Harness profile
+        working-directory: .harness-upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DSH_HOME="$PWD/.dsh-editorial-shell-home"
+          pnpm dsh plugin --profile web add ./packages/client/editorial-shell
+
+      - name: Install browser probe
+        shell: bash
+        run: |
+          mkdir -p /tmp/editorial-shell-browser-probe
+          cd /tmp/editorial-shell-browser-probe
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Boot Editorial API and formal Harness Product Shell
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          API_PID=""
+          HARNESS_PID=""
+          cleanup() {
+            if [[ -n "${HARNESS_PID:-}" ]]; then kill "$HARNESS_PID" 2>/dev/null || true; fi
+            if [[ -n "${API_PID:-}" ]]; then kill "$API_PID" 2>/dev/null || true; fi
+          }
+          trap cleanup EXIT
+
+          python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 18000 >/tmp/editorial-shell-api.log 2>&1 &
+          API_PID=$!
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18000/healthz >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18000/api/v1/spike/opportunities >/tmp/editorial-shell-opportunities.json
+
+          (
+            cd .harness-upstream
+            export DSH_HOME="$PWD/.dsh-editorial-shell-home"
+            pnpm dsh web >/tmp/editorial-shell-harness.log 2>&1
+          ) &
+          HARNESS_PID=$!
+          for _ in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3080/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3080/ >/dev/null
+
+          PLAYWRIGHT_MODULE=/tmp/editorial-shell-browser-probe/node_modules/playwright \
+            node tests/browser/harness-editorial-shell.cjs
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-editorial-shell-${{ github.run_id }}
+          path: |
+            /tmp/editorial-shell-typecheck.log
+            /tmp/editorial-shell-api.log
+            /tmp/editorial-shell-harness.log
+            /tmp/editorial-shell-opportunities.json
+            /tmp/editorial-shell-browser.log
+            /tmp/editorial-shell-browser.png
+            /tmp/editorial-shell-browser-body.txt
+          if-no-files-found: ignore
+          retention-days: 7
