@@ -107,7 +107,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18000/healthz >/dev/null; then break; fi
             sleep 1
           done
-          curl --fail --silent http://127.0.0.1:18000/api/v1/spike/opportunities >/tmp/editorial-shell-opportunities.json
+          curl --fail --silent http://127.0.0.1:18000/api/v1/spike/shell/opportunities >/tmp/editorial-shell-opportunities.json
 
           (
             cd .harness-upstream
