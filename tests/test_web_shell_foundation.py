@@ -27,7 +27,7 @@ def test_web_shell_owns_frozen_product_routes() -> None:
         assert route in app
 
 
-def test_research_navigation_has_global_hub_and_case_workspace() -> None:
+def test_research_navigation_is_preserved_only_as_legacy_reference() -> None:
     app = APP.read_text(encoding="utf-8")
 
     top_nav = (WEB / "components" / "shell" / "TopNav.tsx").read_text(encoding="utf-8")
@@ -35,7 +35,9 @@ def test_research_navigation_has_global_hub_and_case_workspace() -> None:
     assert "['/research', '研究']" in top_nav
     assert "['/research', '正在研究', FolderKanban]" in sidebar
     assert "ResearchIndexPage" in app
-    assert "Research Hub → Research Case → Harness Workspace" in app
+    assert "Legacy migration reference only" in app
+    assert "正式 Research 产品入口已迁入 Harness-native Product Shell" in app
+    assert "正式入口：<strong>DeepSeek Harness Web → AI Editorial Desk Product Shell</strong>" in app
     assert "primary-nav__item--disabled" not in app
 
 
