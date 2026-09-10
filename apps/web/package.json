@@ -2,6 +2,7 @@
   "name": "@ai-editorial-desk/web",
   "private": true,
   "version": "0.0.0",
+  "description": "Retired production host; migration/reference shell only. Formal Product Shell runs inside DeepSeek Harness.",
   "type": "module",
   "scripts": {
     "dev": "vite",
