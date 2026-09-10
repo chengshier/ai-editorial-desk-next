@@ -12,6 +12,41 @@ async function optionalVisible(locator, timeout = 5_000) {
   return locator.waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false)
 }
 
+async function openProductShellWhenHarnessIsReady(page, base, diagnostics) {
+  const deadline = Date.now() + 75_000
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+
+    // `dsh web` starts listening before every browser-side Cordis service is
+    // necessarily ready. Opening the page in that short window can produce the
+    // exact-pin Harness "Failed to load plugins" screen with core entries still
+    // waiting for `connection` / `remote`. That is a boot-readiness race, not a
+    // Product Shell acceptance failure. Reload only that explicit Harness boot
+    // state; the final Product Shell assertions below remain strict.
+    const bootFailure = page.getByText('Failed to load plugins', { exact: true })
+    if (await optionalVisible(bootFailure, 5_000)) {
+      const body = await page.locator('body').innerText().catch(() => '')
+      diagnostics.push(`[harness-boot-retry:${attempt}] ${body.slice(0, 1200)}`)
+      await page.waitForTimeout(1_500)
+      continue
+    }
+
+    const productShell = page.getByText('AI Editorial Desk', { exact: true }).first()
+    if (await optionalVisible(productShell, 12_000)) {
+      if (attempt > 1) diagnostics.push(`[harness-boot-ready] recovered on attempt ${attempt}`)
+      return
+    }
+
+    diagnostics.push(`[harness-boot-retry:${attempt}] HTTP is up but Product Shell is not visible yet`)
+    await page.waitForTimeout(1_500)
+  }
+
+  throw new Error('Harness Web did not reach a fully activated Product Shell state within 75s')
+}
+
 async function dismissHarnessFirstUseModals(page) {
   const internalTestingNotice = page.getByText('Internal Testing Notice', { exact: true })
   if (await optionalVisible(internalTestingNotice)) {
@@ -55,8 +90,7 @@ async function main() {
   page.on('requestfailed', request => diagnostics.push(`[requestfailed] ${request.method()} ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`))
 
   try {
-    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-    await page.getByText('AI Editorial Desk', { exact: true }).first().waitFor({ state: 'visible', timeout: 30_000 })
+    await openProductShellWhenHarnessIsReady(page, base, diagnostics)
     await page.getByText('Harness-native Product Shell', { exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
     await page.getByRole('heading', { name: '今日视野', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
     await page.getByText('洗碗机真的可能比手洗更省水吗？', { exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
