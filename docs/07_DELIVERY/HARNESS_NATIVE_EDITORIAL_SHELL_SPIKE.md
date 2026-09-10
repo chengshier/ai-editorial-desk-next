@@ -92,8 +92,35 @@ Schedule / Event / Manual Command
 
 运行时间、频率、启停、Catch-up 与运行历史均属于 Editorial 配置，不属于 Harness Session。
 
+## 自动化验证结果
+
+最新 Spike head 已通过三套 CI：
+
+```text
+CI                         PASS
+Harness Spike              PASS
+Harness Native Shell Spike PASS
+```
+
+`Harness Native Shell Spike` 已在固定 DeepSeek Harness 基线上完成并通过：
+
+```text
+pristine Harness build                 PASS
+headless agent execution without Web   PASS
+native shell plugin typecheck          PASS
+native shell plugin bundle             PASS
+isolated profile plugin install        PASS
+real Harness Web boot                  PASS
+AI Editorial Desk root takeover        PASS
+Editorial API data read                PASS
+AI Editorial Desk → stock Harness      PASS
+stock Harness → AI Editorial Desk      PASS
+```
+
+其中原生 Harness 首次进入时的 `Internal Testing Notice` 与 API Key onboarding 均按真实用户流程处理，不通过 force click、DOM hack 或修改 upstream core 绕过。
+
 ## 当前状态
 
-`IN_PROGRESS`
+`AUTOMATED_ACCEPTANCE_PASS / LOCAL_WINDOWS_ACCEPTANCE_PENDING`
 
-在 CI 与真实浏览器验证完成之前，不得把本路线标记为 Accepted，也不得替换当前正式架构决定。
+自动化 Spike 已证明该路线在固定 Harness 基线上技术可行；在 Windows 本地真实安装、启动和人工工作台切换验收完成前，不把本路线标记为最终正式架构，也不替换当前正式 S4。
