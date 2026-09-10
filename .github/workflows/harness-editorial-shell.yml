@@ -9,12 +9,17 @@ on:
       - "apps/editorial_api/main.py"
       - "apps/editorial_api/harness_runtime.py"
       - "apps/editorial_api/scheduler.py"
+      - "apps/editorial_api/scheduler_persistence.py"
+      - "apps/editorial_api/scheduler_retry.py"
+      - "apps/editorial_api/scheduler_event.py"
+      - "apps/editorial_api/scheduler_event_store.py"
       - "apps/editorial_api/shell_spike.py"
       - "apps/editorial_api/spike_harness.py"
       - "tests/browser/harness-editorial-shell.cjs"
       - "tests/test_harness_runtime_adapter.py"
       - "tests/test_harness_editorial_shell_migration.py"
       - "tests/test_scheduler_orchestration.py"
+      - "tests/test_scheduler_event_postgres_integration.py"
       - ".github/workflows/harness-editorial-shell.yml"
 
 jobs:
