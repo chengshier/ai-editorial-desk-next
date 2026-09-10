@@ -108,13 +108,13 @@ jobs:
           }
           trap cleanup EXIT
 
-          python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 8000 >/tmp/native-shell-api.log 2>&1 &
+          python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 18000 >/tmp/native-shell-api.log 2>&1 &
           API_PID=$!
           for _ in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:8000/healthz >/dev/null; then break; fi
+            if curl --fail --silent http://127.0.0.1:18000/healthz >/dev/null; then break; fi
             sleep 1
           done
-          curl --fail --silent http://127.0.0.1:8000/api/v1/spike/opportunities >/tmp/native-shell-opportunities.json
+          curl --fail --silent http://127.0.0.1:18000/api/v1/spike/opportunities >/tmp/native-shell-opportunities.json
 
           (
             cd .harness-upstream
