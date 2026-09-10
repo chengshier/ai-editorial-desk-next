@@ -23,7 +23,8 @@ S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
 S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
 S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
   N4-A exact-pin audit + Contract        COMPLETE
-  N4-B Manual Run vertical slice         IMPLEMENTED / CI PENDING
+  N4-B Manual Run vertical slice         COMPLETE / CI PASS
+  N4-C Durable Task / Run model          NEXT
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
@@ -41,6 +42,23 @@ Harness Spike              PASS
 Harness Editorial Shell    PASS
 Harness Native Shell Spike PASS
 ```
+
+N4-B 收口验证 head：
+
+```text
+6dc7a883cec849e25509cbc5f085ac351e3383de
+```
+
+该 head 四套 workflow 全绿：
+
+```text
+CI                         PASS
+Harness Spike              PASS
+Harness Editorial Shell    PASS
+Harness Native Shell Spike PASS
+```
+
+其中 Harness Editorial Shell 已实际通过 exact-pin headless SDK `--probe`、Product Shell typecheck/bundle、isolated profile 与 Browser Gate。
 
 ---
 
@@ -161,9 +179,9 @@ exact-pinned Harness 审计结论：
 
 ### N4-B — Manual Run vertical slice
 
-**状态：IMPLEMENTED / CI PENDING**
+**状态：COMPLETE / CI PASS**
 
-已提交：
+正式接口：
 
 ```text
 POST /api/v1/integrations/harness/scheduler/research/{research_case_id}/run-now
@@ -180,7 +198,7 @@ research.rehydrate
 → SchedulerRun succeeded / failed
 ```
 
-当前实现已经包含：
+已验证：
 
 - `SchedulerRun` 业务 ID 与 Harness Session runtime metadata 分离；
 - manual run idempotency / duplicate protection；
@@ -190,9 +208,16 @@ research.rehydrate
 - credential/error redaction；
 - execution/runtime provenance；
 - exact-pin headless runner `--probe` CI seam；
-- 不依赖 Web UI / iframe / DOM / private Harness API。
+- 不依赖 Web UI / iframe / DOM / private Harness API；
+- N4 新测试不会向其他 Spike tests 泄漏 process-memory Research fixture 状态。
 
 当前 `SchedulerRun` ledger 仍明确是 `transitional_in_memory`。**N4-C 完成 PostgreSQL durable Task/Run 前，不得宣称 Scheduler persistence 已完成。**
+
+### N4-C — Durable Task / Run model
+
+**状态：NEXT**
+
+下一 Gate 是把当前已验证的 SchedulerRun contract 从 transitional in-memory ledger 迁入正式 repository / PostgreSQL，并建立 durable SchedulerTask / SchedulerRun schema、migration 与 repository tests；不改变 N4-A/B 已冻结的 SDK outward seam。
 
 ### N4 后续
 
