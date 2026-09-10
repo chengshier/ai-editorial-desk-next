@@ -6,7 +6,9 @@ from uuid import uuid4
 
 import pytest
 
+from apps.editorial_api import scheduler
 from apps.editorial_api.scheduler_persistence import SchedulerPostgresStore
+from apps.editorial_api.spike_harness import _RESEARCH, _RESEARCH_LOCK, _ResearchRecord
 
 
 @pytest.mark.asyncio
@@ -131,3 +133,74 @@ async def test_interval_task_claim_is_restart_safe_and_single_consumer() -> None
     )
     assert still_not_claimed == []
     await restarted.close()
+
+
+@pytest.mark.asyncio
+async def test_interval_tick_creates_one_scheduled_run_with_business_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = os.getenv("SCHEDULER_POSTGRES_TEST_URL")
+    if not database_url:
+        pytest.skip("PostgreSQL integration URL is not configured")
+
+    suffix = uuid4().hex
+    research_case_id = f"rc_{suffix[:12]}"
+    opportunity_id = "opp_dishwasher_water"
+    now = datetime.now(UTC)
+    store = SchedulerPostgresStore(database_url)
+    monkeypatch.setattr(scheduler, "_durable_store", lambda: store)
+
+    async def fake_execute(payload: dict[str, object]) -> dict[str, object]:
+        return {
+            "ok": True,
+            "scheduler_run_id": payload["scheduler_run_id"],
+            "operation": payload["operation"],
+            "research_case_id": payload["research_case_id"],
+            "opportunity_id": payload["opportunity_id"],
+            "harness_session_id": "session-scheduled-runtime",
+            "completion_signal": "agent_idle+canonical_tool_result",
+            "tool_result_observed": True,
+            "harness_commit": scheduler.HARNESS_COMMIT,
+            "harness_release": scheduler.HARNESS_RELEASE,
+            "execution_seam": scheduler.EXECUTION_SEAM,
+            "provider": "deepseek-official",
+            "model": "deepseek-v4-flash",
+        }
+
+    monkeypatch.setattr(scheduler, "_execute_headless", fake_execute)
+    with _RESEARCH_LOCK:
+        _RESEARCH[research_case_id] = _ResearchRecord(
+            research_case_id=research_case_id,
+            opportunity_id=opportunity_id,
+            goal="integration",
+            completed=True,
+        )
+
+    try:
+        task = await scheduler.create_interval_task(
+            research_case_id,
+            scheduler.IntervalTaskRequest(
+                interval_seconds=300,
+                first_run_at=now - timedelta(seconds=1),
+            ),
+        )
+        assert task.business_object_id == research_case_id
+        assert task.next_run_at == now - timedelta(seconds=1)
+
+        runs = await scheduler.run_scheduler_tick(scheduler.SchedulerTickRequest(now=now))
+        matching = [run for run in runs if run.task_id == task.task_id]
+        assert len(matching) == 1
+        run = matching[0]
+        assert run.trigger_kind == "schedule"
+        assert run.business_object_id == research_case_id
+        assert run.opportunity_id == opportunity_id
+        assert run.status == "succeeded"
+        assert run.runtime_provenance.harness_session_id == "session-scheduled-runtime"
+        assert run.idempotency_key.startswith(f"schedule:{task.task_id}:")
+
+        second_tick = await scheduler.run_scheduler_tick(scheduler.SchedulerTickRequest(now=now))
+        assert all(item.task_id != task.task_id for item in second_tick)
+    finally:
+        with _RESEARCH_LOCK:
+            _RESEARCH.pop(research_case_id, None)
+        await store.close()
