@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text, UniqueConstraint, select
@@ -61,11 +61,7 @@ class SchedulerRunRow(Base):
 
 
 class SchedulerPostgresStore:
-    """Durable Scheduler Task/Run repository backed by PostgreSQL.
-
-    The repository stores business identity and execution/runtime provenance separately.
-    Harness session ids are runtime metadata only and never participate in primary keys.
-    """
+    """Durable Scheduler Task/Run repository backed by PostgreSQL."""
 
     def __init__(self, database_url: str) -> None:
         self.engine: AsyncEngine = create_async_engine(database_url, pool_pre_ping=True)
@@ -77,10 +73,101 @@ class SchedulerPostgresStore:
     async def close(self) -> None:
         await self.engine.dispose()
 
+    async def get_task(self, task_id: str) -> dict[str, Any] | None:
+        async with self.sessions() as session:
+            row = await session.get(SchedulerTaskRow, task_id)
+            return _task_to_wire(row) if row is not None else None
+
+    async def upsert_interval_task(self, task: dict[str, Any]) -> dict[str, Any]:
+        async with self.sessions() as session:
+            row = await session.get(SchedulerTaskRow, task["task_id"])
+            if row is None:
+                row = SchedulerTaskRow(
+                    task_id=str(task["task_id"]),
+                    operation=str(task["operation"]),
+                    business_object_type=str(task["business_object_type"]),
+                    business_object_id=str(task["business_object_id"]),
+                    trigger_kind="schedule",
+                    enabled=bool(task["enabled"]),
+                    schedule_kind="interval",
+                    schedule_expression=str(task["interval_seconds"]),
+                    next_run_at=task["next_run_at"],
+                    created_at=task["created_at"],
+                    updated_at=task["updated_at"],
+                )
+                session.add(row)
+            else:
+                if (
+                    row.operation != task["operation"]
+                    or row.business_object_type != task["business_object_type"]
+                    or row.business_object_id != task["business_object_id"]
+                ):
+                    raise ValueError("task_id is already bound to a different business operation")
+                row.enabled = bool(task["enabled"])
+                row.schedule_kind = "interval"
+                row.schedule_expression = str(task["interval_seconds"])
+                row.next_run_at = task["next_run_at"]
+                row.updated_at = task["updated_at"]
+            await session.commit()
+            return _task_to_wire(row)
+
+    async def set_task_enabled(
+        self,
+        task_id: str,
+        *,
+        enabled: bool,
+        updated_at: datetime,
+    ) -> dict[str, Any] | None:
+        async with self.sessions() as session:
+            row = await session.get(SchedulerTaskRow, task_id)
+            if row is None:
+                return None
+            row.enabled = enabled
+            row.updated_at = updated_at
+            await session.commit()
+            return _task_to_wire(row)
+
+    async def claim_due_interval_tasks(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Atomically claim due tasks with PostgreSQL row locks and advance next_run_at."""
+        async with self.sessions() as session:
+            async with session.begin():
+                result = await session.execute(
+                    select(SchedulerTaskRow)
+                    .where(
+                        SchedulerTaskRow.enabled.is_(True),
+                        SchedulerTaskRow.schedule_kind == "interval",
+                        SchedulerTaskRow.next_run_at.is_not(None),
+                        SchedulerTaskRow.next_run_at <= now,
+                    )
+                    .order_by(SchedulerTaskRow.next_run_at.asc())
+                    .with_for_update(skip_locked=True)
+                    .limit(limit)
+                )
+                claimed: list[dict[str, Any]] = []
+                for row in result.scalars():
+                    claimed_for_at = row.next_run_at
+                    try:
+                        interval_seconds = int(row.schedule_expression or "")
+                    except ValueError as exc:
+                        raise RuntimeError(f"invalid interval task {row.task_id}") from exc
+                    if interval_seconds <= 0:
+                        raise RuntimeError(f"invalid interval task {row.task_id}")
+                    row.next_run_at = now + timedelta(seconds=interval_seconds)
+                    row.updated_at = now
+                    wire = _task_to_wire(row)
+                    wire["claimed_for_at"] = claimed_for_at
+                    claimed.append(wire)
+            return claimed
+
     async def get_run(self, run_id: str) -> dict[str, Any] | None:
         async with self.sessions() as session:
             row = await session.get(SchedulerRunRow, run_id)
-            return _row_to_wire(row) if row is not None else None
+            return _run_to_wire(row) if row is not None else None
 
     async def get_by_idempotency(self, idempotency_key: str) -> dict[str, Any] | None:
         async with self.sessions() as session:
@@ -90,15 +177,15 @@ class SchedulerPostgresStore:
                 )
             )
             row = result.scalar_one_or_none()
-            return _row_to_wire(row) if row is not None else None
+            return _run_to_wire(row) if row is not None else None
 
     async def create_run(self, run: dict[str, Any], input_hash: str) -> tuple[dict[str, Any], bool]:
         async with self.sessions() as session:
-            row = _wire_to_row(run, input_hash)
+            row = _wire_to_run_row(run, input_hash)
             session.add(row)
             try:
                 await session.commit()
-                return _row_to_wire(row), False
+                return _run_to_wire(row), False
             except IntegrityError:
                 await session.rollback()
                 existing = await session.execute(
@@ -109,7 +196,7 @@ class SchedulerPostgresStore:
                 found = existing.scalar_one_or_none()
                 if found is None:
                     raise
-                return _row_to_wire(found), True
+                return _run_to_wire(found), True
 
     async def update_run(self, run: dict[str, Any]) -> dict[str, Any]:
         async with self.sessions() as session:
@@ -123,7 +210,7 @@ class SchedulerPostgresStore:
             row.runtime_provenance = dict(run["runtime_provenance"])
             row.execution_provenance = dict(run["execution_provenance"])
             await session.commit()
-            return _row_to_wire(row)
+            return _run_to_wire(row)
 
     async def list_runs(self, *, business_object_id: str, limit: int = 50) -> list[dict[str, Any]]:
         async with self.sessions() as session:
@@ -133,7 +220,7 @@ class SchedulerPostgresStore:
                 .order_by(SchedulerRunRow.started_at.desc())
                 .limit(limit)
             )
-            return [_row_to_wire(row) for row in result.scalars()]
+            return [_run_to_wire(row) for row in result.scalars()]
 
 
 def scheduler_database_url() -> str | None:
@@ -141,7 +228,7 @@ def scheduler_database_url() -> str | None:
     return raw or None
 
 
-def _wire_to_row(run: dict[str, Any], input_hash: str) -> SchedulerRunRow:
+def _wire_to_run_row(run: dict[str, Any], input_hash: str) -> SchedulerRunRow:
     return SchedulerRunRow(
         run_id=str(run["run_id"]),
         task_id=run.get("task_id"),
@@ -163,7 +250,24 @@ def _wire_to_row(run: dict[str, Any], input_hash: str) -> SchedulerRunRow:
     )
 
 
-def _row_to_wire(row: SchedulerRunRow) -> dict[str, Any]:
+def _task_to_wire(row: SchedulerTaskRow) -> dict[str, Any]:
+    return {
+        "task_id": row.task_id,
+        "operation": row.operation,
+        "business_object_type": row.business_object_type,
+        "business_object_id": row.business_object_id,
+        "trigger_kind": row.trigger_kind,
+        "enabled": row.enabled,
+        "schedule_kind": row.schedule_kind,
+        "schedule_expression": row.schedule_expression,
+        "next_run_at": row.next_run_at,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+        "persistence": "postgresql",
+    }
+
+
+def _run_to_wire(row: SchedulerRunRow) -> dict[str, Any]:
     return {
         "run_id": row.run_id,
         "task_id": row.task_id,
