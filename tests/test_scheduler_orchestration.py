@@ -1,5 +1,3 @@
-from collections.abc import AsyncIterator
-
 import pytest
 from fastapi.testclient import TestClient
 
