@@ -1,7 +1,11 @@
 import type {
   ClientContext,
   ConversationSnapshot,
+  ISessions,
+  IWorkspaces,
   SessionId,
+  SessionListState,
+  WorkspaceListState,
 } from '@deepseek-ai/dsh-client-runtime/client'
 
 export type ResearchRuntimePhase =
@@ -52,6 +56,21 @@ interface ResearchProgressWire {
 interface ObservableSource<T> {
   getSnapshot(): T
   subscribe(listener: () => void): () => void
+}
+
+interface ConversationViewsReadFace {
+  get(key: string): unknown
+}
+
+function sessionsOf(ctx: ClientContext): ISessions {
+  // ClientContext is the Cordis root context. In a feature package its service
+  // properties can be widened by other declaration merges, so restore the
+  // exact public Harness outward face at this integration boundary.
+  return ctx.sessions as unknown as ISessions
+}
+
+function workspacesOf(ctx: ClientContext): IWorkspaces {
+  return ctx.workspaces as unknown as IWorkspaces
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -113,7 +132,12 @@ function sleep(ms: number): Promise<void> {
 }
 
 function hasDurableResearchResult(snapshot: ConversationSnapshot, researchCaseId: string): boolean {
-  const chat = snapshot.views.get('chat')
+  // ConversationSnapshot.views is registry-typed. The formal Product Shell does
+  // not own or augment Harness's chat registry vocabulary, so consume only the
+  // public read shape we need instead of importing the whole conversation UI
+  // package merely to widen a generic key map.
+  const views = (snapshot as unknown as { views: ConversationViewsReadFace }).views
+  const chat = views.get('chat')
   if (!isRecord(chat)) return false
   const legacy = chat.legacy
   if (!isRecord(legacy) || !Array.isArray(legacy.nodes)) return false
@@ -192,8 +216,10 @@ async function resolveSession(
   target: ResearchRuntimeTarget,
   initial: ResearchBindingWire,
 ): Promise<{ binding: ResearchBindingWire; sessionId: SessionId }> {
-  const sessions = await waitForSnapshot(
-    ctx.sessions.list,
+  const sessionService = sessionsOf(ctx)
+  const workspaceService = workspacesOf(ctx)
+  const sessions = await waitForSnapshot<SessionListState>(
+    sessionService.list,
     snapshot => snapshot.phase === 'ready',
     15_000,
     'Harness session baseline',
@@ -202,13 +228,13 @@ async function resolveSession(
   if (requestedRaw) {
     const requested = requestedRaw as SessionId
     if (sessions.byId[requested] !== undefined) {
-      ctx.sessions.open(requested)
+      sessionService.open(requested)
       return { binding: initial, sessionId: requested }
     }
   }
 
-  const workspaces = await waitForSnapshot(
-    ctx.workspaces.list,
+  const workspaces = await waitForSnapshot<WorkspaceListState>(
+    workspaceService.list,
     snapshot => snapshot.baselinesReady,
     15_000,
     'Harness workspace baseline',
@@ -217,8 +243,8 @@ async function resolveSession(
   if (workspaceId === undefined) {
     throw new Error('Harness has no Workspace available. Register or open a Workspace before running Research.')
   }
-  const sessionId = await ctx.workspaces.connectWorkspace(workspaceId)
-  ctx.sessions.open(sessionId)
+  const sessionId = await workspaceService.connectWorkspace(workspaceId)
+  sessionService.open(sessionId)
   const rebound = await bindSession(apiBase, target.researchCaseId, sessionId)
   return { binding: rebound, sessionId }
 }
@@ -251,7 +277,8 @@ async function ensureResearchRuntime(
     }
   }
 
-  const runtimeBinding = ctx.sessions.binding(sessionId)
+  const sessionService = sessionsOf(ctx)
+  const runtimeBinding = sessionService.binding(sessionId)
   if (runtimeBinding === undefined) throw new Error(`Harness Session ${sessionId} has no runtime binding`)
 
   if (!hasDurableResearchResult(runtimeBinding.session.getSnapshot(), target.researchCaseId)) {
@@ -265,7 +292,7 @@ async function ensureResearchRuntime(
     if (!promptResult.ok) {
       throw new Error(`Harness prompt failed: ${promptResult.error.code}: ${promptResult.error.message}`)
     }
-    await waitForSnapshot(
+    await waitForSnapshot<ConversationSnapshot>(
       runtimeBinding.session,
       snapshot => hasDurableResearchResult(snapshot, target.researchCaseId),
       90_000,
