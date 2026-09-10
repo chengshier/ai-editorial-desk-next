@@ -10,9 +10,10 @@ from threading import Lock
 from typing import Any, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from apps.editorial_api.scheduler_persistence import SchedulerPostgresStore, scheduler_database_url
 from apps.editorial_api.spike_harness import _RESEARCH, _RESEARCH_LOCK
 
 HARNESS_COMMIT = "99f6f02fecdb7dff40c3fbc9470f5907c29f74ca"
@@ -66,17 +67,30 @@ class SchedulerRun(BaseModel):
     failure_reason: str | None = None
     runtime_provenance: RuntimeProvenance
     execution_provenance: ExecutionProvenance
-    persistence: Literal["transitional_in_memory"] = "transitional_in_memory"
+    persistence: Literal["transitional_in_memory", "postgresql"] = "transitional_in_memory"
 
 
 _RUN_LOCK = Lock()
 _RUNS: dict[str, SchedulerRun] = {}
 _RUN_BY_IDEMPOTENCY: dict[str, str] = {}
 _RUN_INPUT_HASH: dict[str, str] = {}
+_POSTGRES_STORE: SchedulerPostgresStore | None = None
+_POSTGRES_STORE_URL: str | None = None
 
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def _durable_store() -> SchedulerPostgresStore | None:
+    global _POSTGRES_STORE, _POSTGRES_STORE_URL
+    database_url = scheduler_database_url()
+    if database_url is None:
+        return None
+    if _POSTGRES_STORE is None or _POSTGRES_STORE_URL != database_url:
+        _POSTGRES_STORE = SchedulerPostgresStore(database_url)
+        _POSTGRES_STORE_URL = database_url
+    return _POSTGRES_STORE
 
 
 def _input_hash(*, operation: str, research_case_id: str, opportunity_id: str) -> str:
@@ -93,8 +107,8 @@ def _input_hash(*, operation: str, research_case_id: str, opportunity_id: str) -
 
 
 def _research_case(research_case_id: str) -> tuple[str, bool]:
-    # Transitional fixture boundary only. N4-C replaces Scheduler state with a
-    # durable repository/PostgreSQL model; runtime ids remain metadata.
+    # Research itself is still a deterministic fixture in S4. N4-C only moves
+    # Scheduler Task/Run truth to PostgreSQL; runtime ids remain metadata.
     with _RESEARCH_LOCK:
         record = _RESEARCH.get(research_case_id)
         if record is None:
@@ -204,7 +218,7 @@ async def _execute_headless(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _create_or_reuse_run(
+async def _create_or_reuse_run(
     *,
     research_case_id: str,
     opportunity_id: str,
@@ -217,6 +231,38 @@ def _create_or_reuse_run(
         opportunity_id=opportunity_id,
     )
     idempotency_key = requested_key or f"manual:{uuid4().hex}"
+    store = _durable_store()
+
+    run = SchedulerRun(
+        run_id=f"run_{uuid4().hex}",
+        operation=operation,
+        business_object_type="research_case",
+        business_object_id=research_case_id,
+        opportunity_id=opportunity_id,
+        status="running",
+        idempotency_key=idempotency_key,
+        attempt=1,
+        started_at=_utcnow(),
+        runtime_provenance=RuntimeProvenance(),
+        execution_provenance=ExecutionProvenance(
+            operation=operation,
+            business_object_type="research_case",
+            business_object_id=research_case_id,
+            trigger_kind="manual",
+            attempt=1,
+            input_hash=input_hash,
+        ),
+        persistence="postgresql" if store is not None else "transitional_in_memory",
+    )
+
+    if store is not None:
+        stored, reused = await store.create_run(run.model_dump(mode="python"), input_hash)
+        if reused and stored["input_hash"] != input_hash:
+            raise HTTPException(
+                status_code=409,
+                detail="idempotency key is already bound to a different scheduler input",
+            )
+        return SchedulerRun.model_validate(stored), reused
 
     with _RUN_LOCK:
         existing_run_id = _RUN_BY_IDEMPOTENCY.get(idempotency_key)
@@ -228,72 +274,63 @@ def _create_or_reuse_run(
                     detail="idempotency key is already bound to a different scheduler input",
                 )
             return _RUNS[existing_run_id].model_copy(deep=True), True
-
-        run_id = f"run_{uuid4().hex}"
-        run = SchedulerRun(
-            run_id=run_id,
-            operation=operation,
-            business_object_type="research_case",
-            business_object_id=research_case_id,
-            opportunity_id=opportunity_id,
-            status="running",
-            idempotency_key=idempotency_key,
-            attempt=1,
-            started_at=_utcnow(),
-            runtime_provenance=RuntimeProvenance(),
-            execution_provenance=ExecutionProvenance(
-                operation=operation,
-                business_object_type="research_case",
-                business_object_id=research_case_id,
-                trigger_kind="manual",
-                attempt=1,
-                input_hash=input_hash,
-            ),
-        )
-        _RUNS[run_id] = run
-        _RUN_BY_IDEMPOTENCY[idempotency_key] = run_id
+        _RUNS[run.run_id] = run
+        _RUN_BY_IDEMPOTENCY[idempotency_key] = run.run_id
         _RUN_INPUT_HASH[idempotency_key] = input_hash
         return run.model_copy(deep=True), False
 
 
-def _finish_run(run_id: str, result: dict[str, Any]) -> SchedulerRun:
-    with _RUN_LOCK:
-        current = _RUNS[run_id]
-        runtime = current.runtime_provenance.model_copy(
+async def _finish_run(run_id: str, result: dict[str, Any]) -> SchedulerRun:
+    store = _durable_store()
+    if store is not None:
+        stored = await store.get_run(run_id)
+        if stored is None:
+            raise RuntimeError(f"durable SchedulerRun disappeared: {run_id}")
+        current = SchedulerRun.model_validate(stored)
+    else:
+        with _RUN_LOCK:
+            current = _RUNS[run_id].model_copy(deep=True)
+
+    runtime = current.runtime_provenance.model_copy(
+        update={
+            "harness_commit": str(result.get("harness_commit") or HARNESS_COMMIT),
+            "harness_release": str(result.get("harness_release") or HARNESS_RELEASE),
+            "execution_seam": str(result.get("execution_seam") or EXECUTION_SEAM),
+            "harness_session_id": result.get("harness_session_id"),
+            "provider": result.get("provider"),
+            "model": result.get("model"),
+            "completion_signal": result.get("completion_signal"),
+        }
+    )
+    if result.get("ok") is True and result.get("tool_result_observed") is True:
+        updated = current.model_copy(
             update={
-                "harness_commit": str(result.get("harness_commit") or HARNESS_COMMIT),
-                "harness_release": str(result.get("harness_release") or HARNESS_RELEASE),
-                "execution_seam": str(result.get("execution_seam") or EXECUTION_SEAM),
-                "harness_session_id": result.get("harness_session_id"),
-                "provider": result.get("provider"),
-                "model": result.get("model"),
-                "completion_signal": result.get("completion_signal"),
+                "status": "succeeded",
+                "finished_at": _utcnow(),
+                "runtime_provenance": runtime,
+                "failure_code": None,
+                "failure_reason": None,
             }
         )
-        if result.get("ok") is True and result.get("tool_result_observed") is True:
-            updated = current.model_copy(
-                update={
-                    "status": "succeeded",
-                    "finished_at": _utcnow(),
-                    "runtime_provenance": runtime,
-                    "failure_code": None,
-                    "failure_reason": None,
-                }
-            )
-        else:
-            updated = current.model_copy(
-                update={
-                    "status": "failed",
-                    "finished_at": _utcnow(),
-                    "runtime_provenance": runtime,
-                    "failure_code": str(result.get("failure_code") or "headless_run_failed"),
-                    "failure_reason": _redact(
-                        str(result.get("failure_reason") or "Headless Harness run failed without a reason.")
-                    ),
-                }
-            )
+    else:
+        updated = current.model_copy(
+            update={
+                "status": "failed",
+                "finished_at": _utcnow(),
+                "runtime_provenance": runtime,
+                "failure_code": str(result.get("failure_code") or "headless_run_failed"),
+                "failure_reason": _redact(
+                    str(result.get("failure_reason") or "Headless Harness run failed without a reason.")
+                ),
+            }
+        )
+
+    if store is not None:
+        persisted = await store.update_run(updated.model_dump(mode="python"))
+        return SchedulerRun.model_validate(persisted)
+    with _RUN_LOCK:
         _RUNS[run_id] = updated
-        return updated.model_copy(deep=True)
+    return updated.model_copy(deep=True)
 
 
 @router.post(
@@ -311,7 +348,7 @@ async def run_research_now(
             detail="research case must be completed before research.rehydrate can run",
         )
 
-    run, reused = _create_or_reuse_run(
+    run, reused = await _create_or_reuse_run(
         research_case_id=research_case_id,
         opportunity_id=opportunity_id,
         requested_key=payload.idempotency_key,
@@ -327,13 +364,38 @@ async def run_research_now(
             "opportunity_id": opportunity_id,
         }
     )
-    return _finish_run(run.run_id, result)
+    return await _finish_run(run.run_id, result)
 
 
 @router.get("/runs/{run_id}", response_model=SchedulerRun)
 async def get_scheduler_run(run_id: str) -> SchedulerRun:
+    store = _durable_store()
+    if store is not None:
+        run = await store.get_run(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="scheduler run not found")
+        return SchedulerRun.model_validate(run)
     with _RUN_LOCK:
         run = _RUNS.get(run_id)
         if run is None:
             raise HTTPException(status_code=404, detail="scheduler run not found")
         return run.model_copy(deep=True)
+
+
+@router.get("/research/{research_case_id}/runs", response_model=list[SchedulerRun])
+async def list_research_runs(
+    research_case_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[SchedulerRun]:
+    store = _durable_store()
+    if store is not None:
+        rows = await store.list_runs(business_object_id=research_case_id, limit=limit)
+        return [SchedulerRun.model_validate(row) for row in rows]
+    with _RUN_LOCK:
+        rows = [
+            run.model_copy(deep=True)
+            for run in _RUNS.values()
+            if run.business_object_id == research_case_id
+        ]
+    rows.sort(key=lambda run: run.started_at, reverse=True)
+    return rows[:limit]
