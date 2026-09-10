@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { OpportunityWorkspace, type ResearchTarget } from './opportunity-workspace.tsx'
 import type { HarnessRuntimeAdapter, ResearchRuntimeStatus } from './runtime-adapter.ts'
+import { SchedulerStatusCard } from './scheduler-status.tsx'
 import { persistSection, readProductParam, readSection, sections, type SectionId, writeProductParams } from './product-state.ts'
 
 const MODE_KEY = 'ai-editorial-desk:workspace-mode'
@@ -77,11 +78,13 @@ function RuntimeStatusCard({ status, onRetry }: { status: ResearchRuntimeStatus 
 }
 
 function ResearchCasePanel({
+  apiBase,
   target,
   runtimeStatus,
   onRetryRuntime,
   onBack,
 }: {
+  apiBase: string
   target: ResearchTarget | null
   runtimeStatus: ResearchRuntimeStatus | null
   onRetryRuntime(): void
@@ -89,7 +92,7 @@ function ResearchCasePanel({
 }) {
   return <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 14 }}>
     <div style={{ background: colors.panel, border: `1px solid ${colors.border}`, borderRadius: 14, padding: 22 }}>
-      <div style={{ color: colors.brand, fontSize: 10, fontWeight: 850 }}>S4-N3 · RESEARCH RUNTIME ADAPTER</div>
+      <div style={{ color: colors.brand, fontSize: 10, fontWeight: 850 }}>S4-N4 · RESEARCH RUNTIME + ORCHESTRATION</div>
       <h2 style={{ margin: '8px 0 6px', fontSize: 20 }}>{target ? 'Research Case 已就绪' : '研究'}</h2>
       {target ? <>
         <p style={{ color: colors.text, fontSize: 12, lineHeight: 1.7 }}>
@@ -101,6 +104,7 @@ function ResearchCasePanel({
           {runtimeStatus?.sessionId ? <div><dt style={{ color: colors.muted, fontSize: 10 }}>harness_session_id · runtime metadata</dt><dd style={{ margin: '3px 0 0', fontSize: 11, color: colors.text, wordBreak: 'break-all' }}>{runtimeStatus.sessionId}</dd></div> : null}
         </dl>
         <RuntimeStatusCard status={runtimeStatus} onRetry={onRetryRuntime}/>
+        <SchedulerStatusCard apiBase={apiBase} researchCaseId={target.researchCaseId}/>
       </> : <p style={{ color: colors.text, fontSize: 12, lineHeight: 1.7 }}>从“今日视野”或“全部机会”的 Inspector 进入研究；Product Shell 始终以 Research Case 业务 ID 为主键。</p>}
       <button type="button" onClick={onBack} style={{ marginTop: 18, border: `1px solid ${colors.border}`, borderRadius: 8, background: colors.panel, padding: '8px 11px', color: colors.text, fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>返回机会</button>
     </div>
@@ -197,7 +201,7 @@ export function EditorialWorkbenchRoot({ runtimeAdapter }: { runtimeAdapter: Har
     <main style={{ minWidth: 0, padding: '22px 24px 40px' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', gap: 20, marginBottom: 18 }}>
         <div>
-          <div style={{ color: colors.brand, fontSize: 10, fontWeight: 850, letterSpacing: '.06em' }}>S4-N3 · HARNESS-NATIVE</div>
+          <div style={{ color: colors.brand, fontSize: 10, fontWeight: 850, letterSpacing: '.06em' }}>S4 · HARNESS-NATIVE</div>
           <h1 style={{ margin: '6px 0 5px', fontSize: 24 }}>{sections.find(item => item.id === section)?.label}</h1>
           <p style={{ margin: 0, color: colors.text, fontSize: 12 }}>结构化业务工作台直接运行在 DeepSeek Harness Web 内；业务事实来自 Editorial API。</p>
         </div>
@@ -209,6 +213,7 @@ export function EditorialWorkbenchRoot({ runtimeAdapter }: { runtimeAdapter: Har
       {section === 'today' ? <OpportunityWorkspace key="today" apiBase={apiBase} kind="today" onResearchTarget={openResearchTarget}/>
         : section === 'opportunities' ? <OpportunityWorkspace key="opportunities" apiBase={apiBase} kind="library" onResearchTarget={openResearchTarget}/>
           : section === 'research' ? <ResearchCasePanel
+              apiBase={apiBase}
               target={researchTarget}
               runtimeStatus={runtimeStatus}
               onRetryRuntime={() => setRuntimeRevision(value => value + 1)}
