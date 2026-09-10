@@ -10,6 +10,7 @@
   "references": [
     { "path": "../../../vendor/cordis" },
     { "path": "../runtime" },
-    { "path": "../ui-layout" }
+    { "path": "../ui-layout" },
+    { "path": "../../core/tools" }
   ]
 }
