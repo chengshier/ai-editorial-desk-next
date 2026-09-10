@@ -40,11 +40,13 @@ jobs:
         run: alembic upgrade head
       - name: Scheduler PostgreSQL restart-safe integration
         env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai_editorial_desk_next_test
           SCHEDULER_POSTGRES_TEST_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/ai_editorial_desk_next_test
         run: >-
           pytest -q
           tests/test_scheduler_postgres_integration.py
           tests/test_scheduler_retry_postgres_integration.py
+          tests/test_scheduler_event_postgres_integration.py
 
   web:
     runs-on: ubuntu-latest
