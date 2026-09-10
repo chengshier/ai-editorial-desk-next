@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -8,11 +10,22 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def reset_scheduler_ledger() -> None:
+def reset_scheduler_ledger() -> Iterator[None]:
     with scheduler._RUN_LOCK:
         scheduler._RUNS.clear()
         scheduler._RUN_BY_IDEMPOTENCY.clear()
         scheduler._RUN_INPUT_HASH.clear()
+    with scheduler._RESEARCH_LOCK:
+        scheduler._RESEARCH.clear()
+
+    yield
+
+    with scheduler._RUN_LOCK:
+        scheduler._RUNS.clear()
+        scheduler._RUN_BY_IDEMPOTENCY.clear()
+        scheduler._RUN_INPUT_HASH.clear()
+    with scheduler._RESEARCH_LOCK:
+        scheduler._RESEARCH.clear()
 
 
 def _create_research_case(opportunity_id: str = "opp_dishwasher_water") -> str:
