@@ -58,10 +58,16 @@ def test_n3_research_runtime_uses_canonical_case_and_public_harness_outward_api(
     assert "sessionService.open" in runtime
     assert "sessionService.binding" in runtime
     assert "workspaceService.connectWorkspace" in runtime
+    assert "workspaceService.listDirectory" in runtime
+    assert "workspaceService.createDirectory" in runtime
+    assert "workspaceService.create({ path: runtimePath })" in runtime
+    assert "ai-editorial-desk-runtime" in runtime
+    assert "Register or open a Workspace before running Research" not in runtime
     assert ".session.prompt(" in runtime
     assert "/api/v1/integrations/harness/runtime/research/" in runtime
     assert "research_case_id" in runtime
     assert "harness_session_id" in runtime
+    assert "document.querySelector" not in runtime
     assert "session-" not in workbench
 
     assert "get_editorial_research_result" in host_tool
