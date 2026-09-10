@@ -49,6 +49,7 @@ jobs:
           tests/test_scheduler_event_postgres_integration.py
 
   web:
+    name: Legacy Web reference build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -60,5 +61,5 @@ jobs:
           node-version: "20"
       - name: Install
         run: npm install --no-audit --no-fund
-      - name: Typecheck and build
+      - name: Typecheck and build migration reference shell
         run: npm run build
