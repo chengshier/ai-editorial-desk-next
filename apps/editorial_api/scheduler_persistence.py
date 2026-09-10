@@ -183,6 +183,15 @@ class SchedulerPostgresStore:
                 return None
             row.enabled = enabled
             row.updated_at = updated_at
+            if not enabled:
+                pending = await session.execute(
+                    select(SchedulerRunRow).where(
+                        SchedulerRunRow.task_id == task_id,
+                        SchedulerRunRow.next_retry_at.is_not(None),
+                    )
+                )
+                for run in pending.scalars():
+                    run.next_retry_at = None
             await session.commit()
             return _task_to_wire(row)
 
@@ -222,22 +231,26 @@ class SchedulerPostgresStore:
 
                     per_task_limit = 1 if row.catch_up_policy == "skip" else max(1, row.catch_up_limit)
                     cursor = row.next_run_at
-                    task_claims = 0
-                    while cursor <= now and task_claims < per_task_limit and len(claimed) < limit:
-                        wire = _task_to_wire(row)
-                        wire["claimed_for_at"] = cursor
-                        claimed.append(wire)
-                        task_claims += 1
+                    claimed_for: list[datetime] = []
+                    while cursor <= now and len(claimed_for) < per_task_limit:
+                        if len(claimed) + len(claimed_for) >= limit:
+                            break
+                        claimed_for.append(cursor)
                         cursor = cursor + timedelta(seconds=interval_seconds)
 
                     discard_backlog = row.catch_up_policy == "skip" or (
-                        task_claims >= per_task_limit and cursor <= now
+                        len(claimed_for) >= per_task_limit and cursor <= now
                     )
                     if discard_backlog:
                         row.next_run_at = now + timedelta(seconds=interval_seconds)
                     else:
                         row.next_run_at = cursor
                     row.updated_at = now
+
+                    for claimed_for_at in claimed_for:
+                        wire = _task_to_wire(row)
+                        wire["claimed_for_at"] = claimed_for_at
+                        claimed.append(wire)
             return claimed
 
     async def get_run(self, run_id: str) -> dict[str, Any] | None:
@@ -351,6 +364,13 @@ class SchedulerPostgresStore:
                 )
                 claimed: list[dict[str, Any]] = []
                 for row in result.scalars():
+                    task = None
+                    if row.task_id is not None:
+                        task = await session.get(SchedulerTaskRow, row.task_id)
+                    if task is None or not task.enabled or row.attempt >= task.retry_max_attempts:
+                        row.next_retry_at = None
+                        continue
+
                     row.attempt += 1
                     row.status = "running"
                     row.started_at = now
@@ -358,6 +378,10 @@ class SchedulerPostgresStore:
                     row.next_retry_at = None
                     row.failure_code = None
                     row.failure_reason = None
+                    runtime = dict(row.runtime_provenance)
+                    runtime["harness_session_id"] = None
+                    runtime["completion_signal"] = None
+                    row.runtime_provenance = runtime
                     execution = dict(row.execution_provenance)
                     execution["attempt"] = row.attempt
                     row.execution_provenance = execution
