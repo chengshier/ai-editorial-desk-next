@@ -62,6 +62,8 @@ interface ConversationViewsReadFace {
   get(key: string): unknown
 }
 
+const EDITORIAL_RUNTIME_DIRECTORY = 'ai-editorial-desk-runtime'
+
 function sessionsOf(ctx: ClientContext): ISessions {
   // ClientContext is the Cordis root context. In a feature package its service
   // properties can be widened by other declaration merges, so restore the
@@ -210,6 +212,38 @@ async function markBootstrapComplete(
   )
 }
 
+async function ensureRuntimeWorkspace(
+  workspaceService: IWorkspaces,
+  workspaces: WorkspaceListState,
+) {
+  const existingWorkspaceId = workspaces.recentWorkspaceId ?? workspaces.items[0]?.workspaceId
+  if (existingWorkspaceId !== undefined) return existingWorkspaceId
+
+  // A formal Product Shell must also work in a completely fresh Harness
+  // profile. Use only the pinned Harness outward workspace/directory contract:
+  // ask the Host for its home path, create/reuse a dedicated runtime directory,
+  // then idempotently register that existing directory as a Workspace. Never
+  // manufacture a host path in the browser and never require a prior visit to
+  // the stock Harness workbench.
+  const home = await workspaceService.listDirectory()
+  let runtimePath = home.entries.find(entry => entry.name === EDITORIAL_RUNTIME_DIRECTORY)?.path
+  if (runtimePath === undefined) {
+    try {
+      runtimePath = await workspaceService.createDirectory(home.path, EDITORIAL_RUNTIME_DIRECTORY)
+    } catch (reason) {
+      // Another Product Shell instance may have created the directory after
+      // our listing. Re-list through the same public Host contract and reuse
+      // it if it is now present; otherwise preserve the original failure.
+      const refreshed = await workspaceService.listDirectory(home.path)
+      const recovered = refreshed.entries.find(entry => entry.name === EDITORIAL_RUNTIME_DIRECTORY)
+      if (recovered === undefined) throw reason
+      runtimePath = recovered.path
+    }
+  }
+  const runtimeWorkspace = await workspaceService.create({ path: runtimePath })
+  return runtimeWorkspace.workspaceId
+}
+
 async function resolveSession(
   ctx: ClientContext,
   apiBase: string,
@@ -239,10 +273,7 @@ async function resolveSession(
     15_000,
     'Harness workspace baseline',
   )
-  const workspaceId = workspaces.recentWorkspaceId ?? workspaces.items[0]?.workspaceId
-  if (workspaceId === undefined) {
-    throw new Error('Harness has no Workspace available. Register or open a Workspace before running Research.')
-  }
+  const workspaceId = await ensureRuntimeWorkspace(workspaceService, workspaces)
   const sessionId = await workspaceService.connectWorkspace(workspaceId)
   sessionService.open(sessionId)
   const rebound = await bindSession(apiBase, target.researchCaseId, sessionId)
