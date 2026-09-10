@@ -53,7 +53,11 @@ async function requestJson<T>(apiBase: string, path: string, init?: RequestInit)
 }
 
 export function listEditorialOpportunities(apiBase: string, signal?: AbortSignal): Promise<OpportunityList> {
-  return requestJson<OpportunityList>(apiBase, '/api/v1/spike/shell/opportunities', { signal })
+  return requestJson<OpportunityList>(
+    apiBase,
+    '/api/v1/spike/shell/opportunities',
+    signal ? { signal } : undefined,
+  )
 }
 
 export function inspectEditorialOpportunity(
@@ -64,7 +68,7 @@ export function inspectEditorialOpportunity(
   return requestJson<OpportunitySummary>(
     apiBase,
     `/api/v1/spike/shell/opportunities/${encodeURIComponent(opportunityId)}`,
-    { signal },
+    signal ? { signal } : undefined,
   )
 }
 
