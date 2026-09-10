@@ -25,14 +25,23 @@ S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
   N4-A exact-pin audit + Contract        COMPLETE
   N4-B Manual Run vertical slice         COMPLETE / CI PASS
   N4-C Durable Task / Run model          COMPLETE / CI PASS
-  N4-D Interval / Schedule trigger       NEXT
+  N4-D Interval / Schedule trigger       COMPLETE / CI PASS
+  N4-E Retry / Catch-up / History        IN_PROGRESS
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
 N3 收口 head：`5fcc37dd1800087f564abb0dea5a70d8dbf9662a`。  
-N4-B 收口 head：`6dc7a883cec849e25509cbc5f085ac351e3383de`。
+N4-B 收口 head：`6dc7a883cec849e25509cbc5f085ac351e3383de`。  
+N4-D 收口 head：`ead02f8c3f3623f90c5ab7d51b1599d0d78fa497`。
 
-N4-C 已新增 PostgreSQL Scheduler Task/Run schema、Alembic migration、durable repository、Manual Run durable path、restart-safe run history 与 PostgreSQL CI integration Gate。N4-C 代码 Gate 首次通过于 `a55904a34a7980bf9ad31e7d88c2f1468d0f1407` 的 CI：Ruff / baseline tests / Alembic migration / PostgreSQL restart-safe integration 全部 PASS；Harness 三套 exact-pin workflow 继续作为 PR #16 的独立回归 Gate。
+N4-D 的四套 workflow 均已在该 head 全绿：
+
+```text
+CI                         PASS
+Harness Spike              PASS
+Harness Editorial Shell    PASS
+Harness Native Shell Spike PASS
+```
 
 ---
 
@@ -160,32 +169,69 @@ research.rehydrate
 
 已落地：
 
-- `scheduler_tasks` durable schema：`task_id / operation / business object / trigger / enabled / schedule / next_run_at`；
-- `scheduler_runs` durable schema：业务身份、状态、attempt、时间、failure、runtime provenance、execution provenance；
+- `scheduler_tasks` durable schema；
+- `scheduler_runs` durable schema；
 - `idempotency_key` PostgreSQL UNIQUE constraint；
-- `business_object_id` / `task_id` / `status` history indexes；
-- Alembic 基线与 `20260910_01` migration；
+- business object / task / status history indexes；
+- Alembic migration；
 - `SchedulerPostgresStore` durable repository；
-- `DATABASE_URL` 配置存在时 Manual Run 自动使用 PostgreSQL，未配置时仅保留开发/测试用 `transitional_in_memory` fallback；
-- `GET /api/v1/integrations/harness/scheduler/research/{research_case_id}/runs` 提供按业务对象的历史查询；
-- 新 repository 实例可恢复之前 Run，证明 run history 不依赖 API process memory；
-- duplicate idempotency 在数据库唯一约束下保持单一 Run；
-- Harness Session ID 仍只保存在 `runtime_provenance`，不进入 Scheduler 主键；
-- CI 启动真实 PostgreSQL 16，实际执行 `alembic upgrade head` 与 restart-safe integration test。
-
-N4-C 只完成 Scheduler Task/Run 持久化基础，不表示 Opportunity / Research fixture 已全部迁入 PostgreSQL，也不表示 interval/event trigger 已实现。
+- 配置 `DATABASE_URL` 时 Manual Run 使用 PostgreSQL；
+- Run History 按业务对象查询；
+- repository restart 后仍可恢复 Run；
+- Harness Session ID 只保存在 `runtime_provenance`。
 
 ### N4-D — Interval / Schedule trigger
 
-**状态：NEXT**
+**状态：COMPLETE / CI PASS**
 
-下一 Gate：在 N4-C durable `scheduler_tasks` 之上实现 enable/disable、interval/schedule 表达、`next_run_at`、due-task claim、manual clock-independent tick，以及避免多实例重复领取的数据库级 claim 语义。仍使用 N4-A 冻结的 Harness headless execution seam，不回退到 Harness Chat 手工 prompt。
+正式链路：
+
+```text
+Durable SchedulerTask
+→ interval + next_run_at
+→ PostgreSQL due-task claim
+→ SELECT ... FOR UPDATE SKIP LOCKED
+→ manual clock-independent scheduler tick
+→ stable schedule idempotency key
+→ research.rehydrate
+→ exact-pinned Harness headless execution
+→ SchedulerRun
+```
+
+已验证：
+
+- durable interval task create / read / enable / disable；
+- `next_run_at` 跨 repository restart 保留；
+- PostgreSQL row lock + `SKIP LOCKED` 防止多实例重复领取；
+- 同一 scheduled occurrence 使用 `schedule:{task_id}:{scheduled_time}` 稳定幂等键；
+- 第二次同时间 Tick 不重复生成同一 Task Run；
+- scheduled run 保持 business ID / runtime metadata 分层；
+- 真实 PostgreSQL 16 migration + integration test 通过；
+- exact-pin Harness 三套回归 Gate 未被 interval trigger 破坏。
+
+### N4-E — Retry / Catch-up / History
+
+**状态：IN_PROGRESS**
+
+当前已提交第一批实现：
+
+- `20260910_02` migration：新增 Task catch-up / retry policy、Run `scheduled_for / next_retry_at`、`scheduler_run_attempts`；
+- retry 保持同一 `run_id / idempotency_key / business_object_id`，只递增 attempt，不生成新的业务对象 ID；
+- attempt 级 runtime/execution provenance durable history；
+- exponential backoff：`retry_backoff_seconds * 2^(attempt-1)`；
+- `retry_max_attempts` 上限；
+- `skip | bounded` catch-up policy；
+- bounded catch-up 超过 `catch_up_limit` 的历史 backlog 不无界补跑；
+- Task `last_run_at` 由 canonical Scheduler state 写入；
+- `/tasks/{task_id}/policy`、`/runs/{run_id}/attempts`、`/retry-tick` API；
+- retry claim 同样使用 PostgreSQL row lock / `SKIP LOCKED`。
+
+当前 N4-E 仍等待最新 CI 与 exact-pin Harness 回归全部通过后再标记 COMPLETE。
 
 ### N4 后续
 
 ```text
-N4-D Interval / Schedule trigger
-→ N4-E Retry / Catch-up / History
+N4-E Retry / Catch-up / History
 → N4-F Event trigger + Product status UI
 ```
 
@@ -244,6 +290,7 @@ Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数�
 
 - 真实外部 Acquisition 已完成；
 - PostgreSQL Opportunity / Research persistence 已完成；
+- deterministic mock 是生产研究结果；
 - deterministic mock 是 production research result；
 - in-memory Research / runtime binding fixture 具备 durable persistence。
 
