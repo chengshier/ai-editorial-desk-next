@@ -59,6 +59,7 @@ def test_current_state_records_s3_complete_and_s4_native_migration() -> None:
     assert "N4-B Manual Run vertical slice         COMPLETE / CI PASS" in state
     assert "N4-C Durable Task / Run model          COMPLETE / CI PASS" in state
     assert "N4-D Interval / Schedule trigger       COMPLETE / CI PASS" in state
-    assert "N4-E Retry / Catch-up / History        IN_PROGRESS" in state
+    assert "N4-E Retry / Catch-up / History        COMPLETE / CI PASS" in state
+    assert "N4-F Event trigger + Product status UI IN_PROGRESS" in state
     assert "Transitional data boundary" in state
     assert "deterministic / in-memory Spike fixture" in state
