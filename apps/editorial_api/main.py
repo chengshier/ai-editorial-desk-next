@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from apps.editorial_api.harness_runtime import router as harness_runtime_router
 from apps.editorial_api.scheduler import router as harness_scheduler_router
+from apps.editorial_api.scheduler_retry import router as harness_scheduler_retry_router
 from apps.editorial_api.shell_spike import router as shell_spike_router
 from apps.editorial_api.spike_harness import router as harness_spike_router
 
@@ -31,6 +32,7 @@ app.include_router(harness_spike_router)
 app.include_router(shell_spike_router)
 app.include_router(harness_runtime_router)
 app.include_router(harness_scheduler_router)
+app.include_router(harness_scheduler_retry_router)
 
 
 @app.get("/healthz")
