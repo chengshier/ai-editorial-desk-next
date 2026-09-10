@@ -32,8 +32,8 @@ function setMode(mode: WorkspaceMode): void {
 }
 
 function readApiBase(): string {
-  if (typeof window === 'undefined') return 'http://127.0.0.1:8000'
-  return (window.localStorage.getItem(API_BASE_KEY) ?? 'http://127.0.0.1:8000').replace(/\/$/u, '')
+  if (typeof window === 'undefined') return 'http://127.0.0.1:18000'
+  return (window.localStorage.getItem(API_BASE_KEY) ?? 'http://127.0.0.1:18000').replace(/\/$/u, '')
 }
 
 const colors = {
