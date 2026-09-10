@@ -53,9 +53,11 @@ def test_n3_research_runtime_uses_canonical_case_and_public_harness_outward_api(
     assert "Research Case 已就绪" in workbench
     assert "harness_session_id · runtime metadata" in workbench
 
-    assert "ctx.sessions.open" in runtime
-    assert "ctx.sessions.binding" in runtime
-    assert "ctx.workspaces.connectWorkspace" in runtime
+    assert "ISessions" in runtime
+    assert "IWorkspaces" in runtime
+    assert "sessionService.open" in runtime
+    assert "sessionService.binding" in runtime
+    assert "workspaceService.connectWorkspace" in runtime
     assert ".session.prompt(" in runtime
     assert "/api/v1/integrations/harness/runtime/research/" in runtime
     assert "research_case_id" in runtime
