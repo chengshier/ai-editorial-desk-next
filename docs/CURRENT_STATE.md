@@ -18,11 +18,11 @@ Windows local native-shell acceptance  PASS
 PR #16 当前正式迁移状态：
 
 ```text
-S4-N1 Product Shell Foundation          COMPLETE / CI PASS
-S4-N2 Today / Opportunities Migration   IN_PROGRESS
-S4-N3 Research Runtime Adapter          NOT_STARTED
+S4-N1 Product Shell Foundation           COMPLETE / CI PASS
+S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
+S4-N3 Research Runtime Adapter           IN_PROGRESS
 S4-N4 Scheduler / Headless Orchestration NOT_STARTED
-S4-N5 Web Shell Retirement              NOT_STARTED
+S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
 ## 当前正式架构
@@ -55,48 +55,63 @@ AI Editorial Desk 与 stock Harness 工作台在同一个 Harness Web（当前�
 
 ---
 
-## 当前 Gate：S4-N2 Today / Opportunities Migration
+## 当前 Gate：S4-N3 Research Runtime Adapter
 
-S4-N1 已通过正式 exact-pin Gate：
+S4-N1 / N2 已通过正式 exact-pin Gate：
 
 - `@ai-editorial-desk/harness-editorial-shell` 正式包；
 - pinned Harness prepare / typecheck / bundle；
 - isolated profile install；
 - Harness `root` shadow + `sidebar.footer.action` 双向工作台切换；
-- Editorial API Base `http://127.0.0.1:18000`；
-- Browser smoke；
+- Today / Opportunities 真实业务交互迁入 Product Shell；
+- 五 Tab Opportunity Inspector；
+- 搜索 / 筛选 / 排序 / 卡片与紧凑列表；
+- Research Case 创建 / 复用；
+- namespaced `ed_*` Product state；
 - 普通 CI / Harness Spike / Harness Editorial Shell 全绿。
 
-S4-N2 当前正在把原 `apps/web` 的真实业务交互迁入正式 Product Shell，而不是复制外部 Web App：
-
-- Today 使用 `/api/v1/spike/shell/opportunities` 读取当前真实 integration read model；
-- Today 支持 Opportunity 选择、筛选与共享 Inspector；
-- Opportunities 支持搜索、recommendation / research / readiness 筛选、排序、卡片/紧凑列表；
-- Opportunity Inspector 保留概览 / 证据 / 研究 / 时间线 / 历史五个 Tab；
-- 缺少 canonical Evidence / Timeline / Human Decision 时继续明确 unavailable，不伪造；
-- “开始研究 / 进入研究”创建或复用业务 `research_case_id`；
-- N2 只把 Research Case 带入 Product Shell 研究区，不宣称 Harness Agent 已执行；
-- 产品状态通过 namespaced `ed_*` URL query + localStorage section 持久化，避免依赖 `react-router-dom`；
-- Product Shell 不使用 iframe / `surface_url` / `editorial_embed`。
-
-N2 Browser Gate：
+S4-N3 当前正在建立正式 Runtime Adapter：
 
 ```text
-Today
-→ 选择 Opportunity
-→ 五 Tab Inspector
-→ Opportunities 搜索/筛选
-→ 创建/复用 Research Case
-→ URL / UI 只暴露 rc_xxx 业务 ID
-→ stock Harness
-→ 返回 Product Shell
-→ section / search 状态恢复
+Product Shell Research Case
+→ HarnessRuntimeAdapter
+→ Research Case ↔ Harness Session runtime binding
+→ ctx.sessions / ctx.workspaces
+→ Session.prompt()
+→ get_editorial_research_result
+→ durable Harness Tool Result / replay
 ```
+
+当前已落地：
+
+- `/api/v1/integrations/harness/runtime/research/{research_case_id}` runtime binding；
+- Session bind / rebind / bootstrap-complete 契约；
+- Session 更换后 bootstrap 自动重新 required；
+- Product Shell 使用公开 `ctx.sessions` / `ctx.workspaces` outward API；
+- 已绑定 Session 存在时复用；不存在时从 Workspace `connectWorkspace()` 获取新 Session 并重新绑定；
+- Research Case 完成后由 Product Shell 主动调用 `Session.prompt()`，不要求用户进入聊天框手工 prompt；
+- 正式插件 Host 侧注册 `get_editorial_research_result`，只读取既有 Research Case，不迁入会重复创建 Case 的 `start_editorial_research`；
+- bootstrap 只有在 Session durable log 中出现对应 Research Case 的结构化 Tool Result 后才标记完成；
+- Harness Session ID 只作为 runtime metadata 展示，不进入 Product business URL。
+
+N3 当前自动化 Gate 分两层：
+
+```text
+1. 无模型密钥 CI：
+   Product action → Research Case → 自动获得 Harness Session binding
+   且 business URL 不出现 Session ID
+
+2. 有模型 Runtime：
+   Session.prompt() → get_editorial_research_result
+   → durable Tool Result → bootstrap complete
+```
+
+无模型密钥的 CI 不得伪装成“真实 Research Agent 已完成”。若 Harness Provider 未配置，Product Shell 保留 Research Case 并显示 Runtime Error，可在配置模型后重新连接。
 
 后续：
 
 ```text
-S4-N3 Research Runtime Adapter
+S4-N3 complete gate
 → S4-N4 Scheduler / Headless Orchestration
 → S4-N5 Web Shell Retirement
 ```
@@ -111,7 +126,7 @@ S4-N3 Research Runtime Adapter
 
 PR #14 的 `apps/web -> launch descriptor -> embedded Harness iframe` 不再作为最终方向，不直接合并。
 
-保留并迁移其设计思想：
+已吸收 / 正在吸收其设计思想：
 
 - `research_case_id <-> harness_session_id` 仅为运行时绑定；
 - Session 丢失后允许新建 Session 并从 canonical Research Case rehydrate；
@@ -180,7 +195,7 @@ Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数�
 - 真实外部 Acquisition 已完成；
 - PostgreSQL Opportunity / Research persistence 已完成；
 - deterministic mock 是生产研究结果；
-- API restart 后的 in-memory Research fixture 具备 durable persistence。
+- API restart 后的 in-memory Research / runtime binding fixture 具备 durable persistence。
 
 正式迁移只改变 Product Shell / Runtime integration，不自动完成业务持久化与真实采集。
 
