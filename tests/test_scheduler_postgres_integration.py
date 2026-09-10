@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -79,4 +79,55 @@ async def test_scheduler_run_survives_repository_restart() -> None:
     history = await restarted.list_runs(business_object_id=research_case_id)
     assert [item["run_id"] for item in history] == [run_id]
     assert history[0]["runtime_provenance"]["harness_session_id"] == "session-runtime-only"
+    await restarted.close()
+
+
+@pytest.mark.asyncio
+async def test_interval_task_claim_is_restart_safe_and_single_consumer() -> None:
+    database_url = os.getenv("SCHEDULER_POSTGRES_TEST_URL")
+    if not database_url:
+        pytest.skip("PostgreSQL integration URL is not configured")
+
+    suffix = uuid4().hex
+    task_id = f"task_{suffix}"
+    research_case_id = f"rc_{suffix[:12]}"
+    now = datetime.now(UTC)
+    due_at = now - timedelta(seconds=1)
+    task = {
+        "task_id": task_id,
+        "operation": "research.rehydrate",
+        "business_object_type": "research_case",
+        "business_object_id": research_case_id,
+        "enabled": True,
+        "interval_seconds": 300,
+        "next_run_at": due_at,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    first = SchedulerPostgresStore(database_url)
+    stored = await first.upsert_interval_task(task)
+    assert stored["next_run_at"] == due_at
+    claimed = await first.claim_due_interval_tasks(now=now, limit=10)
+    assert len(claimed) == 1
+    assert claimed[0]["task_id"] == task_id
+    assert claimed[0]["claimed_for_at"] == due_at
+    assert claimed[0]["next_run_at"] == now + timedelta(seconds=300)
+    await first.close()
+
+    restarted = SchedulerPostgresStore(database_url)
+    no_duplicate_claim = await restarted.claim_due_interval_tasks(now=now, limit=10)
+    assert no_duplicate_claim == []
+    recovered = await restarted.get_task(task_id)
+    assert recovered is not None
+    assert recovered["next_run_at"] == now + timedelta(seconds=300)
+
+    disabled = await restarted.set_task_enabled(task_id, enabled=False, updated_at=now)
+    assert disabled is not None
+    assert disabled["enabled"] is False
+    still_not_claimed = await restarted.claim_due_interval_tasks(
+        now=now + timedelta(seconds=600),
+        limit=10,
+    )
+    assert still_not_claimed == []
     await restarted.close()
