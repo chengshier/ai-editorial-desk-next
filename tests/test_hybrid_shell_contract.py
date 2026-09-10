@@ -87,6 +87,7 @@ def test_ui_strategy_and_current_state_close_n3_and_start_n4() -> None:
     assert "S4-N3 Research Runtime Adapter           COMPLETE / CI PASS" in state
     assert "S4-N4 Scheduler / Headless Orchestration IN_PROGRESS" in state
     assert "N4-A exact-pin audit + Contract        COMPLETE" in state
-    assert "N4-B Manual Run vertical slice         IMPLEMENTED / CI PENDING" in state
+    assert "N4-B Manual Run vertical slice         COMPLETE / CI PASS" in state
+    assert "N4-C Durable Task / Run model          NEXT" in state
     assert "ai-editorial-desk-runtime" in state
     assert "IWorkspaces" in state
