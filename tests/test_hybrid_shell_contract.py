@@ -83,7 +83,8 @@ def test_ui_strategy_and_current_state_close_n3_and_start_n4() -> None:
     state = CURRENT_STATE.read_text(encoding="utf-8")
 
     assert "S4-N3 Research Runtime Adapter           COMPLETE" in strategy
-    assert "S4-N4 Scheduler / Headless Orchestration NEXT" in strategy
+    assert "S4-N4 Scheduler / Headless Orchestration IN_PROGRESS" in strategy
+    assert "N4-F Event trigger + Product status UI IN_PROGRESS" in strategy
     assert "S4-N3 Research Runtime Adapter           COMPLETE / CI PASS" in state
     assert "S4-N4 Scheduler / Headless Orchestration IN_PROGRESS" in state
     assert "N4-A exact-pin audit + Contract        COMPLETE" in state
