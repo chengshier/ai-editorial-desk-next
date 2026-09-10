@@ -66,12 +66,14 @@ async function main() {
     // the migrated five-tab Inspector without manufacturing unavailable data.
     await page.getByRole('button', { name: /洗碗机真的可能比手洗更省水吗？/ }).click()
     await page.getByText('Opportunity Inspector', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
-    for (const tab of ['概览', '证据', '研究', '时间线', '历史']) {
-      assert.equal(await page.getByRole('tab', { name: tab, exact: true }).count(), 1)
-    }
-    await page.getByRole('tab', { name: '证据', exact: true }).click()
+    // Playwright's accessible-name lookup for role=tab is not stable when this
+    // out-of-tree root shadows Harness AppFrame. Assert the actual ARIA DOM
+    // contract instead: one tablist with exactly these five role=tab children.
+    const inspectorTabs = page.locator('[role="tablist"][aria-label="Opportunity Inspector"] [role="tab"]')
+    assert.deepEqual(await inspectorTabs.allTextContents(), ['概览', '证据', '研究', '时间线', '历史'])
+    await inspectorTabs.filter({ hasText: '证据' }).click()
     await page.getByText('证据详情暂未开放', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
-    await page.getByRole('tab', { name: '研究', exact: true }).click()
+    await inspectorTabs.filter({ hasText: '研究' }).click()
     await page.getByText('N2 负责创建/复用业务 Research Case；N3 再由 Runtime Adapter 主动绑定 Harness Session 并执行 Agent。', { exact: true }).waitFor({ state: 'visible', timeout: 10_000 })
     console.log('PASS: Today migrates Opportunity selection and the five-tab Inspector into the Harness-native Product Shell')
 
