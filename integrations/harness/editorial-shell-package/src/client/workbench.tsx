@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { OpportunityWorkspace, type ResearchTarget } from './opportunity-workspace.tsx'
-import { persistSection, readProductParam, readSection, sections, type SectionId } from './product-state.ts'
+import { persistSection, readProductParam, readSection, sections, type SectionId, writeProductParams } from './product-state.ts'
 
 const MODE_KEY = 'ai-editorial-desk:workspace-mode'
 const API_BASE_KEY = 'ai-editorial-desk:api-base'
@@ -87,6 +87,12 @@ export function EditorialWorkbenchRoot() {
   const apiBase = readApiBase()
 
   const chooseSection = (next: SectionId): void => {
+    if (next !== section) {
+      // Mirror the old route boundary: a Today selection must not leak into
+      // Opportunities (or vice versa). The keyed workspace below then mounts
+      // from the cleaned business URL state instead of reusing stale React state.
+      writeProductParams({ opportunity: null, inspector: null })
+    }
     setSection(next)
     persistSection(next)
   }
@@ -145,8 +151,8 @@ export function EditorialWorkbenchRoot() {
         </div>
       </header>
 
-      {section === 'today' ? <OpportunityWorkspace apiBase={apiBase} kind="today" onResearchTarget={openResearchTarget}/>
-        : section === 'opportunities' ? <OpportunityWorkspace apiBase={apiBase} kind="library" onResearchTarget={openResearchTarget}/>
+      {section === 'today' ? <OpportunityWorkspace key="today" apiBase={apiBase} kind="today" onResearchTarget={openResearchTarget}/>
+        : section === 'opportunities' ? <OpportunityWorkspace key="opportunities" apiBase={apiBase} kind="library" onResearchTarget={openResearchTarget}/>
           : section === 'research' ? <ResearchCasePanel target={researchTarget} onBack={() => chooseSection('opportunities')}/>
             : <MigrationPlaceholder section={section}/>} 
     </main>
