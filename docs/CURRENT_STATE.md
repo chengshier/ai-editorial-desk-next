@@ -20,17 +20,34 @@ PR #16 当前正式迁移状态：
 ```text
 S4-N1 Product Shell Foundation           COMPLETE / CI PASS
 S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
-S4-N3 Research Runtime Adapter           IN_PROGRESS
-S4-N4 Scheduler / Headless Orchestration NOT_STARTED
+S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
+S4-N4 Scheduler / Headless Orchestration NEXT
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
-## 当前正式架构
-
-PR #15 证明并冻结新的最终宿主方向：
+N3 收口 head：
 
 ```text
-DeepSeek Harness
+5fcc37dd1800087f564abb0dea5a70d8dbf9662a
+```
+
+该 head 四套 workflow 全绿：
+
+```text
+CI                         PASS
+Harness Spike              PASS
+Harness Editorial Shell    PASS
+Harness Native Shell Spike PASS
+```
+
+---
+
+## 当前正式架构
+
+ADR-0010 冻结当前最终宿主：
+
+```text
+DeepSeek Harness Web
 ├─ official Agent Runtime
 ├─ stock Harness workbench
 └─ AI Editorial Desk Product Shell Plugin
@@ -49,97 +66,147 @@ EXTERNAL_WEB_SHELL_IFRAME_HARNESS = SUPERSEDED
 HARNESS_UPSTREAM_CORE_PATCH = FORBIDDEN_BY_DEFAULT
 ```
 
-AI Editorial Desk 与 stock Harness 工作台在同一个 Harness Web（当前本地 `3080`）中双向切换。AI Editorial Desk 默认作为结构化业务工作台；stock Harness 保留为自由 Agent / Session 工作台。
+ADR-0009 / `HYBRID_WEB_HARNESS` 与 `HYBRID_SHELL_CONTRACT.md` 现在是历史决策证据，不再是活动实现 Contract。
 
-业务数据仍由 Editorial API / PostgreSQL 持有。Harness Session / Job / Replay 属于运行时对象，不得替代 `opportunity_id`、`research_case_id`、`candidate_id`、`draft_id`、`publication_id` 等业务主键。
+AI Editorial Desk 与 stock Harness 工作台在同一个 Harness Web（当前本地 `3080`）中双向切换。AI Editorial Desk 作为结构化业务工作台；stock Harness 保留为自由 Agent / Session 工作台。
+
+业务数据仍由 Editorial API / PostgreSQL 持有。Harness Session / Job / Replay / Workspace 属于运行时对象，不得替代 `opportunity_id`、`research_case_id`、`candidate_id`、`draft_id`、`publication_id` 等业务主键。
+
+活动 Contract：
+
+`docs/04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
 
 ---
 
-## 当前 Gate：S4-N3 Research Runtime Adapter
+## 已完成 Gate：S4-N3 Research Runtime Adapter
 
-S4-N1 / N2 已通过正式 exact-pin Gate：
-
-- `@ai-editorial-desk/harness-editorial-shell` 正式包；
-- pinned Harness prepare / typecheck / bundle；
-- isolated profile install；
-- Harness `root` shadow + `sidebar.footer.action` 双向工作台切换；
-- Today / Opportunities 真实业务交互迁入 Product Shell；
-- 五 Tab Opportunity Inspector；
-- 搜索 / 筛选 / 排序 / 卡片与紧凑列表；
-- Research Case 创建 / 复用；
-- namespaced `ed_*` Product state；
-- 普通 CI / Harness Spike / Harness Editorial Shell 全绿。
-
-S4-N3 当前正在建立正式 Runtime Adapter：
+正式链路：
 
 ```text
 Product Shell Research Case
 → HarnessRuntimeAdapter
 → Research Case ↔ Harness Session runtime binding
-→ ctx.sessions / ctx.workspaces
+→ public ctx.sessions / ctx.workspaces
 → Session.prompt()
 → get_editorial_research_result
 → durable Harness Tool Result / replay
 ```
 
-当前已落地：
+已落地：
 
 - `/api/v1/integrations/harness/runtime/research/{research_case_id}` runtime binding；
-- Session bind / rebind / bootstrap-complete 契约；
+- Session bind / rebind / bootstrap-complete；
 - Session 更换后 bootstrap 自动重新 required；
 - Product Shell 使用公开 `ctx.sessions` / `ctx.workspaces` outward API；
-- 已绑定 Session 存在时复用；不存在时从 Workspace `connectWorkspace()` 获取新 Session 并重新绑定；
-- Research Case 完成后由 Product Shell 主动调用 `Session.prompt()`，不要求用户进入聊天框手工 prompt；
-- 正式插件 Host 侧注册 `get_editorial_research_result`，只读取既有 Research Case，不迁入会重复创建 Case 的 `start_editorial_research`；
-- bootstrap 只有在 Session durable log 中出现对应 Research Case 的结构化 Tool Result 后才标记完成；
-- Harness Session ID 只作为 runtime metadata 展示，不进入 Product business URL。
+- 已绑定 Session 存在时复用；丢失时创建/复用新 Session 并 rebind；
+- Product Shell 主动调用 `Session.prompt()`，不要求用户进入 Chat 手工 prompt；
+- 正式 Host Tool `get_editorial_research_result` 只读取既有 Research Case，不重复创建 Case；
+- durable structured Tool Result 出现后才标记 bootstrap complete；
+- Harness Session ID 只作为 runtime metadata；
+- Runtime failure 不删除 Research Case。
 
-N3 当前自动化 Gate 分两层：
+### Fresh profile bootstrap
 
-```text
-1. 无模型密钥 CI：
-   Product action → Research Case → 自动获得 Harness Session binding
-   且 business URL 不出现 Session ID
+本轮最终修复并验证了 isolated Harness profile **没有 Workspace** 的真实边界。
 
-2. 有模型 Runtime：
-   Session.prompt() → get_editorial_research_result
-   → durable Tool Result → bootstrap complete
-```
-
-无模型密钥的 CI 不得伪装成“真实 Research Agent 已完成”。若 Harness Provider 未配置，Product Shell 保留 Research Case 并显示 Runtime Error，可在配置模型后重新连接。
-
-后续：
+现在 Product Shell 会通过 pinned Harness 公开 `IWorkspaces` API：
 
 ```text
-S4-N3 complete gate
-→ S4-N4 Scheduler / Headless Orchestration
-→ S4-N5 Web Shell Retirement
+listDirectory()
+→ Host home
+→ create/reuse ai-editorial-desk-runtime directory
+→ create({path}) Workspace
+→ connectWorkspace()
+→ Session
+→ Research Case binding
 ```
 
-完整边界见：
+不再要求用户先进入 stock Harness 手工建立 Workspace，也没有 browser 侧硬编码 Host path。
 
-`docs/07_DELIVERY/S4_HARNESS_NATIVE_PRODUCT_SHELL_MIGRATION.md`
+### N3 验证边界
+
+当前“COMPLETE / CI PASS”表示正式代码、exact-pin compatibility、isolated profile 和 Browser Gate 已通过。
+
+不得把它扩大解释为：
+
+- 已完成 production model/provider 的全面质量验收；
+- 已完成真实外部 Research Provider；
+- deterministic/in-memory fixture 已变成生产持久化；
+- Acquisition Provider Spike 已结束。
+
+---
+
+## 当前 Gate：S4-N4 Scheduler / Headless Orchestration
+
+下一步建立标准业务动作的主动执行层：
+
+```text
+Schedule / Event / Manual Product Command
+→ Editorial Scheduler / Orchestrator
+→ Harness SDK / JSON-RPC / Runtime Adapter
+→ Agent / Tool / Job
+→ Editorial API / PostgreSQL
+→ Product Shell
+```
+
+N4 最低要求：
+
+- enable / disable；
+- schedule / interval；
+- event trigger；
+- manual run now；
+- Catch-up；
+- retry / backoff；
+- Last Run / Next Run；
+- run history；
+- idempotency / duplicate-run protection；
+- explicit failure state；
+- execution provenance；
+- 不把 provider secret 放进浏览器；
+- 不要求用户进入 stock Harness Chat 手工 prompt。
+
+进入实现前必须先审计 pinned Harness 当前正式 SDK / JSON-RPC / headless outward seam，不得猜测 private API。
+
+---
+
+## S4-N5 后续
+
+Product Shell 达到所需功能等价后：
+
+- 删除 `apps/web`；或
+- 明确降级为 dev-preview/reference 壳。
+
+不允许长期维护两套生产入口。
 
 ---
 
 ## PR #14 处理
 
-PR #14 的 `apps/web -> launch descriptor -> embedded Harness iframe` 不再作为最终方向，不直接合并。
+PR #14 的：
 
-已吸收 / 正在吸收其设计思想：
+```text
+apps/web
+→ launch descriptor
+→ surface_url
+→ embedded / iframe Harness
+```
 
-- `research_case_id <-> harness_session_id` 仅为运行时绑定；
-- Session 丢失后允许新建 Session 并从 canonical Research Case rehydrate；
-- 仅使用公开 `sessions / workspaces / Session.prompt()` outward API；
-- bootstrap / rebind 必须幂等；
-- Harness runtime failure 不得被解释为 Research Case 丢失。
+已经 superseded，**不得合并为正式架构**。
+
+已经吸收的设计思想：
+
+- `research_case_id ↔ harness_session_id` 仅为 runtime binding；
+- Session 丢失后允许新 Session + canonical Research Case rehydrate；
+- 只使用公开 Harness runtime outward API；
+- bootstrap / rebind 幂等；
+- Harness runtime failure 不等于业务 Research Case 丢失。
 
 明确废弃：
 
 - iframe Harness；
 - `embedded` transport；
-- `surface_url` 作为产品 UI 主接入；
-- `editorial_embed` / `editorial_launch` URL 参数宿主模式；
+- `surface_url` 作为正式 Product UI seam；
+- `editorial_embed` / `editorial_launch` URL host 模式；
 - 外部 `apps/web` 作为最终生产 Shell。
 
 ---
@@ -154,21 +221,8 @@ Schedule / Event / Manual Product Command
 → Harness Runtime Adapter / SDK / JSON-RPC
 → Agent / Tool / Job
 → Editorial API / PostgreSQL
-→ Product UI
+→ Product Shell
 ```
-
-PR #15 已用 pinned Harness 真实 runtime + mock OpenAI-compatible provider 证明“无 Web UI 主动 prompt”可行。
-
-自动任务必须配置化，至少支持：
-
-- enable / disable；
-- schedule / interval；
-- condition trigger；
-- manual run now；
-- Catch-up；
-- retry；
-- Last Run / Next Run；
-- run history。
 
 Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数据已经存在，而不是每天手动要求 Agent 开始工作。
 
@@ -197,7 +251,7 @@ Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数�
 - deterministic mock 是生产研究结果；
 - API restart 后的 in-memory Research / runtime binding fixture 具备 durable persistence。
 
-正式迁移只改变 Product Shell / Runtime integration，不自动完成业务持久化与真实采集。
+Product Shell / Runtime integration 的完成不自动完成业务持久化与真实采集。
 
 ---
 
@@ -207,7 +261,7 @@ Phase 0.5-B 必须继续独立验证：
 
 - high-momentum discovery；
 - low/no-momentum but high-potential discovery；
-- community/non-official first discovery -> reliable evidence follow-up。
+- community/non-official first discovery → reliable evidence follow-up。
 
 HumanSubmission 不参加 Provider 胜负比较；它作为产品自身入口，复用最终选定 Provider 做 fetch / verification / research。
 
@@ -231,4 +285,4 @@ MVP 第一成功标准不是功能数量，而是：
 1. 系统能主动发现真实值得看的内容；
 2. 用户能把低结构化线索交给编辑部并得到可验证、可解释的 Opportunity；
 3. 两类入口最终都形成可追溯 Human Decision；
-4. AI Editorial Desk Product Shell 与 Harness Runtime 不复制或破坏同一业务真相。
+4. Product Shell 与 Harness Runtime 不复制或破坏同一业务真相。

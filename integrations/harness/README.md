@@ -1,22 +1,27 @@
 # DeepSeek Harness Integration
 
-本目录只保存 AI Editorial Desk 对 DeepSeek Harness 的集成层，不 vendoring Harness upstream。
+本目录保存 AI Editorial Desk 对 DeepSeek Harness 的 out-of-tree 集成层，不 vendoring Harness upstream。
 
-## 冻结原则
+## 当前冻结原则
 
-- Harness = Product Runtime + Workbench Shell + Agent/Session/Tool/Job/Approval runtime。
-- Editorial Intelligence Core 通过 API / tools 暴露给 Harness。
-- 首选 out-of-tree plugin、profile、bundle、tool 与 capability seam；默认禁止 patch upstream core。
+- Harness = Product Shell Host + stock Agent Workbench + Agent/Session/Tool/Job/Approval runtime。
+- AI Editorial Desk 正式结构化 UI = Harness-native Product Shell Plugin。
+- Editorial API / PostgreSQL = canonical business truth。
+- 首选公开 plugin / profile / bundle / Slot / Client Runtime / SDK / JSON-RPC seam；默认禁止 patch upstream core。
 - Harness 处于 Developer Preview，必须 pin version/commit，并通过 compatibility adapter 隔离 breaking changes。
-- Durable business truth 不以 Harness Session log 作为唯一存储；Session 只保存交互/运行/replay 所需事实。
+- Session / Job / Workspace ID 是 runtime metadata，不得替代业务 ID。
 
-实现前阅读：
+## 必读
+
+- `docs/ADR/ADR-0010-harness-native-product-shell.md`
 - `docs/03_ARCHITECTURE/HARNESS_INTEGRATION.md`
 - `docs/03_ARCHITECTURE/HARNESS_RUNTIME_TOPOLOGY.md`
-- `docs/04_CONTRACTS/HARNESS_API_CONTRACT.md`
-- `docs/07_DELIVERY/HARNESS_INTEGRATION_SPIKE.md`
+- `docs/04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
+- `docs/07_DELIVERY/S4_HARNESS_NATIVE_PRODUCT_SHELL_MIGRATION.md`
 
-## Phase 0.5-A Pin
+旧的 `HYBRID_SHELL_CONTRACT.md` 与 ADR-0009 仅用于历史追溯。
+
+## Exact Pin
 
 ```text
 DeepSeek Harness commit
@@ -32,125 +37,120 @@ pnpm
 11.7.0
 ```
 
-Pin 只用于让 Spike 兼容结论可复现，不代表永久锁版本。
-
-## Spike package
+## 当前目录角色
 
 ```text
 integrations/harness/
 ├─ HARNESS_PIN.json
-├─ README.md
-├─ scripts/prepare_spike.py
-└─ spike-package/
-   ├─ package.json
-   ├─ tsconfig.json
-   ├─ tsdown.config.ts
-   ├─ cordis.patch.yml
-   └─ src/
-      ├─ index.ts
-      ├─ events.ts
-      └─ client/index.ts
+├─ editorial-shell-package/       # 正式 Product Shell
+├─ native-shell-spike-package/    # PR #15 架构验证证据
+├─ spike-package/                 # 早期 Tool/Research/Replay 验证证据
+└─ scripts/
+   ├─ prepare_editorial_shell.py
+   ├─ prepare_native_shell_spike.py
+   └─ prepare_spike.py
 ```
 
-Package 会在验证时复制进独立 pinned Harness checkout 以完成 exact-pin build；运行时必须再通过官方 `dsh plugin --profile web add ...` 安装到选定 profile。复制到 upstream workspace 不是运行时安装。
+正式新功能优先进入 `editorial-shell-package`。Spike packages 保留为 compatibility / architecture evidence，不继续承担正式业务功能。
 
-## 本地执行：必须保持与 CI 相同顺序
+## 正式 Product Shell
 
-### 1. 启动 Editorial API
-
-Next 仓库根目录：
-
-```bash
-python -m pip install -e '.[dev]'
-python -m uvicorn apps.editorial_api.main:app --host 127.0.0.1 --port 8000
-```
-
-Spike Backend 只提供 mock Opportunity/Research API，不建立正式业务表。
-
-### 2. checkout exact pin 并先构建 pristine Harness
-
-```bash
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
-git checkout 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
-corepack enable
-corepack prepare pnpm@11.7.0 --activate
-pnpm install --frozen-lockfile
-pnpm run build
-```
-
-**顺序不能倒置。** 完整 Web profile 启动需要 pristine pinned Harness 的 root build 产物；仅执行 `build:lib:host` 不足以证明 Web runtime 可启动。
-
-### 3. 准备 out-of-tree spike package
-
-回到 Next 仓库：
-
-```bash
-python integrations/harness/scripts/prepare_spike.py /path/to/deepseek-harness
-```
-
-脚本会拒绝非 pinned commit，并只允许覆盖自身 `@ai-editorial-desk/harness-spike` 临时目录。
-
-### 4. reconcile / typecheck / bundle
-
-在 Harness 根目录：
-
-```bash
-pnpm install --no-frozen-lockfile
-pnpm exec tsc -b packages/client/editorial-spike/tsconfig.json
-pnpm --filter @ai-editorial-desk/harness-spike run bundle
-```
-
-预期：
+包：
 
 ```text
-packages/client/editorial-spike/lib/index.js
-packages/client/editorial-spike/lib/client.js
-packages/client/editorial-spike/lib/types/index.d.ts
-packages/client/editorial-spike/lib/types/client/index.d.ts
+@ai-editorial-desk/harness-editorial-shell
 ```
 
-### 5. 安装到隔离 Web profile
+当前已经迁入：
 
-```bash
-export DSH_HOME="$PWD/.dsh-spike-home"
-pnpm dsh plugin --profile web add ./packages/client/editorial-spike
-```
+- Harness root Slot Product Shell；
+- stock Harness workbench 双向切换；
+- Today；
+- Opportunities；
+- Opportunity Inspector 五 Tab；
+- Research Case 创建/复用；
+- `ed_*` namespaced Product state；
+- HarnessRuntimeAdapter；
+- Research Case ↔ Session binding/rebind/bootstrap；
+- `get_editorial_research_result` Host Tool；
+- fresh profile runtime Workspace bootstrap。
 
-Spike package 通过 `dsh.bundle.patch` 加入 profile composition；无需 fork/patch Harness core，也不使用临时 `--patch` 绕过 profile 生命周期。
+## Fresh profile bootstrap
 
-### 6. 启动 Harness Web
-
-```bash
-export DSH_HOME="$PWD/.dsh-spike-home"
-EDITORIAL_API_BASE_URL=http://127.0.0.1:8000 \
-pnpm dsh web
-```
-
-默认 Web 地址：`http://127.0.0.1:3080`。
-
-如果只验证 Tool runtime，不需要模型即可由集成测试使用 Harness 的 `ctx.tools.execute()`；如果验证“自然语言 → Agent 自动选择 Tool”，则仍需按 Harness 官方方式配置可用模型。API Key 不写入仓库。
-
-## 当前自动化已经证明
+完全新的 isolated profile 可能没有 Workspace。正式 Product Shell 不要求用户手工准备：
 
 ```text
-pristine exact-pin full build
-→ out-of-tree profile/plugin activation
-→ FastAPI + Harness Web boot
-→ Harness ctx.tools.execute(list/inspect/error)
-→ Editorial Tool → FastAPI
+ctx.workspaces.listDirectory()
+→ Host home
+→ create/reuse ai-editorial-desk-runtime
+→ ctx.workspaces.create({path})
+→ connectWorkspace()
+→ Session
+→ Research Case binding
 ```
 
-自动化证明的是 runtime integration，不是最终产品 UX。
+只使用 pinned Harness 公开 outward API。
 
-## 仍需真实浏览器/Agent 验证
+## 本地正式 Product Shell 验证顺序
 
-- Model 是否稳定选择 Editorial Tools；
-- Opportunity Card 的实际信息密度与可读性；
-- Research Job live progress；
-- Research Conversation Node；
-- Session refresh/replay；
-- error/cancel UX；
-- Radar/Programming/Performance 等复杂业务 UI。
+本地路径示例：
 
-这些项目未实测前，不得把 `HARNESS_FULL_WORKBENCH` 写成 Accepted。
+```text
+Next repo   F:\newWorkSpace\ai-editorial-next\editorial-next
+Harness     F:\newWorkSpace\ai-editorial-next\deepSeek-harness
+```
+
+原则上与 `.github/workflows/harness-editorial-shell.yml` 保持同序：
+
+```text
+1. checkout exact pinned Harness
+2. pristine Harness install/build
+3. prepare_editorial_shell.py
+4. reconcile workspace
+5. Product Shell typecheck
+6. Product Shell bundle
+7. install through official profile/plugin seam
+8. boot Editorial API :18000
+9. boot Harness Web :3080
+10. browser Gate
+```
+
+具体命令以当前 workflow 为准，不复制过期的 Spike 端口/命令到正式流程。
+
+## 已证明的 N3 Gate
+
+在 PR #16 head `5fcc37dd1800087f564abb0dea5a70d8dbf9662a`：
+
+```text
+CI                         PASS
+Harness Spike              PASS
+Harness Editorial Shell    PASS
+Harness Native Shell Spike PASS
+```
+
+正式 Browser Gate 已证明 fresh profile 无 Workspace 时仍能自动获得 Harness Session binding；不需要先进入 stock Harness 手工创建 Workspace。
+
+## 下一 Gate：S4-N4
+
+```text
+Schedule / Event / Manual Product Command
+→ Editorial Scheduler / Orchestrator
+→ Harness SDK / JSON-RPC / Runtime Adapter
+→ Agent / Tool / Job
+→ Editorial API / PostgreSQL
+→ Product Shell
+```
+
+至少需要 enable/disable、schedule/interval、event/manual trigger、Catch-up、retry、Last Run / Next Run、run history 与幂等保护。
+
+标准业务动作不能要求用户进入 Chat 手工 prompt。
+
+## 禁止项
+
+- fork/patch Harness upstream core；
+- private Harness store；
+- DOM navigation hack；
+- iframe / `surface_url` / `embedded` 作为正式 Product Shell host；
+- Product Shell 直接读写 PostgreSQL；
+- Session log 作为唯一业务数据库；
+- 把 deterministic/in-memory Spike fixture 宣称为 production persistence。
