@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal
@@ -31,6 +31,21 @@ class ManualRunRequest(BaseModel):
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=160)
 
 
+class IntervalTaskRequest(BaseModel):
+    interval_seconds: int = Field(ge=60, le=2_592_000)
+    enabled: bool = True
+    first_run_at: datetime | None = None
+
+
+class TaskEnabledRequest(BaseModel):
+    enabled: bool
+
+
+class SchedulerTickRequest(BaseModel):
+    now: datetime | None = None
+    limit: int = Field(default=20, ge=1, le=100)
+
+
 class RuntimeProvenance(BaseModel):
     harness_commit: str = HARNESS_COMMIT
     harness_release: str = HARNESS_RELEASE
@@ -50,6 +65,21 @@ class ExecutionProvenance(BaseModel):
     input_hash: str
 
 
+class SchedulerTask(BaseModel):
+    task_id: str
+    operation: str
+    business_object_type: str
+    business_object_id: str
+    trigger_kind: Literal["schedule"] = "schedule"
+    enabled: bool
+    schedule_kind: Literal["interval"] = "interval"
+    schedule_expression: str
+    next_run_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    persistence: Literal["postgresql"] = "postgresql"
+
+
 class SchedulerRun(BaseModel):
     run_id: str
     task_id: str | None = None
@@ -57,7 +87,7 @@ class SchedulerRun(BaseModel):
     business_object_type: str
     business_object_id: str
     opportunity_id: str
-    trigger_kind: Literal["manual"] = "manual"
+    trigger_kind: Literal["manual", "schedule"] = "manual"
     status: Literal["queued", "running", "succeeded", "failed", "cancelled", "skipped"]
     idempotency_key: str
     attempt: int = Field(ge=1)
@@ -82,6 +112,12 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def _aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        raise HTTPException(status_code=422, detail="scheduler datetime must include a timezone")
+    return value.astimezone(UTC)
+
+
 def _durable_store() -> SchedulerPostgresStore | None:
     global _POSTGRES_STORE, _POSTGRES_STORE_URL
     database_url = scheduler_database_url()
@@ -93,12 +129,31 @@ def _durable_store() -> SchedulerPostgresStore | None:
     return _POSTGRES_STORE
 
 
-def _input_hash(*, operation: str, research_case_id: str, opportunity_id: str) -> str:
+def _require_durable_store() -> SchedulerPostgresStore:
+    store = _durable_store()
+    if store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="DATABASE_URL is required for durable scheduler tasks",
+        )
+    return store
+
+
+def _input_hash(
+    *,
+    operation: str,
+    research_case_id: str,
+    opportunity_id: str,
+    trigger_kind: str,
+    task_id: str | None,
+) -> str:
     canonical = json.dumps(
         {
             "operation": operation,
             "research_case_id": research_case_id,
             "opportunity_id": opportunity_id,
+            "trigger_kind": trigger_kind,
+            "task_id": task_id,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -107,12 +162,20 @@ def _input_hash(*, operation: str, research_case_id: str, opportunity_id: str) -
 
 
 def _research_case(research_case_id: str) -> tuple[str, bool]:
-    # Research itself is still a deterministic fixture in S4. N4-C only moves
-    # Scheduler Task/Run truth to PostgreSQL; runtime ids remain metadata.
+    # Research itself is still a deterministic fixture in S4. N4-C/N4-D only
+    # move Scheduler truth to PostgreSQL; runtime ids remain metadata.
     with _RESEARCH_LOCK:
         record = _RESEARCH.get(research_case_id)
         if record is None:
             raise HTTPException(status_code=404, detail="research case not found")
+        return record.opportunity_id, record.completed
+
+
+def _research_case_for_tick(research_case_id: str) -> tuple[str | None, bool]:
+    with _RESEARCH_LOCK:
+        record = _RESEARCH.get(research_case_id)
+        if record is None:
+            return None, False
         return record.opportunity_id, record.completed
 
 
@@ -223,22 +286,28 @@ async def _create_or_reuse_run(
     research_case_id: str,
     opportunity_id: str,
     requested_key: str | None,
+    trigger_kind: Literal["manual", "schedule"] = "manual",
+    task_id: str | None = None,
 ) -> tuple[SchedulerRun, bool]:
     operation = OPERATION_RESEARCH_REHYDRATE
     input_hash = _input_hash(
         operation=operation,
         research_case_id=research_case_id,
         opportunity_id=opportunity_id,
+        trigger_kind=trigger_kind,
+        task_id=task_id,
     )
     idempotency_key = requested_key or f"manual:{uuid4().hex}"
     store = _durable_store()
 
     run = SchedulerRun(
         run_id=f"run_{uuid4().hex}",
+        task_id=task_id,
         operation=operation,
         business_object_type="research_case",
         business_object_id=research_case_id,
         opportunity_id=opportunity_id,
+        trigger_kind=trigger_kind,
         status="running",
         idempotency_key=idempotency_key,
         attempt=1,
@@ -248,7 +317,7 @@ async def _create_or_reuse_run(
             operation=operation,
             business_object_type="research_case",
             business_object_id=research_case_id,
-            trigger_kind="manual",
+            trigger_kind=trigger_kind,
             attempt=1,
             input_hash=input_hash,
         ),
@@ -333,6 +402,36 @@ async def _finish_run(run_id: str, result: dict[str, Any]) -> SchedulerRun:
     return updated.model_copy(deep=True)
 
 
+async def _record_unrunnable_schedule_run(
+    *,
+    task: SchedulerTask,
+    opportunity_id: str | None,
+    claimed_for_at: datetime,
+    failure_code: str,
+    failure_reason: str,
+) -> SchedulerRun:
+    placeholder_opportunity = opportunity_id or "unresolved"
+    run, reused = await _create_or_reuse_run(
+        research_case_id=task.business_object_id,
+        opportunity_id=placeholder_opportunity,
+        requested_key=f"schedule:{task.task_id}:{claimed_for_at.isoformat()}",
+        trigger_kind="schedule",
+        task_id=task.task_id,
+    )
+    if reused:
+        return run
+    return await _finish_run(
+        run.run_id,
+        {
+            "ok": False,
+            "tool_result_observed": False,
+            "failure_code": failure_code,
+            "failure_reason": failure_reason,
+            "completion_signal": "business_object_not_runnable",
+        },
+    )
+
+
 @router.post(
     "/research/{research_case_id}/run-now",
     response_model=SchedulerRun,
@@ -365,6 +464,115 @@ async def run_research_now(
         }
     )
     return await _finish_run(run.run_id, result)
+
+
+@router.post(
+    "/research/{research_case_id}/tasks/interval",
+    response_model=SchedulerTask,
+    status_code=201,
+)
+async def create_interval_task(
+    research_case_id: str,
+    payload: IntervalTaskRequest,
+) -> SchedulerTask:
+    _research_case(research_case_id)
+    store = _require_durable_store()
+    now = _utcnow()
+    if payload.first_run_at is None:
+        next_run_at = now + timedelta(seconds=payload.interval_seconds)
+    else:
+        next_run_at = _aware_utc(payload.first_run_at)
+    task = {
+        "task_id": f"task_{uuid4().hex}",
+        "operation": OPERATION_RESEARCH_REHYDRATE,
+        "business_object_type": "research_case",
+        "business_object_id": research_case_id,
+        "enabled": payload.enabled,
+        "interval_seconds": payload.interval_seconds,
+        "next_run_at": next_run_at,
+        "created_at": now,
+        "updated_at": now,
+    }
+    stored = await store.upsert_interval_task(task)
+    return SchedulerTask.model_validate(stored)
+
+
+@router.get("/tasks/{task_id}", response_model=SchedulerTask)
+async def get_scheduler_task(task_id: str) -> SchedulerTask:
+    store = _require_durable_store()
+    task = await store.get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="scheduler task not found")
+    return SchedulerTask.model_validate(task)
+
+
+@router.post("/tasks/{task_id}/enabled", response_model=SchedulerTask)
+async def set_scheduler_task_enabled(
+    task_id: str,
+    payload: TaskEnabledRequest,
+) -> SchedulerTask:
+    store = _require_durable_store()
+    task = await store.set_task_enabled(task_id, enabled=payload.enabled, updated_at=_utcnow())
+    if task is None:
+        raise HTTPException(status_code=404, detail="scheduler task not found")
+    return SchedulerTask.model_validate(task)
+
+
+@router.post("/tick", response_model=list[SchedulerRun])
+async def run_scheduler_tick(payload: SchedulerTickRequest) -> list[SchedulerRun]:
+    store = _require_durable_store()
+    now = _utcnow() if payload.now is None else _aware_utc(payload.now)
+    claimed = await store.claim_due_interval_tasks(now=now, limit=payload.limit)
+    results: list[SchedulerRun] = []
+
+    for wire in claimed:
+        claimed_for_at = wire.pop("claimed_for_at")
+        task = SchedulerTask.model_validate(wire)
+        opportunity_id, completed = _research_case_for_tick(task.business_object_id)
+        if opportunity_id is None:
+            results.append(
+                await _record_unrunnable_schedule_run(
+                    task=task,
+                    opportunity_id=None,
+                    claimed_for_at=claimed_for_at,
+                    failure_code="business_object_missing",
+                    failure_reason="Scheduled Research Case no longer exists.",
+                )
+            )
+            continue
+        if not completed:
+            results.append(
+                await _record_unrunnable_schedule_run(
+                    task=task,
+                    opportunity_id=opportunity_id,
+                    claimed_for_at=claimed_for_at,
+                    failure_code="business_object_not_ready",
+                    failure_reason="Scheduled Research Case is not completed yet.",
+                )
+            )
+            continue
+
+        run, reused = await _create_or_reuse_run(
+            research_case_id=task.business_object_id,
+            opportunity_id=opportunity_id,
+            requested_key=f"schedule:{task.task_id}:{claimed_for_at.isoformat()}",
+            trigger_kind="schedule",
+            task_id=task.task_id,
+        )
+        if reused:
+            results.append(run)
+            continue
+        result = await _execute_headless(
+            {
+                "scheduler_run_id": run.run_id,
+                "operation": run.operation,
+                "research_case_id": task.business_object_id,
+                "opportunity_id": opportunity_id,
+            }
+        )
+        results.append(await _finish_run(run.run_id, result))
+
+    return results
 
 
 @router.get("/runs/{run_id}", response_model=SchedulerRun)
