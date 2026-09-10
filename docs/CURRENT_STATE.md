@@ -21,7 +21,9 @@ PR #16 当前正式迁移状态：
 S4-N1 Product Shell Foundation           COMPLETE / CI PASS
 S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
 S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
-S4-N4 Scheduler / Headless Orchestration NEXT
+S4-N4 Scheduler / Headless Orchestration IN_PROGRESS
+  N4-A exact-pin audit + Contract        COMPLETE
+  N4-B Manual Run vertical slice         IMPLEMENTED / CI PENDING
 S4-N5 Web Shell Retirement               NOT_STARTED
 ```
 
@@ -74,7 +76,8 @@ AI Editorial Desk 与 stock Harness 工作台在同一个 Harness Web（当前�
 
 活动 Contract：
 
-`docs/04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
+- `docs/04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
+- `docs/04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
 
 ---
 
@@ -138,34 +141,67 @@ listDirectory()
 
 ## 当前 Gate：S4-N4 Scheduler / Headless Orchestration
 
-下一步建立标准业务动作的主动执行层：
+当前活动 Contract：
+
+`docs/04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
+
+### N4-A — exact-pin audit + Contract
+
+**状态：COMPLETE**
+
+exact-pinned Harness 审计结论：
+
+- 主路径使用公开 `@deepseek-ai/dsh-sdk-client`；
+- transport 为 subprocess + stdio JSON-RPC；
+- `DeepSeekHarness.run()` 的运行区间是 durable inbox receipt → whole-agent `idle`；
+- `messageId` 只代表 enqueue receipt，不代表业务完成；
+- SDK wire 当前没有 per-prompt cancel，因此首版 SchedulerRun 使用独占 runtime process 作为 timeout/cancellation boundary；
+- ACP 有 `session/cancel`，但 exact pin 仅支持 fresh sessions，不承担需要 named-session continuity 的主路径；
+- Harness `schedule/` 是 Session-local reminder，没有 public Scheduler service，不作为系统 Scheduler。
+
+### N4-B — Manual Run vertical slice
+
+**状态：IMPLEMENTED / CI PENDING**
+
+已提交：
 
 ```text
-Schedule / Event / Manual Product Command
-→ Editorial Scheduler / Orchestrator
-→ Harness SDK / JSON-RPC / Runtime Adapter
-→ Agent / Tool / Job
-→ Editorial API / PostgreSQL
-→ Product Shell
+POST /api/v1/integrations/harness/scheduler/research/{research_case_id}/run-now
+GET  /api/v1/integrations/harness/scheduler/runs/{run_id}
 ```
 
-N4 最低要求：
+第一条 operation：
 
-- enable / disable；
-- schedule / interval；
-- event trigger；
-- manual run now；
-- Catch-up；
-- retry / backoff；
-- Last Run / Next Run；
-- run history；
-- idempotency / duplicate-run protection；
-- explicit failure state；
-- execution provenance；
-- 不把 provider secret 放进浏览器；
-- 不要求用户进入 stock Harness Chat 手工 prompt。
+```text
+research.rehydrate
+→ exact-pinned TypeScript SDK runner
+→ get_editorial_research_result(research_case_id)
+→ agent idle + canonical structured Tool Result
+→ SchedulerRun succeeded / failed
+```
 
-进入实现前必须先审计 pinned Harness 当前正式 SDK / JSON-RPC / headless outward seam，不得猜测 private API。
+当前实现已经包含：
+
+- `SchedulerRun` 业务 ID 与 Harness Session runtime metadata 分离；
+- manual run idempotency / duplicate protection；
+- 同 idempotency key 不允许绑定不同业务输入；
+- timeout 时终止本次独占 headless runner process；
+- explicit failure code / reason；
+- credential/error redaction；
+- execution/runtime provenance；
+- exact-pin headless runner `--probe` CI seam；
+- 不依赖 Web UI / iframe / DOM / private Harness API。
+
+当前 `SchedulerRun` ledger 仍明确是 `transitional_in_memory`。**N4-C 完成 PostgreSQL durable Task/Run 前，不得宣称 Scheduler persistence 已完成。**
+
+### N4 后续
+
+```text
+N4-C Durable Task / Run model
+→ N4-D Interval / Schedule trigger
+→ N4-E Retry / Catch-up / History
+→ N4-F Event trigger + Product status UI
+```
 
 ---
 
@@ -249,7 +285,7 @@ Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数�
 - 真实外部 Acquisition 已完成；
 - PostgreSQL Opportunity / Research persistence 已完成；
 - deterministic mock 是生产研究结果；
-- API restart 后的 in-memory Research / runtime binding fixture 具备 durable persistence。
+- API restart 后的 in-memory Research / runtime binding / SchedulerRun fixture 具备 durable persistence。
 
 Product Shell / Runtime integration 的完成不自动完成业务持久化与真实采集。
 
