@@ -81,13 +81,15 @@ spike/phase-0.5b-acquisition-providers
 当前批次：
 
 ```text
-0.5B-A Benchmark Contract + Mission Corpus       IN_PROGRESS
-0.5B-B No-key Baselines                          IN_PROGRESS
-0.5B-C Key-gated Search / Fetch Adapters         NOT_STARTED
-0.5B-D Real Provider Runs                        NOT_STARTED
+0.5B-A Benchmark Contract + Mission Corpus       COMPLETE / CI PASS
+0.5B-B No-key Baselines                          COMPLETE / CI PASS
+0.5B-C Key-gated Search / Fetch Adapters         COMPLETE / CI PASS
+0.5B-D Real Provider Runs                        IN_PROGRESS
 0.5B-E Human Editorial Acceptance                NOT_STARTED
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
+
+0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过。
 
 已建立：
 
@@ -99,9 +101,15 @@ spike/phase-0.5b-acquisition-providers
 - 版本化 Discovery Mission manifest；
 - RSS/Atom Ambient baseline；
 - Hacker News public ranked community snapshot baseline；
-- mechanical contract tests。
+- Exa semantic Search candidate；
+- Firecrawl independent Fetch candidate；
+- Tavily integrated Search+Fetch candidate；
+- server-side key boundary + missing-key `UNAVAILABLE`；
+- keyed Search/Fetch benchmark runner；
+- no-key live baseline runner；
+- Mission required SourceRole 与实际候选 SourceRole 的覆盖评估，避免把 provider success 冒充 mission success。
 
-当前尚未产生任何 Provider 胜负结论，也尚未执行真实 Search/Fetch 供应商 benchmark。
+当前尚未产生任何 Provider 胜负结论。0.5B-D 已开始建立真实 run artifact 与人工验收前置数据；Search/Fetch 真实供应商 benchmark 仍需要合法 API key 才能执行。
 
 ---
 
@@ -125,6 +133,7 @@ Mission-driven Discovery
 - 热度不是进入 Discovery 的硬门槛；
 - `Trend unavailable` 不等于 `Editorial Value low`；
 - Provider rank / score / trend number 不能直接升级为 Editorial Value；
+- Provider transport 成功不等于 Mission 所需 SourceRole 已满足；
 - 非官方来源可以是 Discovery / Audience / Trend Signal，但不能自动成为 Confirmed Evidence；
 - Community-first Discovery 必须验证是否能追到可靠 Evidence / Primary Source；
 - HumanSubmission 是产品自身的一等 Acquisition ingress，不参加外部 Provider 比较；
