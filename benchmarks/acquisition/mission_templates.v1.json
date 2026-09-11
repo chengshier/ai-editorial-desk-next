@@ -1,0 +1,187 @@
+{
+  "schema_version": "1",
+  "missions": [
+    {
+      "mission_id": "potential-common-belief-contradiction",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "COMMON_BELIEF_CONTRADICTION",
+      "objective": "寻找大众常见认知与可靠资料之间存在明显反差、且适合大众解释的素材。",
+      "query_seeds": ["common belief contradicted by evidence", "everyday myth evidence contradiction"],
+      "source_preferences": ["research", "professional-media", "community"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "EVIDENCE_SOURCE"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "potential-everyday-why",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "WHY_EXPLAINER",
+      "objective": "寻找普通人经常遇到、但原因并不直观的日常现象。",
+      "query_seeds": ["why does everyday phenomenon happen", "surprising explanation ordinary life"],
+      "source_preferences": ["professional-media", "official", "blog"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "EVIDENCE_SOURCE"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "potential-protective-scam",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "PROTECTIVE_VALUE",
+      "objective": "寻找近期出现或长期高发、但公众识别不足的诈骗与欺诈模式。",
+      "query_seeds": ["new scam pattern warning", "consumer fraud emerging pattern"],
+      "source_preferences": ["official", "professional-media", "community"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "PRIMARY_SOURCE"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "potential-protective-food-safety",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "PROTECTIVE_VALUE",
+      "objective": "寻找食品安全、消费安全或健康误区中具备保护价值的可解释素材。",
+      "query_seeds": ["food safety misconception evidence", "consumer safety overlooked risk"],
+      "source_preferences": ["official", "research", "professional-media"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "EVIDENCE_SOURCE"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "potential-story-behind-familiar-things",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "STORY_BEHIND_THINGS",
+      "objective": "寻找熟悉物品、习惯、制度或符号背后不熟悉但可讲述的历史与设计故事。",
+      "query_seeds": ["history behind familiar object", "unexpected origin of everyday thing"],
+      "source_preferences": ["historical", "professional-media", "museum"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "MATERIAL_SOURCE"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "potential-human-story",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "HUMAN_STORY",
+      "objective": "寻找不依赖名人知名度、但具有普遍情绪、选择冲突或生活反差的人物故事。",
+      "query_seeds": ["ordinary person unusual life story", "human story universal dilemma"],
+      "source_preferences": ["local-media", "community", "newsletter"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "AUDIENCE_SIGNAL"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "potential-culture-discovery",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "CULTURE_DISCOVERY",
+      "objective": "寻找电影、书、音乐或游戏中未必热门、但具有差异性、背景故事或再解释空间的对象。",
+      "query_seeds": ["overlooked film story behind production", "underappreciated music game cultural context"],
+      "source_preferences": ["culture-community", "professional-media", "archive"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "AUDIENCE_SIGNAL"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "potential-rediscovery",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "REDISCOVERY",
+      "objective": "寻找因当前社会语境、技术变化或新资料出现而重新值得讲的旧内容。",
+      "query_seeds": ["old idea newly relevant today", "rediscovered historical topic current context"],
+      "source_preferences": ["archive", "professional-media", "community"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "EVIDENCE_SOURCE"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "potential-open-curiosity",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "OPEN_CURIOSITY",
+      "objective": "寻找足够奇怪、有趣或值得追问为什么，但不要求已有热度的开放好奇素材。",
+      "query_seeds": ["strange ordinary phenomenon why", "curious unexplained everyday observation"],
+      "source_preferences": ["community", "blog", "professional-media"],
+      "required_source_roles": ["DISCOVERY_SIGNAL"],
+      "max_results": 20
+    },
+    {
+      "mission_id": "momentum-search-attention-surge",
+      "version": "1",
+      "lane": "momentum",
+      "mission_type": "ATTENTION_SURGE",
+      "objective": "寻找最近搜索或公开注意力显著加速、且值得解释为何现在升温的对象。",
+      "query_seeds": ["recent search attention surge", "sudden public interest rising topic"],
+      "source_preferences": ["trend", "professional-media"],
+      "required_source_roles": ["TREND_SIGNAL", "DISCOVERY_SIGNAL"],
+      "recency_days": 7,
+      "max_results": 20
+    },
+    {
+      "mission_id": "momentum-rising-culture-object",
+      "version": "1",
+      "lane": "momentum",
+      "mission_type": "RISING_CULTURE_OBJECT",
+      "objective": "寻找电影、剧集、歌曲、游戏或人物的近期注意力加速。",
+      "query_seeds": ["rapidly rising film series song game attention", "culture ranking breakout this week"],
+      "source_preferences": ["trend", "culture-community", "platform"],
+      "required_source_roles": ["TREND_SIGNAL", "AUDIENCE_SIGNAL"],
+      "recency_days": 7,
+      "max_results": 20
+    },
+    {
+      "mission_id": "momentum-community-acceleration",
+      "version": "1",
+      "lane": "momentum",
+      "mission_type": "COMMUNITY_ACCELERATION",
+      "objective": "寻找 Reddit、论坛或其他社区中讨论速度显著上升的主题。",
+      "query_seeds": ["community discussion accelerating", "forum thread topic rapidly growing"],
+      "source_preferences": ["community", "forum", "platform"],
+      "required_source_roles": ["TREND_SIGNAL", "AUDIENCE_SIGNAL"],
+      "recency_days": 7,
+      "max_results": 20
+    },
+    {
+      "mission_id": "momentum-cross-platform-spread",
+      "version": "1",
+      "lane": "momentum",
+      "mission_type": "CROSS_PLATFORM_SPREAD",
+      "objective": "寻找从单一来源扩散到多个平台或媒体面的主题。",
+      "query_seeds": ["topic spreading across platforms", "cross platform discussion surge"],
+      "source_preferences": ["platform", "community", "professional-media"],
+      "required_source_roles": ["TREND_SIGNAL", "DISCOVERY_SIGNAL"],
+      "recency_days": 7,
+      "max_results": 20
+    },
+    {
+      "mission_id": "momentum-resurfacing-old-content",
+      "version": "1",
+      "lane": "momentum",
+      "mission_type": "RESURFACING",
+      "objective": "寻找旧内容、旧作品或旧事件突然重新获得注意力的案例。",
+      "query_seeds": ["old content suddenly trending again", "resurfacing archive topic viral again"],
+      "source_preferences": ["trend", "community", "archive"],
+      "required_source_roles": ["TREND_SIGNAL", "DISCOVERY_SIGNAL"],
+      "recency_days": 14,
+      "max_results": 20
+    },
+    {
+      "mission_id": "momentum-emerging-tech-ordinary-relevance",
+      "version": "1",
+      "lane": "momentum",
+      "mission_type": "EMERGING_TECH_RELEVANCE",
+      "objective": "寻找正在升温、且对普通人生活或工作有明确影响的新技术。",
+      "query_seeds": ["emerging technology ordinary people impact", "new technology rapidly gaining attention practical impact"],
+      "source_preferences": ["research", "professional-media", "community"],
+      "required_source_roles": ["TREND_SIGNAL", "EVIDENCE_SOURCE"],
+      "recency_days": 14,
+      "max_results": 20
+    },
+    {
+      "mission_id": "community-first-claim-followup",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "COMMUNITY_FIRST_EVIDENCE_FOLLOWUP",
+      "objective": "从社区中的早期说法出发，验证是否能够进一步定位可靠 Evidence 或 Primary Source。",
+      "query_seeds": ["community claim needs primary source verification", "forum discovery verify with authoritative source"],
+      "source_preferences": ["community", "official", "research"],
+      "required_source_roles": ["DISCOVERY_SIGNAL", "AUDIENCE_SIGNAL", "EVIDENCE_SOURCE"],
+      "max_results": 20
+    }
+  ]
+}
