@@ -55,26 +55,39 @@ git pull --ff-only origin spike/phase-0.5b-acquisition-providers
 
 ## 3. 每条人工判断字段
 
-每个 sample 的 `human_review` 必须填写：
+系统内部仍保留稳定 enum，但人工交互统一用中文：
 
 ```text
 decision
-  DO | MAYBE | DROP
+  DO     = 值得做
+  MAYBE  = 观察 / 有条件再做
+  DROP   = 不做
 
 would_read
-  true | false
+  true   = 我自己会点开 / 会看
+  false  = 我自己不会点开 / 不会看
 
 would_make
-  true | false
+  true   = 值得编辑部继续投入
+  false  = 不值得编辑部继续投入
 
 placement
-  MAIN | COLUMN | LONG_TERM | RESEARCH_ONLY | NONE
+  MAIN          = 重点选题 / 主内容
+  COLUMN        = 栏目内容
+  LONG_TERM     = 长期选题库 / 长青内容
+  RESEARCH_ONLY = 仅研究，暂不制作
+  NONE          = 不进入内容池
 
 rationale
-  必填；说明为什么值得/不值得做
+  必填；说明为什么值得/不值得做，或者为什么当前无法判断
 
 evidence_followup_needed
-  true | false
+  true   = 需要补 Primary / Evidence
+  false  = 当前不需要额外补证
+
+context_sufficient
+  true   = 当前给出的上下文足够做编辑判断
+  false  = 当前只有标题/信号等，信息不足，不能作为最终验收结论
 ```
 
 解释：
@@ -83,9 +96,41 @@ evidence_followup_needed
 - `would_make`：是否值得投入编辑部资源继续研究和制作；
 - `decision`：最终编辑取舍，不由 Provider score / trend / traffic 决定；
 - `placement`：如果保留，最适合的编辑位置；
-- `evidence_followup_needed`：是否必须先补 Primary/Evidence 才能继续。
+- `evidence_followup_needed`：是否必须先补 Primary/Evidence 才能继续；
+- `context_sufficient`：验收材料本身是否提供了足够的事实摘要/正文/相关报道上下文。
 
-## 4. 不允许的捷径
+人工回复可直接使用中文，例如：
+
+```text
+观察 / 会 / 有条件 / 栏目 / 需要补证 / 上下文不足
+理由：只有标题，看不出真正的选题价值。
+```
+
+系统记录时再映射到 enum，不要求人工记英文值。
+
+## 4. Review Context Gate
+
+真实第一轮 Momentum 人工验收暴露出一个问题：仅展示候选标题、流量或 rank，会让编辑只能评价“标题吸不吸引”，不能评价真实选题价值。
+
+因此 acceptance packet schema v2 增加 `review_context`：
+
+```text
+Momentum
+→ related news 标题 / 来源 / trend observation
+
+Potential
+→ 优先合并 Exa candidate 对应的 Firecrawl fetched description / content excerpt
+
+Control
+→ 优先使用 Tavily integrated content excerpt
+
+Community
+→ 至少保留 HN audience signals；若仍只有标题，应明确 context_sufficient=false，并在最终 Gate 前补上下文
+```
+
+任何 `context_sufficient=false` 的人工反馈只能作为“上下文阻塞/暂定判断”，不得统计进最终 Editorial Discovery Yield，也不得用于 Provider 胜负结论。
+
+## 5. 不允许的捷径
 
 人工验收时不得把以下字段直接当答案：
 
@@ -101,9 +146,9 @@ raw content available
 
 这些只能作为 provenance / feature。Human Decision 必须基于“是否真的值得看、值得做、可形成 Angle/Audience Promise、证据是否可补”。
 
-## 5. Gate 指标
+## 6. Gate 指标
 
-完成 20 条人工判断后，统计：
+完成 20 条上下文充分的人工判断后，统计：
 
 - 总体 `DO / MAYBE / DROP`；
 - `would_read` 比例；
@@ -114,21 +159,24 @@ raw content available
 - Control bucket 是否确实表现更弱；
 - Provider / acquisition seam 对编辑判断的实际贡献；
 - 需要 Evidence follow-up 的比例；
-- Community-first 能否追到可验证来源。
+- Community-first 能否追到可验证来源；
+- `context_sufficient=false` 的比例与原因。
 
 `Editorial Discovery Yield` 必须以后续真正进入 Opportunity/Decision 的数量计算，不能用 retrieved_count 替代。
 
-## 6. 0.5B-E 完成条件
+## 7. 0.5B-E 完成条件
 
 至少满足：
 
 ```text
-20 / 20 samples reviewed
+20 / 20 samples reviewed with context_sufficient=true
 每条 rationale 非空
 Potential/Momentum/Community/Control 四类都完成
 Do/Maybe/Drop 可追溯到原始 provider + mission + URL
 Trend/Audience/Provider score 没有被当作人工决定
 Community/非官方来源的 Evidence follow-up 缺口被明确记录
 ```
+
+`context_sufficient=false` 的暂定反馈不算完成样本，必须补上下文后重新确认。
 
 完成后输出 `PHASE_0_5B_E_HUMAN_ACCEPTANCE_AUDIT.md`，再进入 0.5B-F Provider Decision + ADR。
