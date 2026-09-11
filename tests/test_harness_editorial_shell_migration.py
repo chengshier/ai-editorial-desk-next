@@ -61,6 +61,9 @@ def test_n3_research_runtime_uses_canonical_case_and_public_harness_outward_api(
     assert "workspaceService.connectWorkspace" in runtime
     assert "workspaceService.listDirectory" in runtime
     assert "workspaceService.createDirectory" in runtime
+    assert "workspaceService.pickDirectory" in runtime
+    assert "directory-picker-unavailable" in runtime
+    assert "selectedPath === null" in runtime
     assert "workspaceService.create({ path: runtimePath })" in runtime
     assert "ai-editorial-desk-runtime" in runtime
     assert "Register or open a Workspace before running Research" not in runtime
