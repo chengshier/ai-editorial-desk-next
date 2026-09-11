@@ -232,21 +232,69 @@ Tavily
 4. **上下文不足必须允许阻断决策。** M1-B / M2-B / M4-B / M5-B 都不能因为 Provider 返回了 URL 就强行评价成低价值。
 5. **风险与民生类最容易同时满足“实用价值 + 信息差 + 传播钩子”。** M3-A 是当前多栏目 corpus 中最接近目标栏目的一类。
 
-## 9. 下一 Gate
+## 9. Platform / Community 下一步决策框架
 
-本轮已经完成中文 Web 多栏目 blind review。进入 0.5B-F 前仍需正式收口两个能力问题：
+本轮不再把“接一个社交平台”当作单一目标，而把缺失能力拆成可验证的 contract：
 
 ```text
-A. Platform / Community gap
-- 原始微博 / 抖音 / 小红书帖子
-- 评论区与神评 provenance
-- 点赞 / 评论 / 转发速度
-- 同城榜 / 热搜榜 / 平台内传播路径
-- 原视频 / 原始截图素材
+P1 Hotlist / Trend snapshot
+- 平台
+- 排名
+- 观测时间
+- 排名变化/热度（如果官方提供）
 
-B. Momentum context gap
-- Trend signal 只说明“在升温”，不能单独支撑编辑判断
-- 必须把 trend candidate 与 Search/Fetch/Research 上下文拼起来再评
+P2 Platform item discovery
+- 原帖/原视频 URL
+- 作者/发布者
+- 平台发布时间
+- 标题/正文/视频描述
+
+P3 Audience signal
+- 点赞/评论/转发/播放等可合法获取的快照
+- observed_at 必须存在，避免把指标当永久真值
+
+P4 Community context
+- 原始评论/讨论串
+- 评论 provenance
+- 不把二手媒体转述“网友称”当原始 AudienceSignal
+
+P5 Material signal
+- 封面/截图/原视频链接等可用于后续素材核验的引用
+- 只保存 provenance，不默认拥有转载/再利用权
 ```
 
-因此下一步不是直接宣布某个 Provider 全局胜出，而是先完成 Platform / Community capability decision，再形成 0.5B-F Provider Decision + ADR。
+Provider 评估顺序：
+
+1. **官方/授权 API 优先**：能给原始 item / metrics 时优先使用；
+2. **公开热榜聚合可做 no-key baseline**：只承担 Trend/Discovery，不升级为 Evidence；
+3. **开放 Web Search 继续作为横向补背景与补证层**；
+4. **需要登录 Cookie、验证码、指纹伪造、账号轮换或代理绕过的方案不进入自动化 V1 主链路**；
+5. 某平台若没有合适合法接口，则明确标记 `UNSUPPORTED / DEFERRED`，不伪装覆盖。
+
+下一轮最低目标不是“抓全微博/抖音/小红书”，而是先建立至少一个 **中文平台热榜/趋势 baseline** 与一个 **官方 platform-item seam**，验证能否把 Momentum Candidate 与 Search/Fetch 上下文拼成真正可审阅的 Opportunity。
+
+## 10. 下一 Gate
+
+当前建议顺序：
+
+```text
+E5-A 中文热榜聚合 baseline
+→ 验证 Weibo / Douyin / Zhihu / Bilibili 等 rank snapshot
+
+E5-B 官方平台 seam
+→ 优先验证可申请的官方搜索/榜单接口
+→ 保留原始 item + observed metrics provenance
+
+E5-C Momentum enrichment
+Trend/Platform signal
+→ Search/Fetch background
+→ Research / evidence routing
+→ Human Acceptance
+
+E5-D capability decision
+→ 哪些平台进入 V1
+→ 哪些只做 hotlist
+→ 哪些 deferred/unsupported
+```
+
+完成后再进入 0.5B-F Provider Decision + ADR；不提前宣布任何单一 Provider 是全局赢家。
