@@ -184,6 +184,46 @@ async def test_firecrawl_independent_fetch_normalizes_markdown() -> None:
     assert probe.fetched_count == 1
     assert probe.documents[0].content == "# Fetched\nBody"
     assert probe.documents[0].source_roles == [SourceRole.DISCOVERY_SIGNAL]
+    assert probe.provider_metadata["failures"] == []
+
+
+@pytest.mark.asyncio
+async def test_firecrawl_partial_fetch_keeps_non_secret_per_url_failure_provenance() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.read().decode())
+        if payload["url"].endswith("/blocked"):
+            return httpx.Response(403, json={"success": False})
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "data": {
+                    "markdown": "# Fetched\nBody",
+                    "metadata": {
+                        "title": "Fetched page",
+                        "sourceURL": payload["url"],
+                        "statusCode": 200,
+                    },
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        probe = await FirecrawlFetchProvider(client, api_key="firecrawl-test").fetch(
+            ["https://example.net/ok", "https://example.net/blocked"]
+        )
+
+    assert probe.status == ProviderRunStatus.PARTIAL
+    assert probe.fetched_count == 1
+    assert probe.failure_count == 1
+    assert probe.provider_metadata["failures"] == [
+        {
+            "url": "https://example.net/blocked",
+            "error_kind": "http_status",
+            "http_status": 403,
+        }
+    ]
+    assert "firecrawl-test" not in probe.model_dump_json()
 
 
 @pytest.mark.asyncio
