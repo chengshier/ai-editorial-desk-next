@@ -83,17 +83,27 @@ EVIDENCE_SOURCE
 
 旧 keyed runner 没有像 D1 一样输出 Mission required/observed/missing SourceRole assessment。本轮已补齐 Exa / Tavily assessment，避免 transport success 被误读为 Mission success。
 
-### 4.3 当前只执行第一个 query seed
+### 4.3 旧 smoke 只执行第一个 query seed
 
-`potential-common-belief-contradiction` 有两个 query seeds，但 Exa/Tavily v1 adapter 当前只执行第一条：
+`potential-common-belief-contradiction` 有两个 query seeds，但本次 artifact 生成时的 Exa/Tavily adapter 只执行第一条：
 
 ```text
 common belief contradicted by evidence
 ```
 
-本次结果因此更多集中在“人为何坚持错误信念/信念如何面对证据”这一抽象主题，而不是稳定发现“具体大众常见认知被可靠证据推翻”的可编辑案例。
+因此结果更多集中在“人为何坚持错误信念/信念如何面对证据”这一抽象主题，而不是稳定发现“具体大众常见认知被可靠证据推翻”的可编辑案例。
 
-这说明本次 smoke 足以验证 Provider transport / output shape，但不足以据此决定 Editorial Discovery Quality。Multi-query / query-strategy hardening 必须在全量 D2-A benchmark 前单独收口。
+该问题现已在代码中收口：
+
+```text
+Mission max_results
+→ 在所有 query_seeds 间分配预算
+→ 每个 candidate 保留 query_variant provenance
+→ 跨 query URL 去重
+→ 总结果预算不超过 Mission cap
+```
+
+所以本次 smoke 只用于证明旧 adapter 的真实 transport/output shape，不用于最终 Editorial Discovery Quality 比较；下一次 D2-A bounded real run 必须使用新的 multi-query contract。
 
 ## 5. 阶段结论
 
@@ -117,11 +127,12 @@ D2-A1 runner budget + SourceRole hardening
 → COMPLETE in code, awaiting CI
 
 D2-A2 query-strategy hardening
-→ make query variants explicit and comparable
+→ COMPLETE in code, awaiting CI
 
 D2-A3 bounded real comparison
 → small curated Mission set
 → same result budget
+→ all Mission query variants
 → Exa vs Tavily
 → dedupe + provenance + latency/cost
 
