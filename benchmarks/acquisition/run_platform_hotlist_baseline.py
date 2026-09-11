@@ -21,7 +21,7 @@ from packages.acquisition.spike import (
 )
 
 DEFAULT_PLATFORMS = ("weibo", "douyin", "zhihu", "bilibili-hot-search")
-DEFAULT_API_BASE = "https://newsnow.busiyi.world/api/s"
+DEFAULT_API_BASE = "http://127.0.0.1:4444/api/s"
 
 
 def _select_missions(
@@ -89,6 +89,10 @@ async def run_benchmark(
                 "source-role coverage only; hot-list output is never promoted to Evidence"
             ),
             "evidence": "all candidates remain discovery/trend signals until Research confirms them",
+            "newsnow_instance": (
+                "the default endpoint is a local/self-hosted NewsNow instance; public demo instances "
+                "must be selected explicitly and are not production dependencies"
+            ),
         },
     }
 
@@ -106,7 +110,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--api-base",
         default=os.getenv("NEWSNOW_API_BASE", DEFAULT_API_BASE),
-        help="NewsNow /api/s endpoint; NEWSNOW_API_BASE may point to a self-hosted instance.",
+        help=(
+            "NewsNow /api/s endpoint. Defaults to local http://127.0.0.1:4444/api/s; "
+            "NEWSNOW_API_BASE or --api-base may point to another controlled deployment."
+        ),
     )
     parser.add_argument("--max-results", type=int, default=10)
     parser.add_argument("--output", type=Path)
