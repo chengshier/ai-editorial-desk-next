@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 BUCKET_SIZE = 5
+CONTEXT_EXCERPT_LIMIT = 720
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -31,6 +33,111 @@ def _roles(candidate: dict[str, Any]) -> list[str]:
     return [str(role) for role in raw]
 
 
+def _excerpt(value: object, *, limit: int = CONTEXT_EXCERPT_LIMIT) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", value)
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"[`#>*_~]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+def _related_news_context(metadata: dict[str, Any]) -> list[dict[str, str]]:
+    raw = metadata.get("related_news")
+    if not isinstance(raw, list):
+        return []
+    result: list[dict[str, str]] = []
+    for item in raw[:3]:
+        if not isinstance(item, dict):
+            continue
+        payload = {
+            key: value
+            for key, value in {
+                "title": item.get("title"),
+                "source": item.get("source"),
+                "url": item.get("url"),
+            }.items()
+            if isinstance(value, str) and value
+        }
+        if payload:
+            result.append(payload)
+    return result
+
+
+def _review_context(
+    candidate: dict[str, Any],
+    *,
+    fetched_document: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    candidate_metadata = candidate.get("provider_metadata")
+    candidate_metadata = candidate_metadata if isinstance(candidate_metadata, dict) else {}
+    document = fetched_document if isinstance(fetched_document, dict) else None
+    document_metadata = document.get("provider_metadata") if document else None
+    document_metadata = document_metadata if isinstance(document_metadata, dict) else {}
+
+    description = document_metadata.get("description") or candidate_metadata.get("description")
+    summary = _excerpt(description)
+    quality = "FETCHED_DESCRIPTION" if summary and document else "PROVIDER_DESCRIPTION" if summary else None
+
+    if summary is None and document is not None:
+        summary = _excerpt(document.get("content"))
+        if summary:
+            quality = "FETCHED_CONTENT_EXCERPT"
+
+    if summary is None:
+        summary = _excerpt(candidate.get("content"))
+        if summary:
+            quality = "INTEGRATED_CONTENT_EXCERPT"
+
+    related_news = _related_news_context(candidate_metadata)
+    if summary is None and related_news:
+        titles = [item.get("title") for item in related_news if item.get("title")]
+        if titles:
+            summary = "；".join(str(title) for title in titles)
+            quality = "RELATED_NEWS_CONTEXT"
+
+    signals = {
+        key: candidate_metadata[key]
+        for key in ("approx_traffic", "score", "descendants")
+        if key in candidate_metadata
+    }
+    if summary is None and signals:
+        quality = "TITLE_PLUS_SIGNALS"
+
+    return {
+        "quality": quality or "TITLE_ONLY",
+        "summary": summary,
+        "related_news": related_news,
+        "signals": signals,
+        "source_url": candidate.get("url"),
+    }
+
+
+def _firecrawl_document_map(d2b: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    runs_root = d2b.get("runs")
+    runs_root = runs_root if isinstance(runs_root, dict) else {}
+    probes = runs_root.get("firecrawl_fetch")
+    probes = probes if isinstance(probes, list) else []
+    result: dict[str, dict[str, Any]] = {}
+    for probe in probes:
+        if not isinstance(probe, dict):
+            continue
+        documents = probe.get("documents")
+        if not isinstance(documents, list):
+            continue
+        for document in documents:
+            if not isinstance(document, dict):
+                continue
+            try:
+                result.setdefault(_canonical(document), document)
+            except ValueError:
+                continue
+    return result
+
+
 def _sample(
     *,
     bucket: str,
@@ -39,6 +146,7 @@ def _sample(
     candidate: dict[str, Any],
     ordinal: int,
     selection_basis: str,
+    review_context: dict[str, Any],
 ) -> dict[str, Any]:
     metadata = candidate.get("provider_metadata")
     metadata = metadata if isinstance(metadata, dict) else {}
@@ -70,6 +178,7 @@ def _sample(
         "provider_score": candidate.get("provider_score"),
         "content_available": bool(candidate.get("content")),
         "signals": signals,
+        "review_context": review_context,
         "human_review": {
             "decision": None,
             "would_read": None,
@@ -77,6 +186,7 @@ def _sample(
             "placement": None,
             "rationale": None,
             "evidence_followup_needed": None,
+            "context_sufficient": None,
         },
     }
 
@@ -91,6 +201,7 @@ def _append_unique(
     candidate: dict[str, Any],
     selection_basis: str,
     limit: int,
+    review_context: dict[str, Any],
 ) -> None:
     if len(result) >= limit:
         return
@@ -106,6 +217,7 @@ def _append_unique(
             candidate=candidate,
             ordinal=len(result) + 1,
             selection_basis=selection_basis,
+            review_context=review_context,
         )
     )
 
@@ -154,6 +266,7 @@ def _momentum_samples(
                 "never editorial value"
             ),
             limit=limit,
+            review_context=_review_context(candidate),
         )
     return result
 
@@ -165,6 +278,7 @@ def _potential_samples(
     runs_root = runs_root if isinstance(runs_root, dict) else {}
     runs = runs_root.get("exa_search")
     runs = runs if isinstance(runs, list) else []
+    fetched_documents = _firecrawl_document_map(d2b)
     by_mission: list[tuple[str, str, list[dict[str, Any]]]] = []
     for run in runs:
         if not isinstance(run, dict) or run.get("status") not in {"success", "partial"}:
@@ -187,18 +301,23 @@ def _potential_samples(
         for provider_id, mission_id, candidates in by_mission:
             if depth >= len(candidates):
                 continue
+            candidate = candidates[depth]
             _append_unique(
                 result,
                 seen_urls,
                 bucket="potential",
                 provider_id=provider_id,
                 mission_id=mission_id,
-                candidate=candidates[depth],
+                candidate=candidate,
                 selection_basis=(
                     "round-robin across real Potential missions to avoid one mission dominating the "
                     "human acceptance sample"
                 ),
                 limit=limit,
+                review_context=_review_context(
+                    candidate,
+                    fetched_document=fetched_documents.get(_canonical(candidate)),
+                ),
             )
         depth += 1
     return result
@@ -246,6 +365,7 @@ def _community_samples(
                 "not TREND_SIGNAL"
             ),
             limit=limit,
+            review_context=_review_context(candidate),
         )
     return result
 
@@ -291,6 +411,7 @@ def _control_samples(
                 "this is not a preassigned DROP label"
             ),
             limit=limit,
+            review_context=_review_context(candidate),
         )
     return result
 
@@ -318,7 +439,7 @@ def build_packet(
 
     samples = [sample for bucket in ("momentum", "potential", "community", "control") for sample in buckets[bucket]]
     return {
-        "schema_version": "1",
+        "schema_version": "2",
         "acceptance_kind": "phase-0.5b-human-editorial-acceptance",
         "status": "PENDING_HUMAN_REVIEW",
         "sample_count": len(samples),
@@ -329,6 +450,7 @@ def build_packet(
             "would_make": [True, False],
             "placement": ["MAIN", "COLUMN", "LONG_TERM", "RESEARCH_ONLY", "NONE"],
             "evidence_followup_needed": [True, False],
+            "context_sufficient": [True, False],
             "rationale": "required free text",
         },
         "semantics": {
@@ -336,6 +458,10 @@ def build_packet(
             "trend": "TREND_SIGNAL does not imply DO/MAYBE",
             "community": "AUDIENCE_SIGNAL does not imply factual confirmation",
             "control": "control samples are not pre-labeled negatives; the human decision remains authoritative",
+            "review_context": (
+                "human review must be based on enough context to understand the candidate; title-only context may be "
+                "marked context_sufficient=false and must not be counted as final acceptance"
+            ),
         },
         "samples": samples,
     }
