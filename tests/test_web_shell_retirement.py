@@ -37,6 +37,8 @@ def test_n5_docs_keep_single_production_host_invariant() -> None:
     assert "RETIRED_AS_PRODUCTION_HOST" in audit
     assert "MIGRATION_REFERENCE_ONLY" in audit
     assert "WINDOWS SMOKE PASS" in audit
-    assert "DeepSeek Harness Product Shell" in state
+    assert "DeepSeek Harness Web" in state
+    assert "AI Editorial Desk Product Shell Plugin" in state
+    assert "HARNESS_NATIVE_EDITORIAL_PRODUCT_SHELL = ACCEPTED" in state
     assert "把 `apps/web` 恢复为第二个 production Product Shell" in strategy
     assert "a56b7b9bbe8844df88fed7071f2827dcc0b672b5" in audit
