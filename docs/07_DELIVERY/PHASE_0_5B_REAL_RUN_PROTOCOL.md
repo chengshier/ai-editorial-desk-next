@@ -2,7 +2,7 @@
 
 ## 状态
 
-`IN_PROGRESS`
+`D1_RUNNER_READY / EXACT_HEAD_CI_PENDING`
 
 本协议只用于 Phase 0.5-B Provider Spike 的真实运行。目标是产生可审计 benchmark artifact，不把 Provider 请求成功、Provider score、榜单 rank 或抓取数量伪装成 Editorial Value。
 
@@ -128,4 +128,4 @@ Remove-Item Env:TAVILY_API_KEY -ErrorAction SilentlyContinue
 
 ## 6. 当前人工配合点
 
-当 exact-head CI 验证 D1 runner 后，用户只需要先运行 D1 no-key baseline。若结果文件较大，不必把完整 JSON 粘贴到聊天；可以直接上传 `.local-benchmark\phase-0.5b-no-key.json`，或提供 runner 终端错误信息。D1 通过后，再决定是否申请/配置 Exa、Firecrawl、Tavily 对应 API key 执行 D2；不要求一次性准备全部 secret。
+先等待当前 D1 runner exact-head CI。CI 全绿后，用户只需要先运行 D1 no-key baseline。若结果文件较大，不必把完整 JSON 粘贴到聊天；可以直接上传 `.local-benchmark\phase-0.5b-no-key.json`，或提供 runner 终端错误信息。D1 通过后，再决定是否申请/配置 Exa、Firecrawl、Tavily 对应 API key 执行 D2；不要求一次性准备全部 secret。
