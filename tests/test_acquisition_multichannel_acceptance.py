@@ -1,7 +1,12 @@
 from benchmarks.acquisition.build_multichannel_acceptance_packet import build_packet
 
 
-def _candidate(name: str, *, content: str | None = None) -> dict[str, object]:
+def _candidate(
+    name: str,
+    *,
+    content: str | None = None,
+    snippet: str | None = None,
+) -> dict[str, object]:
     return {
         "provider_result_id": name,
         "url": f"https://example.com/{name}",
@@ -11,6 +16,8 @@ def _candidate(name: str, *, content: str | None = None) -> dict[str, object]:
         "source_roles": ["DISCOVERY_SIGNAL"],
         "rank": 1,
         "content": content,
+        "snippet": snippet,
+        "published_at": "2026-09-11T00:00:00Z",
         "provider_metadata": {},
     }
 
@@ -50,12 +57,16 @@ def test_multichannel_packet_pairs_providers_and_keeps_review_provider_blind() -
                     "documents": [
                         {
                             **_candidate("exa-m1"),
-                            "content": "# fetched m1 body with enough context",
+                            "content": (
+                                "# exa-m1\n" + "这是用于人工验收的真实正文上下文。" * 35
+                            ),
                             "provider_metadata": {"description": "fetched m1 summary"},
                         },
                         {
                             **_candidate("exa-m2"),
-                            "content": "# fetched m2 body with enough context",
+                            "content": (
+                                "# exa-m2\n" + "普通人物故事正文需要超过标题级上下文。" * 35
+                            ),
                             "provider_metadata": {"description": "fetched m2 summary"},
                         },
                     ]
@@ -65,12 +76,16 @@ def test_multichannel_packet_pairs_providers_and_keeps_review_provider_blind() -
                 _run(
                     "tavily-search-fetch",
                     "m1",
-                    _candidate("tavily-m1", content="integrated m1 body"),
+                    _candidate(
+                        "tavily-m1",
+                        content="# tavily-m1\n" + "集成抓取正文上下文。" * 40,
+                        snippet="这是一个有实际事实信息的搜索摘要。" * 12,
+                    ),
                 ),
                 _run(
                     "tavily-search-fetch",
                     "m2",
-                    _candidate("tavily-m2", content="integrated m2 body"),
+                    _candidate("tavily-m2", content="integrated m2 body" * 30),
                 ),
             ],
         }
@@ -78,10 +93,12 @@ def test_multichannel_packet_pairs_providers_and_keeps_review_provider_blind() -
 
     packet = build_packet(artifact, manifest)
 
-    assert packet["schema_version"] == "multichannel-acceptance-v1"
+    assert packet["schema_version"] == "multichannel-acceptance-v2"
     assert packet["mission_count"] == 2
     assert packet["sample_count"] == 4
     assert packet["review_policy"]["provider_blind_until_decision"] is True
+    assert packet["review_policy"]["provider_identifiers_removed_from_human_packet"] is True
+    assert packet["review_policy"]["published_at_is_not_event_time"] is True
 
     samples = packet["samples"]
     assert [sample["blind_review_label"] for sample in samples] == [
@@ -90,10 +107,13 @@ def test_multichannel_packet_pairs_providers_and_keeps_review_provider_blind() -
         "M2-A",
         "M2-B",
     ]
-    assert samples[0]["review_context"]["quality"] == "FETCHED_DESCRIPTION"
-    assert samples[1]["review_context"]["quality"] == "INTEGRATED_CONTENT_EXCERPT"
+    assert all("provider_id" not in sample for sample in samples)
+    assert samples[0]["review_context"]["content_excerpt"] is not None
+    assert samples[0]["review_context"]["context_sufficient_hint"] is True
+    assert samples[1]["review_context"]["provider_snippet"] is not None
     assert samples[0]["editorial_modes"] == ["FAST_INFO_GAP"]
     assert samples[2]["series_hints"] == ["人物与文化"]
+    assert samples[0]["published_at"] == "2026-09-11T00:00:00Z"
     assert all(sample["human_review"]["investment_priority"] is None for sample in samples)
     assert all(sample["human_review"]["production_depth"] is None for sample in samples)
 
