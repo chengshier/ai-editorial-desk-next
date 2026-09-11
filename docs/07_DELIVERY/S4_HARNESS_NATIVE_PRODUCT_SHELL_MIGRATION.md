@@ -39,21 +39,9 @@ S4 Engineering                           COMPLETE / CI PASS
 Windows final local smoke                PENDING
 ```
 
-N4 完整收口验证 head：
+N4 完整收口验证 head：`06ca19f629d22b39f28948c11ac10744feafa04b`，对应 CI #254、Harness Spike #208、Harness Editorial Shell #116、Harness Native Shell Spike #122 全部 PASS。
 
-```text
-06ca19f629d22b39f28948c11ac10744feafa04b
-```
-
-该 head：CI #254、Harness Spike #208、Harness Editorial Shell #116、Harness Native Shell Spike #122 全部 PASS。
-
-N5 / S4 工程收口验证 head：
-
-```text
-280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6
-```
-
-该 head：CI #268、Harness Spike #222、Harness Editorial Shell #130、Harness Native Shell Spike #136 全部 PASS。
+N5 / S4 工程收口验证 head：`280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6`，对应 CI #268、Harness Spike #222、Harness Editorial Shell #130、Harness Native Shell Spike #136 全部 PASS。
 
 ## 不变边界
 
@@ -61,30 +49,9 @@ N5 / S4 工程收口验证 head：
 2. Opportunity / Research Case / Candidate / Draft / Publication 等业务对象由 Editorial API / PostgreSQL 持有。
 3. Harness Session / Job / Replay / Workspace 是运行时对象，不得替代业务 ID。
 4. 标准业务动作由 Product UI 或 Scheduler / Orchestrator 主动驱动 Harness，不要求用户进入 stock Chat 手工 prompt。
-5. stock Harness workbench 继续保留，作为自由 Agent / Session 模式，并可与 AI Editorial Desk 双向切换。
+5. stock Harness workbench 继续保留，并可与 AI Editorial Desk 双向切换。
 6. 不修改 DeepSeek Harness upstream core；只使用公开 Client Plugin / Slot / Runtime / SDK / JSON-RPC seam。
-7. `apps/web` 已完成 production-host retirement：只允许作为 migration/reference regression surface，不再是 production host。
-
-## PR #14 处理结论
-
-PR #14 的 iframe 方向已被本决策 supersede，不直接合并。
-
-继续吸收：
-
-- `research_case_id ↔ harness_session_id` 是运行时绑定，不是业务主键替换；
-- Session 丢失时允许创建/复用新 Session，并从 canonical Research Case rehydrate；
-- 使用公开 `sessions / workspaces / Session.prompt()` outward API；
-- bootstrap 必须幂等；
-- Research Case 即使 runtime failure 也不得被视为业务对象丢失；
-- launch/session/rebind/bootstrap 的测试思想。
-
-明确废弃：
-
-- `surface_url` 作为 Product UI 主接入；
-- `embedded` transport；
-- iframe Harness；
-- `editorial_embed` / `editorial_launch` URL host 模式；
-- 外部 `apps/web` 作为最终运行宿主。
+7. `apps/web` 已完成 production-host retirement，只允许作为 migration/reference regression surface。
 
 ## S4-N1 — Product Shell Foundation
 
@@ -141,15 +108,11 @@ N4-A 至 N4-F 已全部完成，包括 exact-pin SDK audit、Manual Run、Postgr
 - interval occurrence `schedule:{task_id}:{scheduled_time}`；
 - event occurrence `event:{task_id}:{event_id}`；
 - retry 保持同一 logical Run，仅递增 attempt；
-- runtime/session metadata 不进入业务主键；
-- Event/Interval/Retry 使用 durable PostgreSQL 状态与 row locking；
 - Product Shell 状态从 Editorial API canonical projection 读取，不从 Harness transcript 猜测。
 
 ## S4-N5 — Web Shell Retirement
 
 **状态：COMPLETE / CI PASS**
-
-审计结论：当前 `apps/web` 没有阻塞退役的独占正式业务能力。
 
 最终定义：
 
@@ -159,18 +122,11 @@ apps/web = MIGRATION_REFERENCE_ONLY
 formal product host = DeepSeek Harness Product Shell
 ```
 
-已完成：
+已完成 reference quarantine、机械 retirement tests、legacy Web reference build 标识，以及 exact-pin Harness Product Shell / Native Shell browser acceptance。物理删除 `apps/web` 可在后续独立 cleanup PR 执行，不影响 S4 已建立的单一 production-host 不变量。
 
-- `apps/web/README.md` 明确不可作为第二 production entry；
-- package metadata 标记 retired production host；
-- standalone app 显示 legacy migration reference notice；
-- architecture/current-state docs 保持单一 production host；
-- mechanical retirement tests；
-- CI 中 standalone Web 只作为 legacy reference build；
-- exact-pin Harness Editorial Shell / Native Shell browser Gate 继续承担正式 Product acceptance；
-- readiness race 已在两个 browser Gate 中显式处理，不靠简单扩大 timeout 掩盖真实失败。
+## PR #14 处理结论
 
-物理删除 `apps/web` 可在后续独立 cleanup PR 执行，不影响 S4 已建立的单一 production-host 不变量。
+PR #14 的 iframe / `embedded` / `surface_url` 路线已由 ADR-0010 supersede，不得作为正式架构合并。仅保留其中已被当前实现吸收的 Session rebind/bootstrap/rehydrate/business-ID invariants。
 
 ## S4 工程 Gate
 
@@ -209,13 +165,6 @@ Editorial API + pinned Harness Web 启动
 
 ## 当前未被 S4 自动解决的事项
 
-S4 是 Product Shell / Runtime migration，不等于完成全部产品数据层。
-
-仍然不得宣称：
-
-- PostgreSQL Opportunity / Research 正式 persistence 已完整落地；
-- deterministic/in-memory Spike fixture 是 production data；
-- 真实外部 Acquisition 已完成；
-- production model/provider 的内容质量已经全面验收。
+S4 是 Product Shell / Runtime migration，不等于完成全部产品数据层。仍然不得宣称 PostgreSQL Opportunity / Research persistence 已完整落地、deterministic/in-memory Spike fixture 是 production data、真实外部 Acquisition 已完成或 production model/provider 内容质量已全面验收。
 
 Phase 0.5-B Acquisition Provider Spike 继续独立推进。
