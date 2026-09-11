@@ -130,7 +130,7 @@ class GoogleTrendsRssProvider:
                 continue
             item_link = (item.findtext("link") or "").strip()
             description = (item.findtext("description") or "").strip() or None
-            published_at = _parse_datetime(item.findtext("pubDate"))
+            trend_observed_at = _parse_datetime(item.findtext("pubDate"))
             approx_traffic = _find_text_wildcard(item, "approx_traffic")
             related_news = _parse_news_items(item)
             primary_news_url = next(
@@ -147,12 +147,15 @@ class GoogleTrendsRssProvider:
                     canonical_url=url,
                     title=title,
                     snippet=description,
-                    published_at=published_at,
+                    published_at=None,
                     source=urlparse(url).netloc or "trends.google.com",
                     source_roles=[SourceRole.TREND_SIGNAL, SourceRole.DISCOVERY_SIGNAL],
                     rank=rank,
                     provider_metadata={
                         "geo": self._geo,
+                        "trend_observed_at": (
+                            trend_observed_at.isoformat() if trend_observed_at is not None else None
+                        ),
                         "approx_traffic": approx_traffic,
                         "approx_traffic_value": _parse_traffic(approx_traffic),
                         "related_news": related_news,
