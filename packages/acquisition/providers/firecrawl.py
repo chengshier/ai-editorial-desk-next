@@ -62,6 +62,7 @@ class FirecrawlFetchProvider:
 
         documents: list[FetchedDocument] = []
         failure_count = 0
+        failure_details: list[dict[str, object]] = []
         credits_used = 0
         for url in urls:
             try:
@@ -106,8 +107,24 @@ class FirecrawlFetchProvider:
                 raw_credits = body.get("creditsUsed")
                 if isinstance(raw_credits, int):
                     credits_used += raw_credits
-            except (httpx.HTTPError, TypeError, ValueError):
+            except httpx.HTTPStatusError as exc:
                 failure_count += 1
+                failure_details.append(
+                    {
+                        "url": url,
+                        "error_kind": "http_status",
+                        "http_status": exc.response.status_code,
+                    }
+                )
+            except httpx.HTTPError:
+                failure_count += 1
+                failure_details.append({"url": url, "error_kind": "http_error"})
+            except TypeError:
+                failure_count += 1
+                failure_details.append({"url": url, "error_kind": "invalid_response"})
+            except ValueError:
+                failure_count += 1
+                failure_details.append({"url": url, "error_kind": "empty_or_invalid_content"})
 
         status = ProviderRunStatus.SUCCESS
         if not documents:
@@ -126,6 +143,9 @@ class FirecrawlFetchProvider:
             failure_count=failure_count,
             latency_ms=int((time.perf_counter() - tick) * 1000),
             failure_reason=("all Firecrawl fetches failed" if not documents else None),
-            provider_metadata={"credits_used": credits_used or None},
+            provider_metadata={
+                "credits_used": credits_used or None,
+                "failures": failure_details,
+            },
             documents=documents,
         )
