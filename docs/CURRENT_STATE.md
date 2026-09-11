@@ -2,22 +2,14 @@
 
 ## 状态
 
-`S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE`
+`PHASE_0_5B_ACQUISITION_PROVIDER_SPIKE_IN_PROGRESS`
 
-截至 PR #15 已合并到 `main`：
-
-```text
-S1 Web Shell Foundation                 COMPLETE
-S2 Today / Opportunity Inspector       COMPLETE
-S3 Opportunities Library               COMPLETE
-Harness Runtime / Research Spike       COMPLETE
-Harness-native Product Shell Spike     ACCEPTED
-Windows local native-shell acceptance  PASS
-```
-
-PR #16 当前正式迁移状态：
+S4 Harness-native Product Shell 已完成并合并：
 
 ```text
+S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE
+PR #16                                     MERGED
+merge commit                               609d0bbc1bef0992d61b9f7e2e02871755f6e223
 S4-N1 Product Shell Foundation           COMPLETE / CI PASS
 S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
 S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
@@ -33,32 +25,13 @@ S4 Engineering                           COMPLETE / CI PASS
 Windows final local smoke                PASS
 ```
 
-N3 收口 head：`5fcc37dd1800087f564abb0dea5a70d8dbf9662a`。  
-N4-B 收口 head：`6dc7a883cec849e25509cbc5f085ac351e3383de`。  
-N4-D 收口 head：`ead02f8c3f3623f90c5ab7d51b1599d0d78fa497`。  
-N4-E 收口验证 head：`ecb15704372767cc267a3834d6c03d7370f25b41`。  
-N4-F / N4 完整收口验证 head：`06ca19f629d22b39f28948c11ac10744feafa04b`。  
-N5 / S4 工程收口验证 head：`280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6`。  
-Windows native-picker 兼容修复与最终自动化验证 head：`a56b7b9bbe8844df88fed7071f2827dcc0b672b5`。
-
-最终自动化 workflow 全绿：
-
-```text
-CI                         #289 PASS
-Harness Spike              #243 PASS
-Harness Editorial Shell    #151 PASS
-Harness Native Shell Spike #157 PASS
-```
-
-Windows 最终本地 smoke 已完成：Pinned Harness Web `:3080` 正常启动；Today / Opportunities / Opportunity Inspector 可用；fresh profile 下 native directory picker 回退可用；Workspace / Session 自动 bootstrap；Research Case 恢复到 `Runtime Ready` 并保留 durable Tool Result replay；Product Shell ↔ stock Harness 双向切换正常；两种模式 F5 后状态保持，无持续白屏或 `Failed to load plugins`。
-
-因此 S4 的仓库级工程 Gate 与 Windows 人工 acceptance 均已完成。PR #16 可从 Draft 转 Ready；合并仍需用户明确确认。
+S4 最终自动化与 Windows acceptance 已验证：Harness Product Shell `:3080`、Today / Opportunities / Opportunity Inspector、native directory picker fallback、Workspace / Session bootstrap、Research Case → Runtime Ready、durable Harness Tool Result replay、Product Shell ↔ stock Harness 双向切换与两种模式 F5 均正常，无持续白屏或 `Failed to load plugins`。
 
 ---
 
 ## 当前正式架构
 
-ADR-0010 冻结当前最终宿主：
+ADR-0010 冻结当前正式宿主：
 
 ```text
 DeepSeek Harness Web
@@ -80,24 +53,151 @@ EXTERNAL_WEB_SHELL_IFRAME_HARNESS = SUPERSEDED
 HARNESS_UPSTREAM_CORE_PATCH = FORBIDDEN_BY_DEFAULT
 ```
 
-ADR-0009 / `HYBRID_WEB_HARNESS` 与 `HYBRID_SHELL_CONTRACT.md` 现在是历史决策证据，不再是活动实现 Contract。
-
-AI Editorial Desk 与 stock Harness 工作台在同一个 Harness Web（当前本地 `3080`）中双向切换。AI Editorial Desk 作为结构化业务工作台；stock Harness 保留为自由 Agent / Session 工作台。
-
-业务数据由 Editorial API / PostgreSQL 持有。Harness Session / Job / Replay / Workspace 属于运行时对象，不得替代 `opportunity_id`、`research_case_id`、`candidate_id`、`draft_id`、`publication_id` 等业务主键。
-
-活动 Contract：
-
-- `docs/04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
-- `docs/04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
+Harness Session / Job / Replay / Workspace 是 runtime metadata，不能替代 `opportunity_id`、`research_case_id`、`candidate_id`、`draft_id`、`publication_id` 等业务身份。`apps/web` 已是 migration/reference-only，不再是 production host。
 
 ---
 
-## S4 已完成工程 Gate
+## 当前活动主线 — Phase 0.5-B Acquisition Provider Spike
 
-### S4-N3 Research Runtime Adapter
+当前分支：
 
-正式链路：
+```text
+spike/phase-0.5b-acquisition-providers
+```
+
+执行文档：
+
+- `docs/07_DELIVERY/ACQUISITION_PROVIDER_SPIKE.md`
+- `docs/07_DELIVERY/PHASE_0_5B_ACQUISITION_EXECUTION.md`
+- `docs/07_DELIVERY/PHASE_0_5B_REAL_RUN_PROTOCOL.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D2B_FIRECRAWL_RUN_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D3_GOOGLE_TRENDS_RUN_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_E_HUMAN_ACCEPTANCE_PROTOCOL.md`
+- `docs/03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`
+- `docs/04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`
+- `docs/ADR/ADR-0006-mission-driven-acquisition.md`
+
+当前批次：
+
+```text
+0.5B-A Benchmark Contract + Mission Corpus       COMPLETE / CI PASS
+0.5B-B No-key Baselines                          COMPLETE / CI PASS
+0.5B-C Key-gated Search / Fetch Adapters         COMPLETE / CI PASS
+0.5B-D Real Provider Runs                        COMPLETE / PASS WITH LIMITATIONS
+  D1 HN no-key live baseline                     COMPLETE / PASS WITH LIMITATIONS
+  D1 RSS/Atom configured live baseline           NOT_RUN / NON-BLOCKING
+  D2-A Exa vs Tavily keyed real run              COMPLETE / PASS WITH LIMITATIONS
+  D2-B Exa → Firecrawl vs Tavily                 COMPLETE / PASS WITH LIMITATIONS
+  D3 Google Trends Momentum baseline             COMPLETE / PASS WITH LIMITATIONS
+0.5B-E Human Editorial Acceptance                IN_PROGRESS
+0.5B-F Provider Decision + ADR                   NOT_STARTED
+```
+
+0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过；D1 no-key live runner + SourceRole coverage assessment 已在 CI #341 验证通过；D2-A multi-query / bounded runner hardening 已在 head `3ac62150ea35e5d4e5e35968a9c20d9a51915c81` 的 CI #357 验证通过；D2 文档收口前一轮 CI #362 已通过。
+
+D1 HN 真实运行已审计：17 个 Mission 中 7 个 transport success、10 个 explicit unsupported；只有 Ambient Mission 满足 required SourceRole。6 个 Momentum Mission 均缺 `TREND_SIGNAL`，因此 HN 不能冒充 Trend velocity provider。
+
+D2-A 已证明 Exa Search-only seam 值得保留；D2-B 已完成真实 `Exa Search → Firecrawl Fetch` 与 Tavily integrated Search+Fetch 对照：
+
+```text
+Exa Search
+4 / 4 success
+12 / 12 retrieved
+avg latency ~3642 ms
+observed cost $0.056
+
+Firecrawl
+4 probes
+3 success + 1 partial
+12 requested
+10 fetched
+2 failed
+fetch coverage 83.3%
+avg probe latency ~10028 ms
+
+Tavily
+4 / 4 success
+12 / 12 retrieved
+8 / 12 raw content available
+avg latency ~2321 ms
+16 credits
+```
+
+允许的阶段结论：
+
+```text
+Exa → Firecrawl chain    PASS WITH LIMITATIONS
+Tavily integrated seam   RETAIN AS COMPARATOR/FALLBACK
+final provider winner    NOT DECIDED
+```
+
+Firecrawl v1 旧 artifact 在 open-curiosity 出现 2 个失败 URL，但只保留 failure count。adapter 已开始硬化为保存不含 secret 的 `url / error_kind / http_status` 失败摘要；usage/cost 未观测到时继续保持 unavailable，不用 0 代替。
+
+D3 Google Trends 真实 no-key baseline 已完成：
+
+```text
+Momentum missions              6
+transport success              1
+explicit unsupported           5
+ATTENTION_SURGE retrieved      10
+required SourceRole PASS       1 / 6
+```
+
+`momentum-search-attention-surge` 真实产生 `TREND_SIGNAL + DISCOVERY_SIGNAL`，因此 Potential 与 Momentum 两条最低真实 Gate 均已具备输入。其余 community acceleration / cross-platform spread / culture breakout / resurfacing / emerging-tech evidence 等能力继续显式 `UNSUPPORTED`，不伪装成 0 或 success。
+
+D3 还暴露并修复了一个 provenance 问题：Google Trends RSS `pubDate` 是 trend observation / feed time，不是 related-news source publication time；adapter 现在把它保存为 `provider_metadata.trend_observed_at`，不再错误写入 `AcquisitionCandidate.published_at`。
+
+因此 0.5B-D 已结束，当前 Gate 正式进入 0.5B-E。已新增：
+
+```text
+benchmarks/acquisition/build_human_acceptance_packet.py
+```
+
+用于从 D1 / D2-B / D3 真实 artifact 构建 20 条平衡人工样本：Momentum 5、Potential 5、Community 5、Control 5。采样信号只负责平衡样本，不作为编辑分数；最终必须由人类填写 Do / Maybe / Drop、would-read、would-make、placement、rationale 与 Evidence follow-up。
+
+当前尚未产生最终 Provider 胜负结论。下一 Gate 是完成 0.5B-E Human Editorial Acceptance；只有 E 完成后才进入 0.5B-F Provider Decision + ADR。
+
+---
+
+## Acquisition 不变边界
+
+Next 的 Acquisition Core 继续采用：
+
+```text
+Mission-driven Discovery
++ Search-first Acquisition
++ Ambient Feed Sensing
++ Potential Scouting
++ Momentum Radar
++ Human Acquisition
++ Targeted Retrieval
++ Targeted Platform Research
+```
+
+规则：
+
+- 热度不是进入 Discovery 的硬门槛；
+- `Trend unavailable` 不等于 `Editorial Value low`；
+- Provider rank / score / trend number 不能直接升级为 Editorial Value；
+- Provider transport 成功不等于 Mission 所需 SourceRole 已满足；
+- Fetch/raw content 成功不自动升级为 `EVIDENCE_SOURCE` / `PRIMARY_SOURCE`；
+- 非官方来源可以是 Discovery / Audience / Trend Signal，但不能自动成为 Confirmed Evidence；
+- Community-first Discovery 必须验证是否能追到可靠 Evidence / Primary Source；
+- HumanSubmission 是产品自身的一等 Acquisition ingress，不参加外部 Provider 比较；
+- `source_origin` 与 `acquisition_origin` 必须分离；
+- Provider secret 只允许 server-side 注入，不进入 Product browser state 或 Git fixture；
+- 不实现验证码破解、指纹伪造、自动换号、代理轮换等绕过平台限制的机制。
+
+核心 Spike 指标是 Editorial Discovery Yield，并分别记录 Potential Discovery Yield 与 Momentum Discovery Yield；抓取数量本身不是胜负标准。
+
+---
+
+## S4 已完成工程能力
+
+### Research Runtime Adapter
 
 ```text
 Product Shell Research Case
@@ -109,11 +209,9 @@ Product Shell Research Case
 → durable Harness Tool Result / replay
 ```
 
-已验证 runtime binding/rebind/bootstrap-complete、public `IWorkspaces` fresh-profile bootstrap、Windows native picker fallback、自动 `Session.prompt()`、只读 canonical Research Tool，以及 runtime failure 不删除业务 Research Case。
+该链路当前负责既有 Research Case 的 runtime binding / replay / rehydrate。现阶段 deterministic mock 只用于证明结构和恢复链路，不代表真实 Research Agent 已完成。
 
-### S4-N4 Scheduler / Headless Orchestration
-
-正式执行图：
+### Scheduler / Headless Orchestration
 
 ```text
 Schedule / Event / Manual Product Command
@@ -124,54 +222,21 @@ Schedule / Event / Manual Product Command
 → Product Shell
 ```
 
-N4-A 至 N4-F 已全部完成：exact-pin audit、Manual Run、PostgreSQL durable Task/Run、interval trigger、retry/catch-up/history、`research.completed` event trigger 与 Product Shell Scheduler status projection。
-
-关键不变量：
-
-- `@deepseek-ai/dsh-sdk-client` + subprocess + stdio JSON-RPC 为主 headless seam；
-- Scheduler business identity 与 Harness runtime metadata 分层；
-- PostgreSQL UNIQUE idempotency；
-- schedule/event occurrence key 稳定；
-- retry 保持同一 logical Run，仅递增 attempt；
-- Product Shell 状态从 Editorial API canonical projection 读取，不从 Harness transcript 猜测。
-
-### S4-N5 Web Shell Retirement
-
-最终状态：
-
-```text
-apps/web = RETIRED_AS_PRODUCTION_HOST
-apps/web = MIGRATION_REFERENCE_ONLY
-formal product host = DeepSeek Harness Product Shell
-```
-
-已验证：
-
-- `apps/web/README.md` 与 package metadata 明确 reference-only；
-- standalone 页面显示 legacy migration reference notice；
-- legacy Web build 仅作为 migration/regression reference；
-- architecture / delivery / tests 保持单一 production host；
-- formal Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担；
-- head `a56b7b9bbe8844df88fed7071f2827dcc0b672b5` 四套 workflow 全部 PASS；
-- Windows 最终本地 smoke PASS。
-
-物理删除 `apps/web` 不属于 PR #16 的必需条件，可在后续独立 cleanup PR 中执行。
+已完成 durable Task/Run/Attempt、interval、event、manual run、retry/backoff、bounded catch-up、idempotency 与 canonical Product status projection。
 
 ---
 
-## PR #14 处理
+## Transitional data boundary
 
-PR #14 的 iframe / `embedded` transport / `surface_url` 路线已经 superseded，**不得合并为正式架构**。
+当前 Today / Opportunities / Research 的一部分集成仍使用 deterministic / in-memory Spike fixture。Scheduler Task/Run/Attempt 在配置 `DATABASE_URL` 的正式运行环境中使用 PostgreSQL durable store；只有未配置数据库的开发/测试场景保留 process-memory fallback。
 
-已吸收：Research Case ↔ Session runtime binding、Session 丢失后 rehydrate、公开 outward API、bootstrap/rebind 幂等、runtime failure 不等于业务对象丢失。
+仍不得宣称：
 
-明确废弃：iframe Harness、`embedded` transport、`surface_url` 正式 Product UI seam、`editorial_embed` / `editorial_launch` URL host 模式、外部 `apps/web` 最终生产 Shell。
-
----
-
-## 合并 Gate
-
-PR #16 的自动化 Gate 与 Windows 本地 smoke 均已 PASS，可从 Draft 转 Ready。合并动作仍需用户明确确认，不自动执行。
+- 真实外部 Acquisition 已完成；
+- PostgreSQL Opportunity / Research persistence 已完成；
+- deterministic mock 是 production research result；
+- in-memory Research / runtime binding fixture 具备 durable persistence；
+- Phase 0.5-B 已选择最终 Provider。
 
 ---
 
@@ -181,28 +246,8 @@ PR #16 的自动化 Gate 与 Windows 本地 smoke 均已 PASS，可从 Draft 转
 - 主链以 Subject / Discovery / Editorial Opportunity 为中心；
 - Trend 是可选 Feature，不是 Discovery / Opportunity / Candidate 的硬 Gate；
 - HumanSubmission 是一等 Acquisition 入口，但不是 Confirmed Fact、正偏好标签、Opportunity、Candidate 或 Adopt；
-- `source_origin` 与 `acquisition_origin` 必须分离；
 - Candidate 前必须说明 Editorial Advantage；
 - PostgreSQL 是 System of Record；WeKnora 是 Knowledge Provider。
-
----
-
-## Transitional data boundary
-
-当前 Today / Opportunities / Research 的一部分集成仍使用 deterministic / in-memory Spike fixture。Scheduler Task/Run/Attempt 在配置 `DATABASE_URL` 的正式运行环境中已使用 PostgreSQL durable store；只有未配置数据库的开发/测试场景保留 process-memory fallback。
-
-仍不得宣称：
-
-- 真实外部 Acquisition 已完成；
-- PostgreSQL Opportunity / Research persistence 已完成；
-- deterministic mock 是 production research result；
-- in-memory Research / runtime binding fixture 具备 durable persistence。
-
----
-
-## Acquisition Provider Spike 仍未关闭
-
-Phase 0.5-B 必须继续独立验证 high-momentum discovery、low/no-momentum but high-potential discovery、community/non-official first discovery → reliable evidence follow-up。HumanSubmission 不参加 Provider 胜负比较。
 
 ---
 

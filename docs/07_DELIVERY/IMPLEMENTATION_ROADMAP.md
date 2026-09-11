@@ -25,9 +25,17 @@ HARNESS_NATIVE_EDITORIAL_PRODUCT_SHELL
 
 `HYBRID_WEB_HARNESS` 与其 iframe / `surface_url` launch contract 保留为历史决策证据，不再指导当前实现。
 
+**状态：COMPLETE。**
+
 ### 0.5-B Acquisition Provider Spike
 
-**仍未关闭，独立推进。**
+**状态：ACTIVE / IN_PROGRESS。**
+
+当前分支：
+
+```text
+spike/phase-0.5b-acquisition-providers
+```
 
 必须使用真实 Discovery Missions 比较 Platform-first、Search-first、Search+Fetch、Feed/Ambient、Community/Trend 等组合，并同时验证：
 
@@ -39,16 +47,21 @@ HARNESS_NATIVE_EDITORIAL_PRODUCT_SHELL
 
 HumanSubmission 不属于外部 Provider 竞争项；它是产品自身的一等 Acquisition ingress。
 
+当前先完成 benchmark contract、版本化 mission corpus、无密钥 Ambient/Community baseline，再进入 key-gated Search/Fetch 真实 provider runs。具体执行见 `PHASE_0_5B_ACQUISITION_EXECUTION.md`。
+
 ## S4 — Harness-native Product Shell Migration
 
-这是当前 UI/runtime 主线：
+**状态：COMPLETE / MERGED（PR #16，merge commit `609d0bbc1bef0992d61b9f7e2e02871755f6e223`）。**
+
+最终状态：
 
 ```text
 S4-N1 Product Shell Foundation           COMPLETE / CI PASS
 S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
 S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
-S4-N4 Scheduler / Headless Orchestration NEXT
-S4-N5 Web Shell Retirement               NOT_STARTED
+S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
+S4-N5 Web Shell Retirement               COMPLETE / CI PASS
+Windows final local smoke                PASS
 ```
 
 ### S4-N1
@@ -74,13 +87,14 @@ S4-N5 Web Shell Retirement               NOT_STARTED
 - `Session.prompt()` 主动驱动，不要求人工 Chat prompt；
 - `get_editorial_research_result` 只读取既有 Research Case；
 - durable Tool Result / replay；
-- fresh profile 无 Workspace 时，通过 public `IWorkspaces.listDirectory/createDirectory/create/connectWorkspace` 自举 `ai-editorial-desk-runtime` Workspace。
+- fresh profile 无 Workspace 时使用 public `IWorkspaces` outward API 自举；
+- Windows native-only Host 在 browse capability 不可用时通过 public `pickDirectory()` fallback 完成 Workspace bootstrap。
 
-### S4-N4 — NEXT
+### S4-N4
 
-建立 Editorial Scheduler / Orchestrator，使标准业务动作不依赖用户在 Chat 中手工触发。
+已完成 Editorial Scheduler / Orchestrator，使标准业务动作不依赖用户在 Chat 中手工触发。
 
-最低 Contract：
+正式 Contract：
 
 ```text
 Schedule / Event / Manual Product Command
@@ -90,23 +104,11 @@ Schedule / Event / Manual Product Command
 → Editorial API / PostgreSQL
 ```
 
-至少支持：
-
-- enable / disable；
-- schedule / interval；
-- event trigger；
-- manual run now；
-- Catch-up；
-- retry/backoff；
-- Last Run / Next Run；
-- run history；
-- idempotency / duplicate-run protection；
-- explicit failure reason；
-- no provider secret in Product browser state。
+已支持 enable/disable、schedule/interval、event trigger、manual run、bounded catch-up、retry/backoff、Last/Next Run、run history、idempotency/duplicate-run protection 与 explicit failure reason。
 
 ### S4-N5
 
-Product Shell 达到所需功能等价后，删除 `apps/web` 或明确降级为 dev-preview/reference 壳，禁止形成两套生产入口。
+`apps/web` 已明确降级为 migration/reference-only；正式生产入口只有 Harness-native Product Shell。物理删除可后续单独 cleanup，不再阻塞产品主线。
 
 ## MVP v0.1 — Discovery Desk Vertical Slice
 
