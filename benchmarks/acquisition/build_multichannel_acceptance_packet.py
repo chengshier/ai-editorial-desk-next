@@ -9,6 +9,7 @@ from typing import Any
 
 from benchmarks.acquisition.build_human_acceptance_packet import (
     _canonical,
+    _excerpt,
     _firecrawl_document_map,
     _review_context,
     _sample,
@@ -18,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST = (
     ROOT / "benchmarks" / "acquisition" / "mission_templates.multichannel.zh-CN.v1.json"
 )
+CONTENT_EXCERPT_LIMIT = 1200
+SNIPPET_EXCERPT_LIMIT = 900
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -87,15 +90,85 @@ def _pick_candidate(
     raise ValueError(f"no distinct candidate available for mission {run.get('mission_id')}")
 
 
+def _article_excerpt(
+    value: object,
+    *,
+    title: object,
+    limit: int = CONTENT_EXCERPT_LIMIT,
+) -> str | None:
+    """Prefer article-body context over site chrome when the title is present in fetched markdown."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value
+    if isinstance(title, str) and title.strip():
+        normalized_title = title.strip()
+        markers = [normalized_title, normalized_title.split("|")[0].strip()]
+        for marker in markers:
+            if marker and marker in raw:
+                raw = raw.split(marker, 1)[1]
+                break
+    return _excerpt(raw, limit=limit)
+
+
+def _multichannel_review_context(
+    candidate: dict[str, Any],
+    *,
+    fetched_document: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build enough factual context for human review without pretending it is verified evidence."""
+    context = _review_context(candidate, fetched_document=fetched_document)
+    source_content = (
+        fetched_document.get("content")
+        if isinstance(fetched_document, dict)
+        else candidate.get("content")
+    )
+    body_excerpt = _article_excerpt(source_content, title=candidate.get("title"))
+    provider_snippet = _excerpt(candidate.get("snippet"), limit=SNIPPET_EXCERPT_LIMIT)
+
+    summary = context.get("summary")
+    summary_text = summary if isinstance(summary, str) else None
+    if provider_snippet and (summary_text is None or len(summary_text) < 160):
+        context["summary"] = provider_snippet
+        context["quality"] = "PROVIDER_SNIPPET"
+        summary_text = provider_snippet
+    if body_excerpt and (summary_text is None or len(summary_text) < 240):
+        context["summary"] = body_excerpt
+        context["quality"] = (
+            "FETCHED_CONTENT_EXCERPT"
+            if isinstance(fetched_document, dict)
+            else "INTEGRATED_CONTENT_EXCERPT"
+        )
+        summary_text = body_excerpt
+
+    context["provider_snippet"] = provider_snippet
+    context["content_excerpt"] = body_excerpt
+    context["context_sufficient_hint"] = bool(
+        (summary_text and len(summary_text) >= 160)
+        or (body_excerpt and len(body_excerpt) >= 240)
+        or (provider_snippet and len(provider_snippet) >= 180)
+    )
+    context["verification_note"] = (
+        "This is discovery/retrieval context only; claims and event timing still require evidence review."
+    )
+    return context
+
+
 def _decorate_sample(
     sample: dict[str, Any],
     *,
     mission_id: str,
     provider_slot: str,
     meta: dict[str, Any],
+    candidate: dict[str, Any],
 ) -> dict[str, Any]:
+    # Human-facing packet must not expose the provider before the editorial decision.
+    sample.pop("provider_id", None)
     sample["comparison_pair"] = mission_id
     sample["blind_review_label"] = provider_slot
+    sample["published_at"] = candidate.get("published_at")
+    sample["temporal_note"] = (
+        "published_at is provider/page metadata and does not independently prove event time or recency"
+    )
     sample["editorial_modes"] = list(meta.get("editorial_modes") or [])
     sample["series_hints"] = list(meta.get("series_hints") or [])
     human_review = sample.get("human_review")
@@ -143,9 +216,9 @@ def build_packet(
             candidate=exa_candidate,
             ordinal=len(samples) + 1,
             selection_basis=(
-                "top-ranked distinct Exa candidate for the mission; rank is a sampling signal only"
+                "top-ranked distinct candidate for this mission; rank is sampling only, not value"
             ),
-            review_context=_review_context(
+            review_context=_multichannel_review_context(
                 exa_candidate,
                 fetched_document=fetched_documents.get(_canonical(exa_candidate)),
             ),
@@ -156,6 +229,7 @@ def build_packet(
                 mission_id=mission_id,
                 provider_slot=f"M{pair_index}-A",
                 meta=meta,
+                candidate=exa_candidate,
             )
         )
 
@@ -169,9 +243,9 @@ def build_packet(
             candidate=tavily_candidate,
             ordinal=len(samples) + 1,
             selection_basis=(
-                "top-ranked distinct Tavily candidate for the same mission; rank is a sampling signal only"
+                "top-ranked distinct candidate for the same mission; rank is sampling only, not value"
             ),
-            review_context=_review_context(tavily_candidate),
+            review_context=_multichannel_review_context(tavily_candidate),
         )
         samples.append(
             _decorate_sample(
@@ -179,18 +253,22 @@ def build_packet(
                 mission_id=mission_id,
                 provider_slot=f"M{pair_index}-B",
                 meta=meta,
+                candidate=tavily_candidate,
             )
         )
 
     return {
-        "schema_version": "multichannel-acceptance-v1",
+        "schema_version": "multichannel-acceptance-v2",
         "status": "PENDING_HUMAN_REVIEW",
         "profile": manifest.get("acceptance_profile") or {},
         "mission_count": len(mission_ids),
         "sample_count": len(samples),
         "review_policy": {
             "provider_blind_until_decision": True,
+            "provider_identifiers_removed_from_human_packet": True,
             "provider_rank_is_not_editorial_value": True,
+            "published_at_is_not_event_time": True,
+            "context_sufficient_hint_is_not_human_decision": True,
             "required_human_fields": [
                 "decision",
                 "would_read",
