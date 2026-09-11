@@ -100,8 +100,8 @@ async def run_benchmark(
                 mission.mission_id: mission.max_results for mission in missions
             },
             "query_seed_policy": (
-                "provider v1 adapters currently execute the first mission query seed only; "
-                "full multi-variant query strategy is a separate D2 hardening gate"
+                "provider v1 adapters distribute the Mission result budget across all query seeds; "
+                "candidates preserve query_variant provenance and are deduplicated by URL"
             ),
         },
         "providers": {
