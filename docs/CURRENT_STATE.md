@@ -75,6 +75,7 @@ spike/phase-0.5b-acquisition-providers
 - `docs/07_DELIVERY/ACQUISITION_PROVIDER_SPIKE.md`
 - `docs/07_DELIVERY/PHASE_0_5B_ACQUISITION_EXECUTION.md`
 - `docs/07_DELIVERY/PHASE_0_5B_REAL_RUN_PROTOCOL.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md`
 - `docs/03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`
 - `docs/04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`
 - `docs/ADR/ADR-0006-mission-driven-acquisition.md`
@@ -86,14 +87,18 @@ spike/phase-0.5b-acquisition-providers
 0.5B-B No-key Baselines                          COMPLETE / CI PASS
 0.5B-C Key-gated Search / Fetch Adapters         COMPLETE / CI PASS
 0.5B-D Real Provider Runs                        IN_PROGRESS
-  D1 no-key live runner                          READY / CI PASS
-  D1 local real run                              PENDING
-  D2 keyed Search / Fetch real run               PENDING
+  D1 no-key live runner                          COMPLETE / CI PASS
+  D1 HN local real run + audit                   COMPLETE / PASS WITH LIMITATIONS
+  D1 RSS/Atom configured live baseline           NOT_RUN / NON-BLOCKING
+  D2-A Exa vs Tavily keyed real run              NEXT
+  D2-B Firecrawl independent fetch               DEFERRED UNTIL D2-A
 0.5B-E Human Editorial Acceptance                NOT_STARTED
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
 0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过；D1 no-key live runner + SourceRole coverage assessment 已在 CI #341 验证通过。
+
+D1 HN 真实运行已审计：17 个 Mission 中 7 个 transport success、10 个 explicit unsupported；只有 Ambient Mission 满足 required SourceRole。6 个 Momentum Mission 均缺 `TREND_SIGNAL`，其中 emerging-tech 还缺 `EVIDENCE_SOURCE`。7 个成功 run 共 70 个 candidate occurrence，但实际只有 10 个唯一 HN item，因此进入 Opportunity conversion 前必须跨 Mission 去重。该结果证明 HN 适合作为 Community/Audience/Ambient discovery baseline，但不能冒充 semantic Potential search、Trend velocity 或 Evidence provider。
 
 已建立：
 
@@ -113,7 +118,7 @@ spike/phase-0.5b-acquisition-providers
 - no-key live baseline runner；
 - Mission required SourceRole 与实际候选 SourceRole 的覆盖评估，避免把 provider success 冒充 mission success。
 
-当前尚未产生任何 Provider 胜负结论。0.5B-D 现在等待一次真实 D1 no-key artifact；Search/Fetch 真实供应商 benchmark 仍需要合法 API key 才能执行。
+当前尚未产生任何 Provider 胜负结论。下一 Gate 是 D2-A：先真实比较 Exa semantic Search 与 Tavily integrated Search+Fetch；只有 Exa Search 本身值得保留时，才进入 D2-B Firecrawl independent Fetch。
 
 ---
 
