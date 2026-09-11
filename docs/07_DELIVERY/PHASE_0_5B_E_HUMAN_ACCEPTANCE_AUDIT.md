@@ -2,9 +2,9 @@
 
 ## 状态
 
-`IN_PROGRESS / MOMENTUM_CONTEXT_BLOCKED / POTENTIAL_ROUND_REVIEWED`
+`IN_PROGRESS / MOMENTUM_CONTEXT_BLOCKED / POTENTIAL_ROUND_REVIEWED / D4_READY_FOR_REAL_RUN`
 
-本文件记录 Phase 0.5-B-E 的真实人工编辑反馈。只有 `context_sufficient=true` 的判断才进入最终 20/20 Gate；上下文不足的暂定反馈用于改进 acceptance packet，不计入最终 Editorial Discovery Yield。
+本文件记录 Phase 0.5-B-E 的真实人工编辑反馈。只有 `context_sufficient=true` 的判断才进入最终 Gate；上下文不足的暂定反馈用于改进 acceptance packet，不计入最终 Editorial Discovery Yield。
 
 ## 1. 第一轮 Momentum 暂定反馈
 
@@ -123,15 +123,13 @@ Provider rank / academic source preference 不能替代这层编辑路由。
 
 ## 5. 已采取的工程修复
 
-acceptance packet 已升级为 schema v2：
+原 acceptance packet 已增加 `review_context` 与 `context_sufficient` Gate：
 
-- 每条 sample 增加 `review_context`；
 - Momentum 优先带 related news 标题 / 来源；
 - Potential 优先把 Exa candidate 对应的 Firecrawl fetched description / content excerpt 合并；
 - Control 优先带 Tavily integrated content excerpt；
 - Community 若仍只有标题/信号，必须允许 `context_sufficient=false`；
-- `human_review` 增加 `context_sufficient`；
-- `context_sufficient=false` 不计入最终 20/20 Gate。
+- `context_sufficient=false` 不计入最终 Gate。
 
 本轮人工反馈进一步要求后续 human-review contract 能表达：
 
@@ -140,13 +138,52 @@ acceptance packet 已升级为 schema v2：
 - 固定栏目 / 快报 / 深度解读等内容形态；
 - 同一个候选“值得发现”与“适合哪种生产方式”必须分开判断。
 
-## 6. 下一步
+因此新增多栏目扩展：
 
-不能直接把当前 20 条样本跑完就进入 0.5B-F。
+- `benchmarks/acquisition/mission_templates.multichannel.zh-CN.v1.json`
+- `benchmarks/acquisition/build_multichannel_acceptance_packet.py`
+- `tests/test_acquisition_multichannel_acceptance.py`
+- `docs/07_DELIVERY/PHASE_0_5B_E_MULTICHANNEL_REAL_RUN_PROTOCOL.md`
 
-下一步先做两件事：
+多栏目扩展固定验证：
 
-1. 保留当前 Potential 第二轮反馈，作为 science/knowledge explainer 代表样本；
-2. 补一组更贴近真实目标内容风格的非学术型候选，至少覆盖信息差、反转/澄清、社会小事件、风险提醒和娱乐/文化回应，再继续 Human Acceptance。
+```text
+信息差 / 反转 / 澄清
+普通人物 / 社会反差
+诈骗 / 风险提醒
+娱乐 / 文化回应
+常识 / 历史纠偏
+```
 
-随后再完成 Community / Control，并回到 Momentum 5 条补上下文重新确认，使最终 Provider Decision 建立在代表性更完整的 editorial corpus 上。
+Human Review 在旧字段之外新增：
+
+```text
+investment_priority
+production_depth
+series_fit
+editorial_mode_fit
+```
+
+并采用 Provider-blind 的 `M1-A / M1-B ... M5-A / M5-B` 配对方式，避免人工在决定前看到 Exa / Tavily 名称。
+
+## 6. D4 的定位
+
+D4 不是“假装已经接入国内社交平台”。它只回答当前 Search/Fetch 组合在 **中文公开 Web** 上能做到什么。
+
+如果真实运行只能找到新闻转载、SEO 页面或缺少评论 / 原帖 / 现场素材，则应明确得出：
+
+```text
+Web Search / Fetch = 背景与补证层
+Platform / Community = 仍有正式能力缺口
+```
+
+如果开放网页本身就无法稳定发现这些栏目需要的候选，则更不能把 D2-B 英文解释型结果外推成 V1 全局 Provider 结论。
+
+## 7. 下一步
+
+1. exact-head CI 通过后运行 D4 中文多栏目 Search/Fetch；
+2. 审计 Exa → Firecrawl 与 Tavily 在 5 个多栏目 Mission 上的真实候选；
+3. 构建 10 条 Provider-blind Multi-channel Human Acceptance；
+4. 根据真实缺口决定是否必须进入 PlatformProvider / 国内趋势与社区 Provider Spike；
+5. 再完成 Community / Control 与 Momentum 补上下文；
+6. 只有代表性覆盖充分后才进入 0.5B-F Provider Decision + ADR。
