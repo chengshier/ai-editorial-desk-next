@@ -114,17 +114,34 @@ Product Shell 通过 `HarnessRuntimeAdapter` 把两层连接起来；Scheduler �
 
 用户首次打开一个完全新的 Harness profile 时，不应被要求先进入 stock workbench 手工创建 Workspace。
 
-Research Runtime Adapter 必须通过公开 `IWorkspaces` API 自举：
+Research Runtime Adapter 只使用 exact-pin Harness 的公开 `IWorkspaces` outward API，但必须尊重 Host 实际组合的目录选择能力。`browse` 与 `native` 是互斥能力，不能假设所有 Host 都支持 `listDirectory()` / `createDirectory()`。
+
+优先自动路径：
 
 ```text
-Host home
+fresh profile + browse capability
+→ Host home
 → ai-editorial-desk-runtime directory
 → Workspace registration
 → Session
 → Research Case runtime binding
 ```
 
-这个 technical runtime Workspace 对普通 Product 用户应当是透明的。
+Windows 等只组合 native picker 的 Host：
+
+```text
+fresh profile + native capability
+→ browse API 返回 directory-picker-unavailable
+→ Product Shell 调用公开 pickDirectory()
+→ 用户在系统目录选择器中选择一个已有目录
+→ Workspace registration
+→ Session
+→ Research Case runtime binding
+```
+
+因此“无需手工准备 Workspace”的含义是：用户不需要先切到 stock Harness 建 Workspace，也不需要知道 Harness 的 Workspace 配置流程。native-only Host 允许 Product Shell 在首次 Research 时主动弹出一次系统目录选择器；取消选择必须显式失败，并保留已经创建的 Research Case。
+
+不得为绕过 native/browse 差异而硬编码本机路径、访问 Harness private API、使用 DOM 自动化或修改 upstream core。
 
 ## 8. 禁止项
 
@@ -160,6 +177,8 @@ Windows final local smoke                PENDING
 
 N4 已在 head `06ca19f629d22b39f28948c11ac10744feafa04b` 完成四套 Gate；N5 / S4 工程收口已在 head `280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6` 完成 CI #268、Harness Spike #222、Harness Editorial Shell #130、Harness Native Shell Spike #136 四套 Gate。
 
+Windows final smoke 随后发现 fresh profile 在 native directory-picker composition 下仍错误调用 browse-only `listDirectory()`，现已作为 S4 合并前兼容性修复处理；S4 架构决策本身不重开，最终 smoke 在该修复通过 CI 后继续。
+
 `apps/web` 当前定义为：
 
 ```text
@@ -167,7 +186,7 @@ RETIRED_AS_PRODUCTION_HOST
 MIGRATION_REFERENCE_ONLY
 ```
 
-正式 Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担。PR #16 合并前只剩一次 Windows 本地最终 smoke，不重新打开 S4 架构决策。
+正式 Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担。PR #16 合并前仍需完成 Windows 本地最终 smoke。
 
 ## 10. 依据
 
