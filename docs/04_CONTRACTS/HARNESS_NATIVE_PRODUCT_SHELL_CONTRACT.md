@@ -187,31 +187,48 @@ The adapter may not create a second Research Case merely because a Harness Sessi
 
 A completely fresh Harness profile may contain no Workspace.
 
-Product Shell must still be able to start Research without requiring the user to visit stock Harness first.
+Product Shell must still be able to start Research without requiring the user to visit stock Harness first. The exact-pinned Harness exposes two mutually exclusive directory-picker capabilities behind the public `IWorkspaces` outward face, so bootstrap must be capability-compatible rather than assuming the browse backend is always composed.
 
-Current allowed bootstrap uses only pinned public `IWorkspaces` outward methods:
+Allowed public methods:
 
 ```text
-listDirectory()
-createDirectory()
+pickDirectory()          # native capability
+listDirectory()          # browse capability
+createDirectory()        # browse capability
 create({ path })
 connectWorkspace()
 ```
 
-The integration owns a dedicated runtime directory name:
+Bootstrap rules:
 
 ```text
-ai-editorial-desk-runtime
+existing Workspace
+→ reuse it
+
+fresh profile + browse capability
+→ list Host home
+→ create/reuse ai-editorial-desk-runtime
+→ register Workspace
+→ connect Session
+
+fresh profile + native capability
+→ Product Shell opens the public native directory picker
+→ user selects an existing directory
+→ register Workspace
+→ connect Session
 ```
 
 Rules:
 
 1. never manufacture an unknown host path in the browser;
-2. ask the Host for the home directory through public API;
-3. create/reuse the runtime directory idempotently;
-4. register/reuse the Workspace through public API;
-5. connect/create Session only after Workspace exists;
-6. no manual user setup is required for this technical runtime Workspace.
+2. prefer the browse-capability automatic dedicated `ai-editorial-desk-runtime` directory when `listDirectory/createDirectory` are available;
+3. if the Host reports `directory-picker-unavailable` because the composed picker is `native`, fall back to public `pickDirectory()` instead of failing Research;
+4. native fallback may require one OS directory-selection interaction, but it must be initiated from the Product Shell and must not require the user to visit stock Harness or manually pre-register a Workspace;
+5. a cancelled native picker fails explicitly and preserves the Research Case;
+6. register/reuse the selected/created Workspace through public API, then connect/create Session;
+7. no private Host API, DOM automation, hard-coded filesystem path, or upstream Harness patch is allowed.
+
+The dedicated directory name `ai-editorial-desk-runtime` applies to the automatic browse-capability path. A native picker returns a user-selected existing directory and therefore must not pretend that the Product Shell created the dedicated directory automatically.
 
 ---
 
@@ -286,7 +303,9 @@ S4-N4 implements this orchestration layer.
 
 ## Workspace missing
 
-- bootstrap the dedicated runtime Workspace through public `IWorkspaces` API;
+- bootstrap through public `IWorkspaces` only;
+- use browse automation when the browse picker is composed;
+- use Product-Shell-initiated `pickDirectory()` when only the native picker is composed;
 - do not ask the user to prepare stock Harness manually as a normal product prerequisite.
 
 ## Editorial API unavailable
@@ -302,7 +321,7 @@ S4-N4 implements this orchestration layer.
 - Backend authorization/risk policy remains authoritative.
 - Harness approval UI does not replace server-side permission checks.
 - Product Shell plugin must not bypass Editorial API to write PostgreSQL directly.
-- Runtime bootstrap may create only its intended dedicated Host directory / Workspace through the public Host contract.
+- Runtime bootstrap may register only a Host path obtained through the public Host contract: either the browse-capability directory flow or the native picker result.
 
 ---
 
@@ -327,7 +346,7 @@ pristine pinned/upgraded Harness build
 → isolated profile install
 → browser smoke
 → business ID invariants
-→ fresh-profile runtime bootstrap
+→ fresh-profile runtime bootstrap for both available picker compositions
 ```
 
 Breaking changes are absorbed in `integrations/harness`, not by changing Domain semantics merely to match Harness internals.
@@ -336,20 +355,18 @@ Breaking changes are absorbed in `integrations/harness`, not by changing Domain 
 
 # 14. Migration contract
 
-Until S4-N5:
-
-- `apps/web` remains migration reference/regression baseline only;
-- formal Product features go to `editorial-shell-package`;
-- do not maintain two production product entrances.
+`apps/web` is retired as a production host and retained only as a migration/reference regression surface. Formal Product features go to `editorial-shell-package`; there must not be two production product entrances.
 
 S4 sequence:
 
 ```text
-N1 Product Shell Foundation           COMPLETE
-N2 Today / Opportunities Migration    COMPLETE
-N3 Research Runtime Adapter           COMPLETE
-N4 Scheduler / Headless Orchestration NEXT
-N5 Web Shell Retirement               NOT_STARTED
+N1 Product Shell Foundation           COMPLETE / CI PASS
+N2 Today / Opportunities Migration    COMPLETE / CI PASS
+N3 Research Runtime Adapter           COMPLETE / CI PASS
+N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
+N5 Web Shell Retirement               COMPLETE / CI PASS
+S4 Engineering                        COMPLETE / CI PASS
+Windows final local smoke             PENDING
 ```
 
 ---
@@ -362,7 +379,7 @@ A conformant Harness-native Product Shell implementation must satisfy all of the
 2. stock Harness workbench remains usable.
 3. Today / Opportunities do not require an active Agent Session.
 4. Research uses `research_case_id` as canonical identity.
-5. fresh Harness profile can self-bootstrap the required runtime Workspace through public API.
+5. fresh Harness profile can bootstrap the required runtime Workspace through public API under either supported picker composition; native-only hosts may request one Product-Shell-initiated directory selection.
 6. missing Session can be rebound without losing Research Case.
 7. Product action can drive Harness runtime without manual Chat prompt.
 8. no iframe / `surface_url` / private-store / DOM-click dependency is required for the formal Product Shell.
