@@ -55,11 +55,6 @@ HARNESS_UPSTREAM_CORE_PATCH = FORBIDDEN_BY_DEFAULT
 
 Harness Session / Job / Replay / Workspace 是 runtime metadata，不能替代 `opportunity_id`、`research_case_id`、`candidate_id`、`draft_id`、`publication_id` 等业务身份。`apps/web` 已是 migration/reference-only，不再是 production host。
 
-活动 Harness Contract：
-
-- `docs/04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
-- `docs/04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
-
 ---
 
 ## 当前活动主线 — Phase 0.5-B Acquisition Provider Spike
@@ -78,6 +73,7 @@ spike/phase-0.5b-acquisition-providers
 - `docs/07_DELIVERY/PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md`
 - `docs/07_DELIVERY/PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md`
 - `docs/07_DELIVERY/PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D2B_FIRECRAWL_RUN_AUDIT.md`
 - `docs/03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`
 - `docs/04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`
 - `docs/ADR/ADR-0006-mission-driven-acquisition.md`
@@ -89,61 +85,74 @@ spike/phase-0.5b-acquisition-providers
 0.5B-B No-key Baselines                          COMPLETE / CI PASS
 0.5B-C Key-gated Search / Fetch Adapters         COMPLETE / CI PASS
 0.5B-D Real Provider Runs                        IN_PROGRESS
-  D1 no-key live runner                          COMPLETE / CI PASS
-  D1 HN local real run + audit                   COMPLETE / PASS WITH LIMITATIONS
+  D1 HN no-key live baseline                     COMPLETE / PASS WITH LIMITATIONS
   D1 RSS/Atom configured live baseline           NOT_RUN / NON-BLOCKING
   D2-A Exa vs Tavily keyed real run              COMPLETE / PASS WITH LIMITATIONS
-  D2-B Firecrawl independent fetch               NEXT
+  D2-B Exa → Firecrawl vs Tavily                 COMPLETE / PASS WITH LIMITATIONS
+  D3 Google Trends Momentum baseline             IN_PROGRESS
 0.5B-E Human Editorial Acceptance                NOT_STARTED
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
-0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过；D1 no-key live runner + SourceRole coverage assessment 已在 CI #341 验证通过；D2-A multi-query / bounded runner hardening 已在 head `3ac62150ea35e5d4e5e35968a9c20d9a51915c81` 的 CI #357 验证通过。
+0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过；D1 no-key live runner + SourceRole coverage assessment 已在 CI #341 验证通过；D2-A multi-query / bounded runner hardening 已在 head `3ac62150ea35e5d4e5e35968a9c20d9a51915c81` 的 CI #357 验证通过；D2 文档收口前一轮 CI #362 已通过。
 
-D1 HN 真实运行已审计：17 个 Mission 中 7 个 transport success、10 个 explicit unsupported；只有 Ambient Mission 满足 required SourceRole。6 个 Momentum Mission 均缺 `TREND_SIGNAL`，其中 emerging-tech 还缺 `EVIDENCE_SOURCE`。7 个成功 run 共 70 个 candidate occurrence，但实际只有 10 个唯一 HN item，因此进入 Opportunity conversion 前必须跨 Mission 去重。该结果证明 HN 适合作为 Community/Audience/Ambient discovery baseline，但不能冒充 semantic Potential search、Trend velocity 或 Evidence provider。
+D1 HN 真实运行已审计：17 个 Mission 中 7 个 transport success、10 个 explicit unsupported；只有 Ambient Mission 满足 required SourceRole。6 个 Momentum Mission 均缺 `TREND_SIGNAL`，因此 HN 不能冒充 Trend velocity provider。
 
-D2-A 已完成真实 bounded comparison：4 个 Potential Mission，每 Mission `max_results=3`，Exa 与 Tavily 均执行两个 query seeds 并保留 `query_variant` provenance。
+D2-A 已证明 Exa Search-only seam 值得保留；D2-B 已完成真实 `Exa Search → Firecrawl Fetch` 与 Tavily integrated Search+Fetch 对照：
 
 ```text
-Exa
+Exa Search
 4 / 4 success
 12 / 12 retrieved
-avg latency ~2889 ms
+avg latency ~3642 ms
 observed cost $0.056
-search-only
+
+Firecrawl
+4 probes
+3 success + 1 partial
+12 requested
+10 fetched
+2 failed
+fetch coverage 83.3%
+avg probe latency ~10028 ms
 
 Tavily
 4 / 4 success
 12 / 12 retrieved
-9 / 12 raw content available
-avg latency ~5287 ms
+8 / 12 raw content available
+avg latency ~2321 ms
 16 credits
-integrated search+fetch
 ```
 
-人工审计显示：Exa 在 everyday-why、protective-scam、open-curiosity 三类 Mission 上给出更具体、更适合后续 Research 的候选，因此 Search-only seam 已证明值得保留进入 D2-B；Tavily 的 integrated Search+Fetch 仍保留为对照，因为其正文一体化能减少一次独立 Fetch，但 discovery precision 更杂，raw content availability 也不能自动等于 fetch correctness / Evidence。
+允许的阶段结论：
 
-已建立：
+```text
+Exa → Firecrawl chain    PASS WITH LIMITATIONS
+Tavily integrated seam   RETAIN AS COMPARATOR/FALLBACK
+final provider winner    NOT DECIDED
+```
 
-- provider-agnostic Mission / Run / Candidate / Benchmark Summary；
-- `ambient / potential / momentum / research` discovery lane；
-- SourceRole / ProviderCapability；
-- `unsupported / unavailable / error` 显式语义；
-- Editorial / Potential / Momentum Discovery Yield 分离；
-- 版本化 Discovery Mission manifest；
-- RSS/Atom Ambient baseline；
-- Hacker News public ranked community snapshot baseline；
-- Exa semantic Search candidate；
-- Firecrawl independent Fetch candidate；
-- Tavily integrated Search+Fetch candidate；
-- server-side key boundary + missing-key `UNAVAILABLE`；
-- keyed Search/Fetch benchmark runner；
-- no-key live baseline runner；
-- bounded Search budget；
-- multi-query seed allocation、query provenance 与 URL 去重；
-- Mission required SourceRole 与实际候选 SourceRole 的覆盖评估，避免把 provider success 冒充 mission success。
+Firecrawl v1 旧 artifact 在 open-curiosity 出现 2 个失败 URL，但只保留 failure count。adapter 已开始硬化为保存不含 secret 的 `url / error_kind / http_status` 失败摘要；usage/cost 未观测到时继续保持 unavailable，不用 0 代替。
 
-当前尚未产生最终 Provider 胜负结论。下一 Gate 是 D2-B：比较 `Exa Search → Firecrawl Fetch` 与 Tavily integrated Search+Fetch；D2-B 通过后进入 0.5B-E Human Editorial Acceptance。
+Phase 0.5-B 仍不能结束 0.5B-D，因为正式 Spike Gate 要同时验证 Potential 与 Momentum。D3 已新增：
+
+```text
+GoogleTrendsRssProvider
+→ public Google Trends Trending Now RSS/export baseline
+→ generic ATTENTION_SURGE only
+→ TREND_SIGNAL + DISCOVERY_SIGNAL
+→ unsupported mission shapes explicit UNSUPPORTED
+```
+
+并新增：
+
+```text
+benchmarks/acquisition/run_momentum_baseline.py
+```
+
+D3 不需要 API key。Google trend inclusion / approximate traffic 只作为 Attention Feature，不直接等于 Editorial Value；related news 也不自动成为 Confirmed Evidence。
+
+当前尚未产生最终 Provider 胜负结论。下一 Gate 是 D3 Google Trends Momentum real run；D3 通过后再进入完整 0.5B-E Human Editorial Acceptance。
 
 ---
 
