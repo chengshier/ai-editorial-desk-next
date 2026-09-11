@@ -129,6 +129,18 @@ class FetchProbeRecord(BaseModel):
     documents: list[FetchedDocument] = Field(default_factory=list)
 
 
+class MissionRunAssessment(BaseModel):
+    mission_id: str
+    mission_version: str
+    provider_id: str
+    run_status: ProviderRunStatus
+    retrieved_count: int
+    required_source_roles: list[SourceRole]
+    observed_source_roles: list[SourceRole]
+    missing_required_source_roles: list[SourceRole]
+    required_roles_satisfied: bool
+
+
 class ProviderBenchmarkSummary(BaseModel):
     provider_id: str
     total_runs: int
@@ -147,6 +159,30 @@ class ProviderBenchmarkSummary(BaseModel):
     human_do_count: int
     human_maybe_count: int
     total_cost_usd: float | None
+
+
+def assess_run_against_mission(
+    mission: DiscoveryMission,
+    run: ProviderRunRecord,
+) -> MissionRunAssessment:
+    """Record role coverage without upgrading provider output into editorial truth."""
+
+    observed = {role for candidate in run.candidates for role in candidate.source_roles}
+    required = set(mission.required_source_roles)
+    missing = required - observed
+    return MissionRunAssessment(
+        mission_id=mission.mission_id,
+        mission_version=mission.version,
+        provider_id=run.provider_id,
+        run_status=run.status,
+        retrieved_count=run.retrieved_count,
+        required_source_roles=sorted(required, key=str),
+        observed_source_roles=sorted(observed, key=str),
+        missing_required_source_roles=sorted(missing, key=str),
+        required_roles_satisfied=(
+            run.status in {ProviderRunStatus.SUCCESS, ProviderRunStatus.PARTIAL} and not missing
+        ),
+    )
 
 
 def _yield(opportunities: int, retrieved: int) -> float | None:
