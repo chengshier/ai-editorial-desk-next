@@ -51,7 +51,7 @@ def test_s2_state_stays_complete_without_claiming_fixture_is_production_truth() 
 
     assert "S2 Today / Opportunity Inspector       COMPLETE" in state
     assert "S3 Opportunities Library               COMPLETE" in state
-    assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_IN_PROGRESS" in state
+    assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE" in state
     assert "Transitional data boundary" in state
     assert "deterministic mock 是 production research result" in state
     assert "真实外部 Acquisition 已完成" in state
