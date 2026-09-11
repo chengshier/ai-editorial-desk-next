@@ -49,7 +49,7 @@ Harness Editorial Shell    #130 PASS
 Harness Native Shell Spike #136 PASS
 ```
 
-因此 S4 的仓库级工程 Gate 已完成。PR #16 继续保持 Draft，合并前仍需一次 Windows 本地最终 smoke；该 smoke 不重复 CI，而只验证本机启动、Product Shell 可见、Product ↔ stock Harness 切换、Research/Scheduler 状态与无明显插件启动异常。
+因此 S4 的仓库级工程 Gate 已完成。PR #16 继续保持 Draft，合并前只剩一次 Windows 本地最终 smoke；该 smoke 不重复 CI，而只验证本机启动、Product Shell 可见、Product ↔ stock Harness 切换、Research/Scheduler 状态与无明显插件启动异常。
 
 ---
 
@@ -90,7 +90,9 @@ AI Editorial Desk 与 stock Harness 工作台在同一个 Harness Web（当前�
 
 ---
 
-## 已完成 Gate：S4-N3 Research Runtime Adapter
+## S4 已完成工程 Gate
+
+### S4-N3 Research Runtime Adapter
 
 正式链路：
 
@@ -104,172 +106,35 @@ Product Shell Research Case
 → durable Harness Tool Result / replay
 ```
 
-已落地：
+已验证 runtime binding/rebind/bootstrap-complete、public `IWorkspaces` fresh-profile bootstrap、自动 `Session.prompt()`、只读 canonical Research Tool，以及 runtime failure 不删除业务 Research Case。
 
-- `/api/v1/integrations/harness/runtime/research/{research_case_id}` runtime binding；
-- Session bind / rebind / bootstrap-complete；
-- Session 更换后 bootstrap 自动重新 required；
-- Product Shell 使用公开 `ctx.sessions` / `ctx.workspaces` outward API；
-- 已绑定 Session 存在时复用；丢失时创建/复用新 Session 并 rebind；
-- Product Shell 主动调用 `Session.prompt()`，不要求用户进入 Chat 手工 prompt；
-- 正式 Host Tool `get_editorial_research_result` 只读取既有 Research Case，不重复创建 Case；
-- durable structured Tool Result 出现后才标记 bootstrap complete；
-- Harness Session ID 只作为 runtime metadata；
-- Runtime failure 不删除 Research Case。
+### S4-N4 Scheduler / Headless Orchestration
 
-Fresh profile 没有 Workspace 时，Product Shell 通过 pinned public `IWorkspaces` 自动：
+正式执行图：
 
 ```text
-listDirectory()
-→ create/reuse ai-editorial-desk-runtime directory
-→ create({path}) Workspace
-→ connectWorkspace()
-→ Session
-→ Research Case binding
+Schedule / Event / Manual Product Command
+→ Editorial Scheduler / Orchestrator
+→ Harness SDK / JSON-RPC / Runtime Adapter
+→ Agent / Tool / Job
+→ Editorial API / PostgreSQL
+→ Product Shell
 ```
 
----
+N4-A 至 N4-F 已全部完成：exact-pin audit、Manual Run、PostgreSQL durable Task/Run、interval trigger、retry/catch-up/history、`research.completed` event trigger 与 Product Shell Scheduler status projection。
 
-## 已完成 Gate：S4-N4 Scheduler / Headless Orchestration
+关键不变量：
 
-当前活动 Contract：`docs/04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`。
+- `@deepseek-ai/dsh-sdk-client` + subprocess + stdio JSON-RPC 为主 headless seam；
+- Scheduler business identity 与 Harness runtime metadata 分层；
+- PostgreSQL UNIQUE idempotency；
+- schedule/event occurrence key 稳定；
+- retry 保持同一 logical Run，仅递增 attempt；
+- Product Shell 状态从 Editorial API canonical projection 读取，不从 Harness transcript 猜测。
 
-### N4-A — exact-pin audit + Contract
+### S4-N5 Web Shell Retirement
 
-**状态：COMPLETE**
-
-冻结结论：
-
-- 主路径使用公开 `@deepseek-ai/dsh-sdk-client`；
-- transport 为 subprocess + stdio JSON-RPC；
-- `DeepSeekHarness.run()` 的运行区间是 durable inbox receipt → whole-agent `idle`；
-- `messageId` 只代表 enqueue receipt，不代表业务完成；
-- SDK wire 当前没有 per-prompt cancel，因此首版 SchedulerRun 使用独占 runtime process 作为 timeout/cancellation boundary；
-- ACP 有 `session/cancel`，但 exact pin 仅支持 fresh sessions，不承担需要 named-session continuity 的主路径；
-- Harness `schedule/` 是 Session-local reminder，没有 public Scheduler service，不作为系统 Scheduler。
-
-### N4-B — Manual Run vertical slice
-
-**状态：COMPLETE / CI PASS**
-
-正式接口：
-
-```text
-POST /api/v1/integrations/harness/scheduler/research/{research_case_id}/run-now
-GET  /api/v1/integrations/harness/scheduler/runs/{run_id}
-```
-
-第一条 operation：
-
-```text
-research.rehydrate
-→ exact-pinned TypeScript SDK runner
-→ get_editorial_research_result(research_case_id)
-→ agent idle + canonical structured Tool Result
-→ SchedulerRun succeeded / failed
-```
-
-已验证：business ID / runtime ID 分层、idempotency、duplicate protection、timeout、explicit failure、credential redaction、execution/runtime provenance、exact-pin headless SDK probe，且不依赖 Web UI / iframe / DOM / private Harness API。
-
-### N4-C — Durable Task / Run model
-
-**状态：COMPLETE / CI PASS**
-
-已落地：
-
-- `scheduler_tasks` durable schema；
-- `scheduler_runs` durable schema；
-- `idempotency_key` PostgreSQL UNIQUE constraint；
-- business object / task / status history indexes；
-- Alembic migration；
-- `SchedulerPostgresStore` durable repository；
-- 配置 `DATABASE_URL` 时 Manual Run 使用 PostgreSQL；
-- Run History 按业务对象查询；
-- repository restart 后仍可恢复 Run；
-- Harness Session ID 只保存在 `runtime_provenance`。
-
-### N4-D — Interval / Schedule trigger
-
-**状态：COMPLETE / CI PASS**
-
-正式链路：
-
-```text
-Durable SchedulerTask
-→ interval + next_run_at
-→ PostgreSQL due-task claim
-→ SELECT ... FOR UPDATE SKIP LOCKED
-→ manual clock-independent scheduler tick
-→ stable schedule idempotency key
-→ research.rehydrate
-→ exact-pinned Harness headless execution
-→ SchedulerRun
-```
-
-已验证 durable interval task、restart-safe `next_run_at`、`FOR UPDATE SKIP LOCKED` 多实例防重、stable scheduled occurrence idempotency、scheduled Run 的 business/runtime identity 分层，以及 PostgreSQL 16 migration/integration Gate。
-
-### N4-E — Retry / Catch-up / History
-
-**状态：COMPLETE / CI PASS**
-
-已验证：
-
-- `20260910_02` migration：Task catch-up / retry policy、Run `scheduled_for / next_retry_at`、`scheduler_run_attempts`；
-- retry 保持同一 `run_id / idempotency_key / business_object_id`，只递增 attempt，不生成新的业务对象 ID；
-- attempt 级 runtime/execution provenance durable history；
-- exponential backoff / max attempts；
-- `skip | bounded` catch-up；
-- Task `last_run_at`；
-- retry claim row lock / `SKIP LOCKED`；
-- Task disable 清理待执行 retry；
-- 新 attempt 不继承旧 Harness Session / completion metadata。
-
-### N4-F — Event trigger + Product status UI
-
-**状态：COMPLETE / CI PASS**
-
-正式链路：
-
-```text
-research.completed
-→ durable Event SchedulerTask
-→ event:{task_id}:{event_id} idempotency
-→ SchedulerRun(trigger_kind=event)
-→ exact-pinned headless research.rehydrate
-→ retry / attempt history
-→ Product Shell Scheduler status projection
-```
-
-已验证：
-
-- `research.completed` 第一条 canonical event trigger；
-- durable Event Task create / read / enable / disable；
-- 同 Task + 同 `event_id` 重复投递复用同一 logical SchedulerRun；
-- Event Run 复用 N4-E retry queue，并保持同一 Run / business identity；
-- `/research/{research_case_id}/status` 只读 canonical 状态投影；
-- Product Shell Research 页面 `Scheduler / Headless` 状态卡；
-- 未配置 PostgreSQL 时状态卡诚实显示 process-memory fallback，Event Task 不静默降级；
-- PostgreSQL event idempotency / restart / retry integration tests；
-- FastAPI query metadata 不泄漏到直接函数调用的 repository limit 参数；
-- exact-pin Harness Product Shell / browser / native-shell 回归全部 PASS。
-
----
-
-## 已完成 Gate：S4-N5 Web Shell Retirement
-
-**状态：COMPLETE / CI PASS**
-
-审计文档：`docs/07_DELIVERY/S4_N5_WEB_SHELL_RETIREMENT_AUDIT.md`。
-
-已确认 `apps/web` 当前只包含：
-
-- 已迁移到 Product Shell 的 Today / Opportunities；
-- 已被 N3 正式 Runtime Adapter supersede 的旧 `HarnessSurfaceHost` Research 宿主；
-- Programming / Creation / Publication / Performance / Knowledge / Management 等 placeholder 路由。
-
-因此没有只存在于 standalone Web Shell、却会阻塞生产宿主退役的独占正式业务能力。
-
-N5 最终状态：
+最终状态：
 
 ```text
 apps/web = RETIRED_AS_PRODUCTION_HOST
@@ -279,15 +144,14 @@ formal product host = DeepSeek Harness Product Shell
 
 已验证：
 
-- `apps/web/README.md` 明确 reference-only；
-- package metadata 明确 retired production host；
-- standalone 页面启动后显示 legacy migration reference notice；
-- legacy Web 仍可 build，但只作为 migration/regression reference；
-- architecture / delivery / tests 均保持单一 production host 不变量；
+- `apps/web/README.md` 与 package metadata 明确 reference-only；
+- standalone 页面显示 legacy migration reference notice；
+- legacy Web build 仅作为 migration/regression reference；
+- architecture / delivery / tests 保持单一 production host；
 - formal Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担；
 - head `280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6` 四套 workflow 全部 PASS。
 
-物理删除 `apps/web` 不属于本 PR 的必需条件；后续在不再需要视觉/交互对照时，可独立 cleanup PR 删除。
+物理删除 `apps/web` 不属于 PR #16 的必需条件，可在后续独立 cleanup PR 中执行。
 
 ---
 
@@ -303,7 +167,7 @@ PR #14 的 iframe / `embedded` transport / `surface_url` 路线已经 superseded
 
 ## 合并前人工 Gate
 
-S4 工程 Gate 已完成，但 PR #16 暂不直接合并。最后只保留一次 Windows 本地 smoke：
+PR #16 暂不直接合并。最后只保留一次 Windows 本地 smoke：
 
 ```text
 启动 Editorial API + pinned Harness Web
@@ -315,23 +179,6 @@ S4 工程 Gate 已完成，但 PR #16 暂不直接合并。最后只保留一次
 ```
 
 本地 smoke PASS 后，PR #16 才可从 Draft 转 Ready 并进入合并确认。
-
----
-
-## 自动执行原则
-
-标准业务动作不能要求用户进入 Harness 聊天框手工 prompt：
-
-```text
-Schedule / Event / Manual Product Command
-→ Editorial Scheduler / Orchestrator
-→ Harness Runtime Adapter / SDK / JSON-RPC
-→ Agent / Tool / Job
-→ Editorial API / PostgreSQL
-→ Product Shell
-```
-
-Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数据已经存在，而不是每天手动要求 Agent 开始工作。
 
 ---
 
@@ -355,7 +202,6 @@ Today / Opportunity / Watch 等周期任务目标是用户打开工作台时数�
 
 - 真实外部 Acquisition 已完成；
 - PostgreSQL Opportunity / Research persistence 已完成；
-- deterministic mock 是生产研究结果；
 - deterministic mock 是 production research result；
 - in-memory Research / runtime binding fixture 具备 durable persistence。
 
