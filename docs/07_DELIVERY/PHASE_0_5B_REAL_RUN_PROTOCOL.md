@@ -2,7 +2,7 @@
 
 ## 状态
 
-`D1_HN_REAL_RUN_PASS_WITH_LIMITATIONS / D2_COMPLETE_WITH_LIMITATIONS / D3_MOMENTUM_NEXT`
+`D1_HN_REAL_RUN_PASS_WITH_LIMITATIONS / D2_COMPLETE_WITH_LIMITATIONS / D3_COMPLETE_WITH_LIMITATIONS / E_HUMAN_ACCEPTANCE_IN_PROGRESS`
 
 D1 no-key live runner 与 Mission SourceRole coverage assessment 已通过 CI #341；真实 HN topstories artifact 已完成审计，详见 `PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md`。
 
@@ -12,11 +12,14 @@ D2 已完成：
 - D2-A 4 Mission bounded comparison；
 - D2-B Exa → Firecrawl vs Tavily real comparison。
 
+D3 Google Trends no-key Momentum baseline 也已完成真实运行。
+
 审计见：
 
 - `PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md`
 - `PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md`
 - `PHASE_0_5B_D2B_FIRECRAWL_RUN_AUDIT.md`
+- `PHASE_0_5B_D3_GOOGLE_TRENDS_RUN_AUDIT.md`
 
 本协议只用于 Phase 0.5-B Provider Spike 的真实运行。目标是产生可审计 benchmark artifact，不把 Provider 请求成功、Provider score、榜单 rank、raw content、trend volume 或抓取数量伪装成 Editorial Value / Evidence。
 
@@ -37,13 +40,13 @@ D2-B Independent Fetch comparison             COMPLETE / PASS WITH LIMITATIONS
 → Exa result URLs → Firecrawl independent Fetch
 → compare against Tavily integrated Search+Fetch
 
-D3 Momentum baseline                          NEXT
-→ Google Trends public RSS / Trending Now export surface
-→ generic search-attention surge only
-→ TREND_SIGNAL must remain distinct from Editorial Value
+D3 Momentum baseline                          COMPLETE / PASS WITH LIMITATIONS
+→ Google Trends public RSS / Trending Now surface
+→ generic search-attention TREND_SIGNAL
+→ unsupported mission shapes remain explicit
 
-0.5B-E Curated Human Editorial Acceptance
-→ Potential + Momentum + Community + negative sample
+0.5B-E Curated Human Editorial Acceptance     IN_PROGRESS
+→ Potential + Momentum + Community + Control
 → human Do / Maybe / Drop + rationale
 ```
 
@@ -121,68 +124,97 @@ D2-B 只验证 Fetch seam 与组合成本/复杂度，不把 Firecrawl 成功正
 
 Firecrawl adapter 后续运行已增加 non-secret per-URL failure provenance，避免只记录 failure count 而无法解释失败 URL。
 
-## 5. D3 — Google Trends Momentum baseline
+## 5. D3 — Google Trends Momentum baseline 结论
 
-Phase 0.5-B 不能只验证 Potential。原始 Spike Gate 要求同时证明系统能发现“正在快速获得注意力”的内容。
-
-D3 使用 Google Trends public Trending Now RSS/export surface 作为 no-key search-attention baseline。当前 v1 adapter 只支持：
+真实 D3 artifact：
 
 ```text
-mission: momentum-search-attention-surge
-roles:   TREND_SIGNAL + DISCOVERY_SIGNAL
+provider                   google-trends-rss-us
+geo                        US
+momentum missions          6
+transport success          1
+explicit unsupported       5
+retrieved                  10
+required SourceRole PASS   1 / 6
 ```
 
-以下 Mission 不能由单一 Google Trends RSS snapshot 证明，因此必须显式 `UNSUPPORTED`：
+`momentum-search-attention-surge` 满足 `TREND_SIGNAL + DISCOVERY_SIGNAL`。其他 5 类 Momentum Mission 保持 `UNSUPPORTED`，因为单一 RSS snapshot 无法证明 community acceleration、cross-platform spread、culture-only breakout、resurfacing history 或 emerging-tech Evidence coverage。
+
+D3 还证明 trend surface 本身存在噪声：`geo=US` 的 snapshot 仍可出现语言/地域不一致候选；高 traffic 也不意味着编辑部应该做。因此 Google Trends 只作为 attention feature 输入，不能替代 Human Decision。
+
+Provenance hardening：Google Trends RSS `pubDate` 代表 trend observation/feed time，不是 linked source publication time。adapter 已将其改记为 `provider_metadata.trend_observed_at`，不再写入 `AcquisitionCandidate.published_at`。
+
+至此 0.5B-D 通过标准满足：
+
+- Potential Search/Fetch 真实比较；
+- independent Fetch vs integrated Search+Fetch 真实比较；
+- Community/Ambient baseline 真实运行；
+- 至少一个真正 `TREND_SIGNAL` baseline 真实运行；
+- unsupported/unavailable 与 success 分离；
+- provenance / SourceRole 语义可审计。
+
+因此：
 
 ```text
-community acceleration
-cross-platform spread
-culture-only breakout
-resurfacing history
-emerging-tech evidence coverage
+0.5B-D = COMPLETE / PASS WITH LIMITATIONS
 ```
 
-真实运行命令：
+## 6. 0.5B-E Human Editorial Acceptance
+
+当前从三份本地 artifact 构建 20 条平衡 acceptance packet：
+
+```text
+D1  .local-benchmark\phase-0.5b-no-key.json
+D2B .local-benchmark\phase-0.5b-d2b-firecrawl.json
+D3  .local-benchmark\phase-0.5b-d3-google-trends.json
+```
+
+构建命令：
 
 ```powershell
-cd F:\newWorkSpace\ai-editorial-next\editorial-next
-
-git checkout spike/phase-0.5b-acquisition-providers
-git pull --ff-only origin spike/phase-0.5b-acquisition-providers
-
-.\.venv\Scripts\python.exe -m benchmarks.acquisition.run_momentum_baseline `
-  --geo US `
-  --max-results 10 `
-  --output .local-benchmark\phase-0.5b-d3-google-trends.json
+.\.venv\Scripts\python.exe -m benchmarks.acquisition.build_human_acceptance_packet `
+  --d1 .local-benchmark\phase-0.5b-no-key.json `
+  --d2b .local-benchmark\phase-0.5b-d2b-firecrawl.json `
+  --d3 .local-benchmark\phase-0.5b-d3-google-trends.json `
+  --output .local-benchmark\phase-0.5b-e-human-acceptance.json
 ```
 
-D3 不需要任何 API key。
-
-Artifact 必须保持：
+固定 bucket：
 
 ```text
-Google trend inclusion / approx traffic = Trend feature only
-related news                            = Discovery refs only
-Trend rank / volume                     != Editorial Value
-related news                             != Confirmed Evidence
+Momentum   5
+Potential  5
+Community  5
+Control    5
 ```
 
-## 6. Secret 与结果边界
+每条 `human_review` 必须填写：
 
-Provider secret 只放当前 PowerShell 进程环境变量，不写 `.env`、fixture、浏览器状态或 Git。D3 本身不需要 key。
+```text
+decision: DO | MAYBE | DROP
+would_read: true | false
+would_make: true | false
+placement: MAIN | COLUMN | LONG_TERM | RESEARCH_ONLY | NONE
+rationale: 非空
+evidence_followup_needed: true | false
+```
 
-`.local-benchmark/` 保存本地原始 artifact；原始第三方文本、动态 URL 与 provider metadata 不直接提交 Git。仓库只保留经过审计的 summary / acceptance evidence。
+完整规则见 `PHASE_0_5B_E_HUMAN_ACCEPTANCE_PROTOCOL.md`。
 
-## 7. 0.5B-D 通过标准
+## 7. Secret 与结果边界
 
-不能因为接口返回 200 就 PASS。至少要满足：
+Provider secret 只放当前 PowerShell 进程环境变量，不写 `.env`、fixture、浏览器状态或 Git。D3 与 E packet 构建本身不需要 key。
 
-- real artifact 可重复产生；
-- unsupported / unavailable / error 不伪装成空 success；
-- SourceRole coverage 与 transport status 分离；
-- provenance 可回溯；
-- cross-Mission duplicate 不被重复当成独立 Discovery；
-- Potential Search/Fetch 已真实比较；
-- independent Fetch 与 integrated Search+Fetch 已真实比较；
-- 至少一个真正的 `TREND_SIGNAL` baseline 真实跑通；
-- Potential 与 Momentum 两类结果都足够进入 0.5B-E Human Editorial Acceptance。
+`.local-benchmark/` 保存本地原始 artifact 与人工 acceptance artifact；原始第三方文本、动态 URL 与 provider metadata 不直接提交 Git。仓库只保留经过审计的 summary / acceptance evidence。
+
+## 8. 下一 Gate
+
+0.5B-E 20 条全部人工标注完成后：
+
+```text
+→ 生成 Human Acceptance audit
+→ 计算 Potential / Momentum / Community 的真实编辑接受结果
+→ 再进入 0.5B-F Provider Decision + ADR
+```
+
+在 Human Acceptance 完成前，不形成最终 V1 Provider 组合。
