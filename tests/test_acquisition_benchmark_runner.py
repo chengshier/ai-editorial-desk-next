@@ -4,7 +4,11 @@ import json
 
 import pytest
 
-from benchmarks.acquisition.run_keyed_search_fetch import load_missions, run_benchmark
+from benchmarks.acquisition.run_keyed_search_fetch import (
+    DEFAULT_MANIFEST,
+    load_missions,
+    run_benchmark,
+)
 
 
 @pytest.mark.asyncio
@@ -12,10 +16,7 @@ async def test_keyed_benchmark_runner_is_safe_without_provider_keys(monkeypatch)
     for name in ("EXA_API_KEY", "FIRECRAWL_API_KEY", "TAVILY_API_KEY"):
         monkeypatch.delenv(name, raising=False)
 
-    missions = load_missions(
-        __import__("benchmarks.acquisition.run_keyed_search_fetch", fromlist=["DEFAULT_MANIFEST"])
-        .DEFAULT_MANIFEST
-    )[:1]
+    missions = load_missions(DEFAULT_MANIFEST)[:1]
     result = await run_benchmark(missions, fetch_limit=2)
 
     assert result["mission_count"] == 1
