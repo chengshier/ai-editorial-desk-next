@@ -14,6 +14,39 @@ async function optionalVisible(locator, timeout = 5_000) {
     .catch(() => false)
 }
 
+async function openProductShellWhenHarnessIsReady(page, base, diagnostics) {
+  const deadline = Date.now() + 75_000
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+
+    // `dsh web` can accept HTTP before every browser-side Cordis service is
+    // fully activated. In that short window exact-pin Harness may render its
+    // own "Failed to load plugins" boot state. Retry only that explicit
+    // readiness race; the Product Shell acceptance assertions remain strict.
+    const bootFailure = page.getByText('Failed to load plugins', { exact: true })
+    if (await optionalVisible(bootFailure, 5_000)) {
+      const body = await page.locator('body').innerText().catch(() => '')
+      diagnostics.push(`[harness-boot-retry:${attempt}] ${body.slice(0, 1200)}`)
+      await page.waitForTimeout(1_500)
+      continue
+    }
+
+    const productShell = page.getByText('AI Editorial Desk', { exact: true }).first()
+    if (await optionalVisible(productShell, 12_000)) {
+      if (attempt > 1) diagnostics.push(`[harness-boot-ready] recovered on attempt ${attempt}`)
+      return
+    }
+
+    diagnostics.push(`[harness-boot-retry:${attempt}] HTTP is up but Product Shell is not visible yet`)
+    await page.waitForTimeout(1_500)
+  }
+
+  throw new Error('Harness Web did not reach a fully activated Product Shell state within 75s')
+}
+
 async function dismissHarnessFirstUseModals(page) {
   // A pristine Harness profile shows two stock onboarding layers in sequence.
   // They intentionally make the AppFrame background non-interactive, so the
@@ -55,11 +88,10 @@ async function main() {
 
   try {
     // Harness maintains live runtime connections, so networkidle is not a
-    // meaningful readiness signal. Gate on DOMContentLoaded and then on the
-    // exact product DOM that proves the plugin has taken over the root slot.
-    await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+    // meaningful readiness signal. Wait through Harness's explicit boot race
+    // and only continue once the exact Product Shell DOM is actually visible.
+    await openProductShellWhenHarnessIsReady(page, base, diagnostics)
 
-    await page.getByText('AI Editorial Desk', { exact: true }).first().waitFor({ state: 'visible', timeout: 30_000 })
     await page.getByRole('heading', { name: '今日视野', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
     await page.getByText('洗碗机真的可能比手洗更省水吗？', { exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
     assert.equal(await page.getByText('机会总数').locator('..').getByText('3', { exact: true }).count(), 1)
