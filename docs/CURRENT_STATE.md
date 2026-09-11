@@ -74,6 +74,7 @@ spike/phase-0.5b-acquisition-providers
 
 - `docs/07_DELIVERY/ACQUISITION_PROVIDER_SPIKE.md`
 - `docs/07_DELIVERY/PHASE_0_5B_ACQUISITION_EXECUTION.md`
+- `docs/07_DELIVERY/PHASE_0_5B_REAL_RUN_PROTOCOL.md`
 - `docs/03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`
 - `docs/04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`
 - `docs/ADR/ADR-0006-mission-driven-acquisition.md`
@@ -85,11 +86,14 @@ spike/phase-0.5b-acquisition-providers
 0.5B-B No-key Baselines                          COMPLETE / CI PASS
 0.5B-C Key-gated Search / Fetch Adapters         COMPLETE / CI PASS
 0.5B-D Real Provider Runs                        IN_PROGRESS
+  D1 no-key live runner                          READY / CI PASS
+  D1 local real run                              PENDING
+  D2 keyed Search / Fetch real run               PENDING
 0.5B-E Human Editorial Acceptance                NOT_STARTED
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
-0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过。
+0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过；D1 no-key live runner + SourceRole coverage assessment 已在 CI #341 验证通过。
 
 已建立：
 
@@ -109,7 +113,7 @@ spike/phase-0.5b-acquisition-providers
 - no-key live baseline runner；
 - Mission required SourceRole 与实际候选 SourceRole 的覆盖评估，避免把 provider success 冒充 mission success。
 
-当前尚未产生任何 Provider 胜负结论。0.5B-D 已开始建立真实 run artifact 与人工验收前置数据；Search/Fetch 真实供应商 benchmark 仍需要合法 API key 才能执行。
+当前尚未产生任何 Provider 胜负结论。0.5B-D 现在等待一次真实 D1 no-key artifact；Search/Fetch 真实供应商 benchmark 仍需要合法 API key 才能执行。
 
 ---
 
