@@ -2,7 +2,7 @@
 
 ## 状态
 
-`COMPLETE / PASS WITH LIMITATIONS`
+`COMPLETE / PASS WITH LIMITATIONS / BLIND_REVIEW_COMPLETE`
 
 本轮验证中文开放 Web Search/Fetch 是否能覆盖 AI Editorial Desk Next 的多栏目发现需求，特别是人工参考样本暴露出的：信息差、反转/澄清、普通人物、诈骗风险、娱乐回应、常识纠偏。
 
@@ -59,7 +59,7 @@ observed cloud cost     unavailable in artifact
 health.people.cn/... -> HTTP 403
 ```
 
-Firecrawl 对网易、浙江在线、上海政府、新浪、新浪/娱乐站、新华网等正文总体可获取，但多个站点包含明显导航/站点 chrome，说明“Fetch 成功”仍不等于“正文已经适合直接给编辑阅读”。
+Firecrawl 对网易、浙江在线、上海政府、新浪、新华网等正文总体可获取，但多个站点包含明显导航/站点 chrome，说明“Fetch 成功”仍不等于“正文已经适合直接给编辑阅读”。
 
 ### Tavily integrated Search+Fetch
 
@@ -212,35 +212,15 @@ URL dedupe
 
 ### 5.4 Source quality / evidence routing
 
-自媒体和 SEO 聚合页非常适合 Discovery，但不能直接承担 Evidence。需要把：
-
-```text
-发现得快
-```
-
-与：
-
-```text
-证据可信
-```
-
-继续分开。
+自媒体和 SEO 聚合页非常适合 Discovery，但不能直接承担 Evidence。需要把“发现得快”与“证据可信”继续分开。
 
 ### 5.5 Fetch body cleanliness
 
-Firecrawl 本轮 coverage 很高，但部分正文前含大量导航和站点模板；Human Acceptance packet 不能继续只取 description 或正文前 720 字，否则会再次出现“只有标题 / 页面 chrome，无法判断”的问题。
-
-已在 packet builder v2 修复：
-
-- 同时保存 provider snippet 与正文 excerpt；
-- 优先从标题之后提取正文上下文；
-- 增加 `context_sufficient_hint`，但最终是否充分仍由人判断；
-- 增加 temporal note；
-- 真正从 human-facing packet 移除 provider id，而不是只写 `provider_blind=true`。
+Firecrawl 本轮 coverage 很高，但部分正文前含大量导航和站点模板；Human Acceptance packet 已升级为 v2，保留 provider snippet / 正文 excerpt，避免只取页面开头。
 
 ## 6. Provider 阶段性判断
 
-当前仍不能完成 0.5B-F 最终选型，但 D4 使判断更清晰：
+当前仍不能完成 0.5B-F 最终选型，但 D4 + blind review 使判断更清晰：
 
 ```text
 Exa Search
@@ -261,34 +241,39 @@ Platform / Community Provider
 → 不能由 Search/Fetch 冒充
 ```
 
-这不是最终 Provider Winner；需要先完成 blind Human Editorial Acceptance。
+### Blind review 结果
+
+Provider 身份揭盲后：
+
+```text
+A = Exa → Firecrawl
+B = Tavily integrated
+```
+
+只统计 `context_sufficient=true`：
+
+```text
+A: 4 / 5 可完成判断，其中 2 值得做、2 观察
+B: 1 / 5 可完成判断，其中 0 值得做、1 观察
+```
+
+唯一两条“值得做”均来自 A：
+
+- 学生脱校服给老人止血；
+- 家长群 / 班级群收款诈骗。
+
+这支持 **Exa → Firecrawl 作为当前中文 Web 主链路候选**，但仍不能外推成全局 Provider Winner。
 
 ## 7. 下一 Gate
 
-下一步不再要求人工看 14 + 14 条 raw JSON。
-
-使用 `build_multichannel_acceptance_packet.py` v2 从本次 artifact 构建 5 对、共 10 条 provider-blind 样本：
+D4 的 Web 层盲审已完成。下一步进入 Platform / Community capability decision：
 
 ```text
-M1-A / M1-B   信息差 / 反转
-M2-A / M2-B   普通人物 / 社会反差
-M3-A / M3-B   诈骗 / 风险
-M4-A / M4-B   娱乐 / 文化回应
-M5-A / M5-B   常识 / 事实纠偏
+中文热榜 / rank snapshot baseline
+→ 官方 platform-item / metrics seam
+→ Momentum enrichment
+→ Platform / Community capability matrix
+→ 0.5B-F Provider Decision + ADR
 ```
 
-人工评价仍以中文完成，并增加：
-
-```text
-是否值得做
-是否会点开
-编辑投入优先级
-制作深度
-适配栏目（可多选）
-适配内容形态
-是否需要补证
-上下文是否充分
-理由
-```
-
-Provider 身份在人工决定前不展示。完成该轮后，再进入 0.5B-F Provider Decision + ADR。
+详细人工记录见 `PHASE_0_5B_E_HUMAN_ACCEPTANCE_AUDIT.md`。
