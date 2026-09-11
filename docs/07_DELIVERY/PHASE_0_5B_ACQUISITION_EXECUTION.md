@@ -2,7 +2,7 @@
 
 ## 状态
 
-`IN_PROGRESS`
+`IN_PROGRESS / E5 PLATFORM + CONTEXT ENRICHMENT`
 
 起点：PR #16 已以 merge commit `609d0bbc1bef0992d61b9f7e2e02871755f6e223` 合并到 `main`。本阶段从该 exact main head 新建：
 
@@ -13,13 +13,6 @@ spike/phase-0.5b-acquisition-providers
 本阶段不是继续扩充 Harness/S4，也不是直接实现最终 Acquisition Network；目标是用真实 Discovery Missions 选出 V1 Provider 组合，并建立可重复的 benchmark 证据。
 
 ## 不变 Contract
-
-依据：
-
-- `../03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`
-- `../04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`
-- `../ADR/ADR-0006-mission-driven-acquisition.md`
-- `ACQUISITION_PROVIDER_SPIKE.md`
 
 必须保持：
 
@@ -46,201 +39,145 @@ Mission-driven Discovery
   D1 RSS/Atom configured live baseline           NOT_RUN / NON-BLOCKING
   D2-A Exa vs Tavily keyed real run              COMPLETE / PASS WITH LIMITATIONS
   D2-B Exa → Firecrawl vs Tavily                 COMPLETE / PASS WITH LIMITATIONS
-  D3 Google Trends Momentum baseline             COMPLETE / PASS WITH LIMITATIONS
+  D3 Google Trends Momentum                      COMPLETE / PASS WITH LIMITATIONS
+  D4 zh-CN multi-channel Search/Fetch             COMPLETE / PASS WITH LIMITATIONS
 0.5B-E Human Editorial Acceptance                IN_PROGRESS
+  E1 Momentum title-only                         CONTEXT_BLOCKED
+  E2 Deep-explainer Potential                    REVIEWED
+  E3 Multi-channel corpus correction             COMPLETE
+  E4 Provider-blind multi-channel review         COMPLETE
+  E5-A Chinese platform hotlist                  COMPLETE / PASS WITH LIMITATIONS
+  E5-B Official platform item/metrics seam       CODE_COMPLETE / REAL_AUTH_PENDING
+  E5-C Hotlist → Web context enrichment          READY_FOR_REAL_RUN / CI PASS
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
-0.5B-C exact-head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 已由 CI #323 验证通过；D1 runner / SourceRole coverage 已由 CI #341 验证通过；D2-A multi-query / bounded runner hardening 已由 CI #357 验证通过；D2-A/D2-B 文档收口前一轮 CI #362 已通过。
+## 已完成的 Provider 证据
 
-### 0.5B-A — Benchmark Contract + Mission Corpus
+### D1 — HN Community baseline
 
-已建立 provider-agnostic `DiscoveryMission` / `ProviderRunRecord` / `ProviderBenchmarkSummary`、`ambient / potential / momentum / research` lane、SourceRole / ProviderCapability、explicit unsupported-unavailable semantics、Editorial/Potential/Momentum Discovery Yield、17 条版本化 mission corpus，以及 community-first → reliable evidence follow-up 结构要求。
+HN ranked snapshot 可作为 Community/Audience/Ambient discovery baseline，但不能独立承担 semantic Potential search、Trend velocity 或 Evidence provider。
 
-### 0.5B-B — No-key Baselines
+### D2 — Search / Fetch
 
-已实现 RSS/Atom Ambient baseline 与 Hacker News official public API ranked community snapshot baseline。HN ranked list 只代表某一时点的社区排名快照；没有跨时间快照历史时不得伪装成 velocity / Trend feature。
-
-### 0.5B-C — Key-gated Search / Fetch Adapters
-
-已实现：
-
-- Exa semantic Search candidate；
-- Firecrawl independent Fetch candidate；
-- Tavily integrated Search+Fetch candidate。
-
-API key 仅通过 server-side environment 注入；缺 key 时显式 `UNAVAILABLE`。工程完成不代表 Provider 已选定。
-
-### 0.5B-D — Real Provider Runs
-
-#### D1 — HN baseline
-
-真实 HN D1 artifact 已完成审计，摘要见 `PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md`。
-
-```text
-17 Mission runs
-7 transport success
-10 explicit unsupported
-1/17 required SourceRole coverage satisfied
-70 candidate occurrences
-10 unique HN items
-```
-
-结论：HN 适合作为 Community/Audience/Ambient discovery baseline，但不能独立承担 semantic Potential search、Trend velocity 或 Evidence provider。
-
-#### D2-A — Exa vs Tavily
-
-已完成单 Mission smoke 与 4 Mission bounded run。Bounded run 每 Mission `max_results=3`，执行全部 query seeds 并保留 `query_variant` provenance。
-
-```text
-Exa
-4 / 4 success
-12 / 12 retrieved
-avg latency ~2889 ms
-observed cost $0.056
-search-only
-
-Tavily
-4 / 4 success
-12 / 12 retrieved
-9 / 12 raw content available
-avg latency ~5287 ms
-16 credits
-integrated search+fetch
-```
-
-人工审计显示：在 everyday-why、protective-scam、open-curiosity 三类 Mission 上，Exa 的候选更具体、更接近后续 Research / Editorial Opportunity；因此 Exa Search-only seam 值得保留进入 D2-B。审计摘要见：
-
-- `PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md`
-- `PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md`
-
-#### D2-B — Exa → Firecrawl vs Tavily
-
-真实 bounded run 已完成：
+阶段性选择：
 
 ```text
 Exa Search
-4 / 4 success
-12 / 12 retrieved
-avg latency ~3642 ms
-observed cost $0.056
+→ 当前 semantic Search 主候选
 
 Firecrawl Fetch
-4 probes
-3 success + 1 partial
-12 requested
-10 fetched
-2 failed
-fetch coverage 83.3%
-avg probe latency ~10028 ms
+→ 当前独立正文获取主候选
 
 Tavily integrated
-4 / 4 success
-12 / 12 retrieved
-8 / 12 raw content available
-avg latency ~2321 ms
-16 credits
+→ comparator / fallback
 ```
 
-Firecrawl 成功覆盖研究论文/PMC、大学站点、安全厂商、媒体与 Substack；open-curiosity 一组仅 1/3 成功，证明 independent Fetch 有真实可用性，也有必须保留的失败边界。
+D4 中文多栏目真实运行进一步证明：正确 Mission 下，开放 Web Search 可以发现反转、普通人物、诈骗风险、娱乐回应、常识纠偏等多栏目素材；不是“只能找严谨科普”。
 
-结论：
+### E4 — Provider-blind Human Review
+
+揭盲：
 
 ```text
-Exa → Firecrawl chain    PASS WITH LIMITATIONS
-Tavily integrated seam   RETAIN AS COMPARATOR/FALLBACK
-final provider winner    NOT DECIDED
+A = Exa → Firecrawl
+B = Tavily
 ```
 
-D2-B 暴露的工程项已进入 adapter hardening：per-URL non-secret failure provenance；Firecrawl usage/cost 未观测到时保持 null，不伪装成 0。
-
-审计摘要见 `PHASE_0_5B_D2B_FIRECRAWL_RUN_AUDIT.md`。
-
-#### D3 — Momentum real baseline
-
-Google Trends public RSS real run 已完成：
+只统计上下文充分样本：
 
 ```text
-provider                   google-trends-rss-us
-geo                        US
-momentum missions          6
-transport success          1
-explicit unsupported       5
-retrieved                  10
-required SourceRole PASS   1 / 6
+Exa → Firecrawl   4 / 5 可判断；2 值得做；2 观察
+Tavily            1 / 5 可判断；0 值得做；1 观察
 ```
 
-`momentum-search-attention-surge` 真实返回 10 条候选并满足：
+因此 Exa → Firecrawl 暂为中文 Web 主链路候选，但仍不是全局 Provider Winner。
+
+## E5-A — 中文平台热榜真实 baseline
+
+第一次使用公共 NewsNow demo 时四平台统一 HTTP 403。该失败被正确归因于公共 demo 实例，而非微博/抖音/知乎/B站自身 capability。
+
+改用自部署 NewsNow 后真实重跑：
 
 ```text
-TREND_SIGNAL + DISCOVERY_SIGNAL
+weibo                 SUCCESS   10 candidates   39 ms
+douyin                SUCCESS   10 candidates   1219 ms
+zhihu                 SUCCESS   10 candidates   399 ms
+bilibili-hot-search   SUCCESS   10 candidates   369 ms
+
+TOTAL                  40 candidates
+required SourceRole    4 / 4 PASS
 ```
 
-其余 5 个 Momentum mission shape 因单 snapshot 无法证明 community acceleration / cross-platform spread / culture-only breakout / resurfacing history / emerging-tech evidence coverage，保持 explicit `UNSUPPORTED`。
-
-D3 还暴露 `geo=US` 仍可能出现语言/地域噪声，说明 Trend Provider 只能提供 attention feature，仍需要 Human Acceptance 判断真正编辑价值。
-
-同时修复 provenance：Google Trends RSS `pubDate` 是 trend observation time，不再写入 candidate source `published_at`，而是保存在 `provider_metadata.trend_observed_at`。
-
-审计摘要见 `PHASE_0_5B_D3_GOOGLE_TRENDS_RUN_AUDIT.md`。
-
-至此 0.5B-D 最低真实 Gate 完成：Potential、Search/Fetch、Community baseline 与至少一个真实 `TREND_SIGNAL` seam 均已有 artifact。
-
-### 0.5B-E — Human Editorial Acceptance
-
-当前正式进入人工验收。固定抽取：
+四个平台均满足：
 
 ```text
-5 Momentum Discovery
-5 low/no-Momentum Potential Discovery
-5 Community/Non-official-first Discovery
-5 Control / ordinary / lower-precision samples
+DISCOVERY_SIGNAL + TREND_SIGNAL
 ```
 
-已新增 `benchmarks/acquisition/build_human_acceptance_packet.py`，从 D1 / D2-B / D3 本地 artifact 构建 20 条去重平衡样本。每条必须由人类填写：
+单次 hotlist 仍只是 rank snapshot，不是 velocity，不是 Editorial Value，不是 Evidence。
+
+数据丰富度存在明显差异：知乎 10/10 带热度文本、9/10 带 hover 事件上下文；微博/抖音/B站当前主要是标题 + rank + platform URL。40 条中出现一个精确跨平台标题重合：`国家对成品油价格实施调控`，抖音 rank 1、B站 rank 5。
+
+详细审计：`PHASE_0_5B_E5A_PLATFORM_HOTLIST_RUN_AUDIT.md`。
+
+## E5-B — Official platform item / metrics seam
+
+已实现首条官方 adapter contract：
 
 ```text
-DO / MAYBE / DROP
-would_read
-would_make
-placement
-rationale
-evidence_followup_needed
+DouyinVideoSearchProvider
+benchmarks/acquisition/run_douyin_official_probe.py
+tests/test_douyin_official_provider.py
 ```
 
-采样信号只用于平衡 packet，不是 Editorial Value。完整协议见 `PHASE_0_5B_E_HUMAN_ACCEPTANCE_PROTOCOL.md`。
-
-### 0.5B-F — Provider Decision + ADR
-
-只有真实 benchmark + 人工验收完成后，才允许形成 Provider capability matrix、V1 provider 组合、fallback strategy、Legacy MediaCrawler 保留/退役范围、Community/Trend 合规边界与 ADR。
-
-## 当前工程内容
-
-当前分支已包含：
+边界：
 
 ```text
-packages/acquisition/spike.py
-packages/acquisition/providers/rss.py
-packages/acquisition/providers/hackernews.py
-packages/acquisition/providers/google_trends.py
-packages/acquisition/providers/exa.py
-packages/acquisition/providers/firecrawl.py
-packages/acquisition/providers/tavily.py
-benchmarks/acquisition/mission_templates.v1.json
-benchmarks/acquisition/run_keyed_search_fetch.py
-benchmarks/acquisition/run_no_key_baselines.py
-benchmarks/acquisition/run_momentum_baseline.py
-benchmarks/acquisition/build_human_acceptance_packet.py
-docs/07_DELIVERY/PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md
-docs/07_DELIVERY/PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md
-docs/07_DELIVERY/PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md
-docs/07_DELIVERY/PHASE_0_5B_D2B_FIRECRAWL_RUN_AUDIT.md
-docs/07_DELIVERY/PHASE_0_5B_D3_GOOGLE_TRENDS_RUN_AUDIT.md
-docs/07_DELIVERY/PHASE_0_5B_E_HUMAN_ACCEPTANCE_PROTOCOL.md
+官方 platform item
+→ Discovery / Platform Material
+
+搜索 rank
+→ query relevance only
+
+点赞等指标
+→ point-in-time audience snapshot
+
+视频中的主张
+→ 不自动升级为 Confirmed Evidence
 ```
 
-以及对应 contract / runner / adapter tests。
+真实 keyed probe 只在取得官方 capability + client token + 合法 device_id 后执行；凭据只读 server-side environment，不写入 artifact。
+
+## E5-C — Hotlist → Search/Fetch context enrichment
+
+已新增：
+
+```text
+benchmarks/acquisition/run_platform_context_enrichment.py
+tests/test_acquisition_platform_context_enrichment.py
+```
+
+它从 E5-A artifact 中确定性选择：
+
+```text
+每个平台 top N
++ 任意精确标题跨平台重复
+```
+
+然后执行：
+
+```text
+Platform hotlist signal
+→ Exa Search 背景补全
+→ Firecrawl Fetch 正文
+→ Human Momentum Acceptance
+```
+
+该链路用于解决 E1 暴露的问题：`标题 + 热度` 不足以支持真实人工编辑判断。
 
 ## 当前 Gate
 
-当前 Gate 是 0.5B-E：从三份真实本地 artifact 构建 20 条 Human Editorial Acceptance packet，并完成人工 Do / Maybe / Drop 与理由标注。人工验收完成后，才进入 0.5B-F Provider Decision + ADR。
+下一次本地真实运行不需要新的平台账号，先用已有 E5-A 自部署 artifact + Exa/Firecrawl keys 跑 E5-C。拿到补全后的 8 个左右热点上下文后，再做真正的 Momentum Human Acceptance。
+
+E5-B 官方平台接入与 E5-C 人工验收完成后，形成 capability matrix，进入 0.5B-F Provider Decision + ADR。
