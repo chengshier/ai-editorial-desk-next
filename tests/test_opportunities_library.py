@@ -62,6 +62,6 @@ def test_current_state_records_s4_engineering_complete() -> None:
     assert "N4-E Retry / Catch-up / History        COMPLETE / CI PASS" in state
     assert "N4-F Event trigger + Product status UI COMPLETE / CI PASS" in state
     assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in state
-    assert "Windows final local smoke                PENDING" in state
+    assert "Windows final local smoke                PASS" in state
     assert "Transitional data boundary" in state
     assert "deterministic / in-memory Spike fixture" in state
