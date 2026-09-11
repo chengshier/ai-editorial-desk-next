@@ -2,17 +2,17 @@
 
 ## Status
 
-`IN_PROGRESS`
+`COMPLETE / CI PASS`
 
-Verified predecessor Gate:
+Final engineering verification:
 
-- PR #16 head `06ca19f629d22b39f28948c11ac10744feafa04b`
-- CI #254 PASS
-- Harness Editorial Shell #116 PASS
-- Harness Spike #208 PASS
-- Harness Native Shell Spike #122 PASS
+- PR #16 head `280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6`
+- CI #268 PASS
+- Harness Editorial Shell #130 PASS
+- Harness Spike #222 PASS
+- Harness Native Shell Spike #136 PASS
 
-Therefore S4-N4 Scheduler / Headless Orchestration is closed and S4-N5 may start.
+Therefore S4-N5 Web Shell Retirement is engineering-complete. PR #16 remains Draft until the final Windows local smoke is completed.
 
 ## Goal
 
@@ -46,7 +46,7 @@ The production-capable parts above are already superseded by the Harness-native 
 - background manual/scheduled/event execution and canonical Scheduler status migrated in N4;
 - stock Harness workbench remains reachable from the same Harness Web.
 
-The remaining standalone routes are placeholders and do not constitute unique production business capability. They must not block retirement.
+The remaining standalone routes are placeholders and do not constitute unique production business capability. They do not block retirement.
 
 ## N5 decision
 
@@ -55,20 +55,56 @@ Use the allowed retirement mode from the S4 migration plan:
 ```text
 apps/web = RETIRED_AS_PRODUCTION_HOST
 apps/web = MIGRATION_REFERENCE_ONLY
+formal product host = DeepSeek Harness Product Shell
 ```
 
 The directory is retained during PR #16 only as a regression/reference artifact. This is not a second supported production entry.
 
-## Mechanical requirements
+## Mechanical requirements — verified
 
-N5 is complete only when all of the following are true:
+All N5 requirements are now satisfied:
 
 1. `apps/web` visibly declares itself migration/reference-only.
 2. Architecture and delivery docs no longer describe it as an active/future production host.
-3. CI may still compile it as a reference regression check, but the job must not be interpreted as production-shell acceptance.
-4. Formal Product acceptance continues to run through the exact-pin Harness Editorial Shell browser Gate.
-5. No Product contract may depend on iframe / `surface_url` / `embedded` transport.
-6. PR #16 remains Draft until the final N5 Gate is green.
+3. CI still compiles it only as a legacy reference regression check, not production-shell acceptance.
+4. Formal Product acceptance runs through the exact-pin Harness Editorial Shell browser Gate.
+5. No Product contract depends on iframe / `surface_url` / `embedded` transport.
+6. Native Shell and formal Product Shell browser Gates both pass after readiness-race hardening.
+7. PR #16 remains Draft pending final Windows local smoke.
+
+## Final CI evidence
+
+Verified head:
+
+```text
+280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6
+```
+
+Verified workflows:
+
+```text
+CI                         #268 PASS
+Harness Spike              #222 PASS
+Harness Editorial Shell    #130 PASS
+Harness Native Shell Spike #136 PASS
+```
+
+This closes the repository-level S4-N5 Gate.
+
+## Remaining human acceptance before merge
+
+A final Windows local smoke is intentionally kept outside the automated engineering Gate. It should verify only the environment-sensitive product path:
+
+```text
+start Editorial API + pinned Harness Web
+→ AI Editorial Desk Product Shell visible
+→ Today / Opportunities usable
+→ Product Shell ↔ stock Harness round-trip
+→ Research Case / Scheduler status visible
+→ no persistent blank page / Failed to load plugins / obvious runtime boot failure
+```
+
+No production provider/content-quality claim depends on this smoke.
 
 ## Follow-up cleanup after PR #16
 
