@@ -67,6 +67,7 @@ class AcquisitionCandidate(BaseModel):
     canonical_url: str | None = None
     title: str
     snippet: str | None = None
+    content: str | None = None
     published_at: datetime | None = None
     source: str | None = None
     source_roles: list[SourceRole] = Field(default_factory=list)
@@ -96,7 +97,36 @@ class ProviderRunRecord(BaseModel):
     latency_ms: int | None = Field(default=None, ge=0)
     cost_usd: float | None = Field(default=None, ge=0)
     failure_reason: str | None = None
+    provider_metadata: dict[str, object] = Field(default_factory=dict)
     candidates: list[AcquisitionCandidate] = Field(default_factory=list)
+
+
+class FetchedDocument(BaseModel):
+    provider_result_id: str
+    url: str
+    canonical_url: str | None = None
+    title: str | None = None
+    content: str
+    source: str | None = None
+    source_roles: list[SourceRole] = Field(default_factory=list)
+    provider_metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class FetchProbeRecord(BaseModel):
+    probe_id: str
+    provider_id: str
+    provider_version: str
+    status: ProviderRunStatus
+    started_at: datetime
+    finished_at: datetime
+    requested_count: int = Field(ge=1)
+    fetched_count: int = Field(default=0, ge=0)
+    failure_count: int = Field(default=0, ge=0)
+    latency_ms: int | None = Field(default=None, ge=0)
+    cost_usd: float | None = Field(default=None, ge=0)
+    failure_reason: str | None = None
+    provider_metadata: dict[str, object] = Field(default_factory=dict)
+    documents: list[FetchedDocument] = Field(default_factory=list)
 
 
 class ProviderBenchmarkSummary(BaseModel):
