@@ -44,13 +44,13 @@ Mission-driven Discovery
 0.5B-D Real Provider Runs                        IN_PROGRESS
   D1 HN no-key live baseline                     COMPLETE / PASS WITH LIMITATIONS
   D1 RSS/Atom configured live baseline           NOT_RUN / NON-BLOCKING
-  D2-A Exa vs Tavily keyed real run              NEXT
-  D2-B Firecrawl independent fetch               DEFERRED UNTIL D2-A
+  D2-A Exa vs Tavily keyed real run              COMPLETE / PASS WITH LIMITATIONS
+  D2-B Firecrawl independent fetch               NEXT
 0.5B-E Human Editorial Acceptance                NOT_STARTED
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
-0.5B-C exact-head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 已由 CI #323 验证通过；D1 runner / SourceRole coverage 已由 CI #341 验证通过。
+0.5B-C exact-head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 已由 CI #323 验证通过；D1 runner / SourceRole coverage 已由 CI #341 验证通过；D2-A multi-query / bounded runner hardening 已由 CI #357 验证通过。
 
 ### 0.5B-A — Benchmark Contract + Mission Corpus
 
@@ -87,22 +87,43 @@ API key 仅通过 server-side environment 注入；缺 key 时显式 `UNAVAILABL
 
 结论：HN 适合作为 Community/Audience/Ambient discovery baseline，但不能独立承担 semantic Potential search、Trend velocity 或 Evidence provider。
 
-D1 还暴露了一个重要数据语义：同一 `topstories` snapshot 被多个兼容 Mission 重复观察，因此后续 Opportunity conversion / Human Acceptance 必须先跨 Mission 去重，不能把 70 个 occurrence 当成 70 个独立 Discovery。
+D2-A 已完成两轮真实 keyed run：
 
-D2 采用最小成本进入顺序：
+- 单 Mission smoke：验证 Exa / Tavily transport、成本/credit 与 raw-content 形态；
+- 4 Mission bounded run：每 Mission `max_results=3`，执行全部 query seeds 并保留 `query_variant` provenance。
+
+Bounded result：
 
 ```text
-D2-A
-Exa semantic Search
-vs
-Tavily integrated Search+Fetch
+Exa
+4 / 4 success
+12 / 12 retrieved
+avg latency ~2889 ms
+observed cost $0.056
+search-only
 
-D2-B
-仅当 Exa Search-only seam 证明值得保留时，
-再加入 Firecrawl independent Fetch
+Tavily
+4 / 4 success
+12 / 12 retrieved
+9 / 12 raw content available
+avg latency ~5287 ms
+16 credits
+integrated search+fetch
 ```
 
-这样先验证 Search candidate 质量，再决定是否值得支付 Search → Fetch 解耦的额外复杂度与成本。
+人工审计显示：在 everyday-why、protective-scam、open-curiosity 这三类 Mission 上，Exa 的候选更具体、更接近后续 Research / Editorial Opportunity；Tavily 的正文一体化更方便，但 discovery surface 更杂，并且 raw content availability 不能当作正文正确性或 Evidence。
+
+因此已满足 D2-B 进入条件：Exa Search-only seam 值得保留并与 independent Fetch 组合比较。审计摘要见 `PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md`。
+
+D2-B 下一步：
+
+```text
+Exa Search → Firecrawl Fetch
+vs
+Tavily integrated Search+Fetch
+```
+
+这一步只决定 Search/Fetch 解耦是否值得额外复杂度与成本，不自动产生 Evidence/Primary Source role promotion。
 
 ### 0.5B-E — Human Editorial Acceptance
 
@@ -136,10 +157,12 @@ benchmarks/acquisition/mission_templates.v1.json
 benchmarks/acquisition/run_keyed_search_fetch.py
 benchmarks/acquisition/run_no_key_baselines.py
 docs/07_DELIVERY/PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md
+docs/07_DELIVERY/PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md
+docs/07_DELIVERY/PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md
 ```
 
 以及对应 contract / runner / adapter tests。
 
 ## 当前 Real Run Gate
 
-下一 Gate 是 D2-A。先以相同 Potential Mission / result budget 比较 Exa 与 Tavily；D2-A 产生真实 artifact 后再决定是否进入 Firecrawl。原始 `.local-benchmark/` 结果不直接提交 Git，仓库只保存审计后的 summary / acceptance evidence。
+下一 Gate 是 D2-B：在同一 bounded Mission set 下比较 `Exa Search → Firecrawl Fetch` 与 Tavily integrated Search+Fetch。原始 `.local-benchmark/` 结果不直接提交 Git，仓库只保存审计后的 summary / acceptance evidence。
