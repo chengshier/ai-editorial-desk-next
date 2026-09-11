@@ -4,6 +4,7 @@ from .exa import ExaSearchProvider
 from .firecrawl import FirecrawlFetchProvider
 from .google_trends import GoogleTrendsRssProvider
 from .hackernews import HackerNewsProvider
+from .newsnow import NewsNowHotlistProvider
 from .rss import RssFeedProvider
 from .tavily import TavilySearchFetchProvider
 
@@ -12,6 +13,7 @@ __all__ = [
     "FirecrawlFetchProvider",
     "GoogleTrendsRssProvider",
     "HackerNewsProvider",
+    "NewsNowHotlistProvider",
     "RssFeedProvider",
     "TavilySearchFetchProvider",
 ]
