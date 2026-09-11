@@ -31,7 +31,7 @@ def _parse_datetime(value: object) -> datetime | None:
     except (TypeError, ValueError):
         pass
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return datetime.fromisoformat(value)
     except ValueError:
         return None
 
