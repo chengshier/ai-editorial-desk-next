@@ -60,6 +60,8 @@ def test_active_contract_uses_business_identity_and_public_runtime_seams() -> No
     assert "ai-editorial-desk-runtime" in contract
     assert "listDirectory()" in contract
     assert "createDirectory()" in contract
+    assert "pickDirectory()" in contract
+    assert "directory-picker-unavailable" in contract
     assert "connectWorkspace()" in contract
     assert "public `IWorkspaces`" in contract
 
@@ -102,3 +104,4 @@ def test_ui_strategy_and_current_state_close_s4_engineering() -> None:
     # Runtime workspace details remain architecture facts, not completion-status text.
     assert "ai-editorial-desk-runtime" in strategy
     assert "IWorkspaces" in strategy
+    assert "pickDirectory()" in strategy
