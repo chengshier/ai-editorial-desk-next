@@ -24,7 +24,7 @@ retrieved         20
 fetched           0
 latency           2139 ms
 cost              $0.017
-mode               search-only
+mode              search-only
 
 Tavily
 status            success
@@ -32,13 +32,13 @@ retrieved         20
 raw content       14 / 20
 latency           8250 ms
 credits           2
-mode               integrated search+fetch
+mode              integrated search+fetch
 
 Firecrawl
 status            unavailable (expected)
 requested         3
 fetched           0
-reason             FIRECRAWL_API_KEY not configured
+reason            FIRECRAWL_API_KEY not configured
 ```
 
 结论：Exa 和 Tavily 的真实 keyed transport 均可用；Firecrawl 未配置时保持 explicit `UNAVAILABLE`，没有被伪装成空 success。
@@ -53,8 +53,6 @@ reason             FIRECRAWL_API_KEY not configured
 
 本次结果范围更宽，同时返回 snippet 与大量 raw content；来源混合了高校/科研、知识站、媒体，也包含 Quora、Chegg、Reddit、Facebook、YouTube 等较弱或社区型来源。它的 integrated Search+Fetch 能减少一次独立抓取步骤，但 candidate quality 更杂，需要 SourceRole / source-quality 分层，不能把 raw content availability 自动升级为 Evidence。
 
-两者 20 条结果只出现少量直接 URL 重合，说明 discovery surface 有明显差异；单个 Provider 的返回数量不能作为最终胜负依据。
-
 ## 3. Mission fit
 
 Mission contract 要求：
@@ -66,79 +64,49 @@ EVIDENCE_SOURCE
 
 当前 Exa/Tavily v1 adapter 都只把 Search 返回标记为 `DISCOVERY_SIGNAL`。因此即使 transport `success`，本次 smoke 仍不能宣称 Mission required SourceRole 已满足；这符合 Contract：Search 命中不等于证据已确认。
 
-## 4. 本次暴露的 benchmark 问题
+## 4. 本次暴露并已修复的 benchmark 问题
 
 ### 4.1 `--fetch-limit` 不是 Search result limit
 
 本次命令使用 `--fetch-limit 3`，但 Mission manifest 的 `max_results=20`，所以 Exa 与 Tavily 都实际返回 20 条。旧 runner 的 `fetch-limit` 只限制 Exa → Firecrawl 的独立 fetch URL 数量，不能限制 Search Provider result budget。
 
-这会让“低成本 3 条 smoke”产生误导，因此已修：
-
-```text
-新增 --max-results
-→ 可在不修改 versioned mission manifest 的情况下临时收紧每个 Mission result budget
-```
+已修：新增 `--max-results`，可在不修改 versioned Mission manifest 的情况下临时收紧 Search budget。
 
 ### 4.2 Keyed artifact 缺少 SourceRole assessment
 
-旧 keyed runner 没有像 D1 一样输出 Mission required/observed/missing SourceRole assessment。本轮已补齐 Exa / Tavily assessment，避免 transport success 被误读为 Mission success。
+旧 keyed runner 没有像 D1 一样输出 Mission required/observed/missing SourceRole assessment。现已补齐 Exa / Tavily assessment，避免 transport success 被误读为 Mission success。
 
 ### 4.3 旧 smoke 只执行第一个 query seed
 
-`potential-common-belief-contradiction` 有两个 query seeds，但本次 artifact 生成时的 Exa/Tavily adapter 只执行第一条：
-
-```text
-common belief contradicted by evidence
-```
-
-因此结果更多集中在“人为何坚持错误信念/信念如何面对证据”这一抽象主题，而不是稳定发现“具体大众常见认知被可靠证据推翻”的可编辑案例。
-
-该问题现已在代码中收口：
+旧 smoke 生成时只执行第一条 query seed。现已改成：
 
 ```text
 Mission max_results
 → 在所有 query_seeds 间分配预算
-→ 每个 candidate 保留 query_variant provenance
+→ candidate 保留 query_variant provenance
 → 跨 query URL 去重
 → 总结果预算不超过 Mission cap
 ```
 
-所以本次 smoke 只用于证明旧 adapter 的真实 transport/output shape，不用于最终 Editorial Discovery Quality 比较；下一次 D2-A bounded real run 必须使用新的 multi-query contract。
+## 5. 后续 bounded run
 
-## 5. 阶段结论
+本 smoke 后已完成 D2-A3 4 Mission bounded comparison，正式审计见：
 
-当前只允许得出：
+`PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md`
+
+Bounded run 已证明 Exa Search-only seam 值得保留进入 D2-B，因此本 smoke 不再承担 Provider 方向决策。
+
+## 6. 当前结论
 
 ```text
 Exa keyed Search transport                 PASS
-Tavily keyed Search+Fetch transport         PASS
-Firecrawl missing-key semantics             PASS
-Exa latency/cost observable                 PASS
-Tavily credit/raw-content observable        PASS
-Provider winner                             NOT DECIDED
-Editorial Discovery Yield                   NOT YET MEASURED
-Human acceptance                            NOT STARTED
+Tavily keyed Search+Fetch transport        PASS
+Firecrawl missing-key semantics            PASS
+Exa latency/cost observable                PASS
+Tavily credit/raw-content observable       PASS
+D2-A bounded comparison                    COMPLETE / PASS WITH LIMITATIONS
+D2-B independent Fetch                     NEXT
+Provider winner                            NOT DECIDED
+Editorial Discovery Yield                  NOT YET MEASURED
+Human acceptance                           NOT STARTED
 ```
-
-## 6. 下一 Gate
-
-```text
-D2-A1 runner budget + SourceRole hardening
-→ COMPLETE in code, awaiting CI
-
-D2-A2 query-strategy hardening
-→ COMPLETE in code, awaiting CI
-
-D2-A3 bounded real comparison
-→ small curated Mission set
-→ same result budget
-→ all Mission query variants
-→ Exa vs Tavily
-→ dedupe + provenance + latency/cost
-
-D2-B independent Fetch
-→ only if Exa Search seam remains competitive
-→ then evaluate Firecrawl
-```
-
-在 D2-A3 与 Human Editorial Acceptance 前，不做 Provider 胜负结论。
