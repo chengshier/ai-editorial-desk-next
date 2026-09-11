@@ -9,6 +9,7 @@ EDITORIAL = CLIENT / "editorial.ts"
 STATE = CLIENT / "product-state.ts"
 RUNTIME = CLIENT / "runtime-adapter.ts"
 HOST_TOOL = PACKAGE / "research-tool.ts"
+CURRENT_STATE = ROOT / "docs" / "CURRENT_STATE.md"
 
 
 def test_formal_shell_is_native_plugin_not_embedded_web_shell() -> None:
@@ -89,3 +90,10 @@ def test_product_query_state_is_namespaced_and_refresh_safe() -> None:
     assert "library_layout" in opportunities
     assert "opportunity" in opportunities
     assert "inspector" in opportunities
+
+
+def test_s4_engineering_status_is_closed_before_local_smoke() -> None:
+    current = CURRENT_STATE.read_text(encoding="utf-8")
+    assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE" in current
+    assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in current
+    assert "Windows final local smoke                PENDING" in current
