@@ -8,21 +8,21 @@ S4 Harness-native Product Shell 已完成并合并：
 
 ```text
 S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE
-PR #16                                              MERGED
-merge commit                                        609d0bbc1bef0992d61b9f7e2e02871755f6e223
-S4-N1 Product Shell Foundation                      COMPLETE / CI PASS
-S4-N2 Today / Opportunities Migration               COMPLETE / CI PASS
-S4-N3 Research Runtime Adapter                      COMPLETE / CI PASS
-S4-N4 Scheduler / Headless Orchestration            COMPLETE / CI PASS
-  N4-A exact-pin audit + Contract                   COMPLETE
-  N4-B Manual Run vertical slice                    COMPLETE / CI PASS
-  N4-C Durable Task / Run model                     COMPLETE / CI PASS
-  N4-D Interval / Schedule trigger                  COMPLETE / CI PASS
-  N4-E Retry / Catch-up / History                   COMPLETE / CI PASS
-  N4-F Event trigger + Product status UI            COMPLETE / CI PASS
-S4-N5 Web Shell Retirement                          COMPLETE / CI PASS
-S4 Engineering                                      COMPLETE / CI PASS
-Windows final local smoke                           PASS
+PR #16                                     MERGED
+merge commit                               609d0bbc1bef0992d61b9f7e2e02871755f6e223
+S4-N1 Product Shell Foundation           COMPLETE / CI PASS
+S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
+S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
+S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
+  N4-A exact-pin audit + Contract        COMPLETE
+  N4-B Manual Run vertical slice         COMPLETE / CI PASS
+  N4-C Durable Task / Run model          COMPLETE / CI PASS
+  N4-D Interval / Schedule trigger       COMPLETE / CI PASS
+  N4-E Retry / Catch-up / History        COMPLETE / CI PASS
+  N4-F Event trigger + Product status UI COMPLETE / CI PASS
+S4-N5 Web Shell Retirement               COMPLETE / CI PASS
+S4 Engineering                           COMPLETE / CI PASS
+Windows final local smoke                PASS
 ```
 
 S4 最终自动化与 Windows acceptance 已验证：Harness Product Shell `:3080`、Today / Opportunities / Opportunity Inspector、native directory picker fallback、Workspace / Session bootstrap、Research Case → Runtime Ready、durable Tool Result replay、Product Shell ↔ stock Harness 双向切换与两种模式 F5 均正常，无持续白屏或 `Failed to load plugins`。
@@ -82,11 +82,11 @@ spike/phase-0.5b-acquisition-providers
 
 ```text
 0.5B-A Benchmark Contract + Mission Corpus       IN_PROGRESS
-0.5B-B No-key Baselines                           IN_PROGRESS
-0.5B-C Key-gated Search / Fetch Adapters          NOT_STARTED
-0.5B-D Real Provider Runs                         NOT_STARTED
-0.5B-E Human Editorial Acceptance                 NOT_STARTED
-0.5B-F Provider Decision + ADR                    NOT_STARTED
+0.5B-B No-key Baselines                          IN_PROGRESS
+0.5B-C Key-gated Search / Fetch Adapters         NOT_STARTED
+0.5B-D Real Provider Runs                        NOT_STARTED
+0.5B-E Human Editorial Acceptance                NOT_STARTED
+0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
 已建立：
