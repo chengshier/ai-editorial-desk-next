@@ -1,0 +1,108 @@
+{
+  "schema_version": "1",
+  "acceptance_profile": {
+    "profile_id": "multichannel-zh-cn-v1",
+    "locale": "zh-CN",
+    "region": "CN",
+    "purpose": "验证当前 Search/Fetch Provider 对中文多栏目开放网页发现的覆盖能力；不把本语料当作真实社交平台 Provider 的替代品。"
+  },
+  "mission_meta": {
+    "multichannel-cn-info-gap-reversal": {
+      "editorial_modes": ["FAST_INFO_GAP", "REVERSAL_CLARIFICATION"],
+      "series_hints": ["每日信息差", "时政与民生观察"]
+    },
+    "multichannel-cn-human-surprise": {
+      "editorial_modes": ["HUMAN_STORY", "SOCIAL_ODDITY"],
+      "series_hints": ["每日信息差", "人物与文化"]
+    },
+    "multichannel-cn-scam-risk": {
+      "editorial_modes": ["SCAM_RISK_WARNING", "FAST_INFO_GAP"],
+      "series_hints": ["实用与风险", "每日信息差"]
+    },
+    "multichannel-cn-culture-response": {
+      "editorial_modes": ["CULTURE_ENTERTAINMENT_RESPONSE", "FAST_INFO_GAP"],
+      "series_hints": ["人物与文化", "每日信息差"]
+    },
+    "multichannel-cn-fact-correction": {
+      "editorial_modes": ["FACT_CORRECTION", "EVERYDAY_WHY"],
+      "series_hints": ["每日信息差", "深度解释"]
+    }
+  },
+  "missions": [
+    {
+      "mission_id": "multichannel-cn-info-gap-reversal",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "FAST_INFO_GAP_REVERSAL",
+      "objective": "寻找最近中国公开网页中存在明显反转、官方澄清、辟谣或前后认知变化，且普通受众能快速理解其信息差的真实事件。",
+      "query_seeds": [
+        "最近 官方回应 反转 澄清 网友热议 事件",
+        "最新 官方通报 原来 误会 反转 社会新闻"
+      ],
+      "source_preferences": ["official", "local-media", "professional-media", "community"],
+      "required_source_roles": ["DISCOVERY_SIGNAL"],
+      "recency_days": 14,
+      "max_results": 10
+    },
+    {
+      "mission_id": "multichannel-cn-human-surprise",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "ORDINARY_HUMAN_SURPRISE",
+      "objective": "寻找普通人、老人、儿童或基层人物近期发生的意外但真实、暖心、惊险、反差明显或具有故事性的本地社会事件。",
+      "query_seeds": [
+        "最近 普通人 意外 举动 走红 暖心 社会新闻",
+        "老人 小孩 意外 走红 网友 感叹 本地 新闻"
+      ],
+      "source_preferences": ["local-media", "professional-media", "community", "official"],
+      "required_source_roles": ["DISCOVERY_SIGNAL"],
+      "recency_days": 14,
+      "max_results": 10
+    },
+    {
+      "mission_id": "multichannel-cn-scam-risk",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "LOCAL_SCAM_RISK",
+      "objective": "寻找近期中国公开网页中与普通人直接相关的新型诈骗、消费陷阱、群聊收款、冒充身份或其他可形成风险提醒的真实案例。",
+      "query_seeds": [
+        "最新 新型诈骗 警方提醒 微信群 收款 反诈",
+        "反诈中心 通报 新骗局 消费 风险 最近"
+      ],
+      "source_preferences": ["official", "local-media", "professional-media", "community"],
+      "required_source_roles": ["DISCOVERY_SIGNAL"],
+      "recency_days": 30,
+      "max_results": 10
+    },
+    {
+      "mission_id": "multichannel-cn-culture-response",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "CULTURE_ENTERTAINMENT_RESPONSE",
+      "objective": "寻找近期影视、音乐、游戏、艺人或文化事件中存在明确本人回应、主创回应、争议澄清或值得复述原话的公开内容。",
+      "query_seeds": [
+        "最新 明星 回应 热搜 争议 原话",
+        "电影 电视剧 主创 回应 网友 热议 最新"
+      ],
+      "source_preferences": ["official", "professional-media", "culture-community", "platform"],
+      "required_source_roles": ["DISCOVERY_SIGNAL"],
+      "recency_days": 14,
+      "max_results": 10
+    },
+    {
+      "mission_id": "multichannel-cn-fact-correction",
+      "version": "1",
+      "lane": "potential",
+      "mission_type": "EVERYDAY_FACT_CORRECTION",
+      "objective": "寻找大众常见记忆、日常常识、历史日期或生活认知中容易被说错、记错或过度简化，但可以通过可靠公开资料快速澄清的内容。",
+      "query_seeds": [
+        "很多人记错 其实 官方 科普 常识 澄清",
+        "日常 常识 误区 原来如此 为什么 事实"
+      ],
+      "source_preferences": ["official", "professional-media", "museum", "archive"],
+      "required_source_roles": ["DISCOVERY_SIGNAL"],
+      "recency_days": 30,
+      "max_results": 10
+    }
+  ]
+}
