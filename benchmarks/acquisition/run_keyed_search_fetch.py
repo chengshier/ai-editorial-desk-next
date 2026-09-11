@@ -15,7 +15,11 @@ from packages.acquisition.providers import (
     FirecrawlFetchProvider,
     TavilySearchFetchProvider,
 )
-from packages.acquisition.spike import DiscoveryMission, ProviderRunStatus
+from packages.acquisition.spike import (
+    DiscoveryMission,
+    ProviderRunStatus,
+    assess_run_against_mission,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST = ROOT / "benchmarks" / "acquisition" / "mission_templates.v1.json"
@@ -27,6 +31,26 @@ def load_missions(path: Path) -> list[DiscoveryMission]:
     if not isinstance(raw_missions, list):
         raise TypeError("mission manifest must contain a missions array")
     return [DiscoveryMission.model_validate(item) for item in raw_missions]
+
+
+def select_missions(
+    missions: list[DiscoveryMission],
+    mission_ids: list[str] | None,
+    *,
+    max_results: int | None,
+) -> list[DiscoveryMission]:
+    if mission_ids:
+        selected = set(mission_ids)
+        missions = [mission for mission in missions if mission.mission_id in selected]
+        missing = selected - {mission.mission_id for mission in missions}
+        if missing:
+            raise ValueError(f"unknown mission ids: {', '.join(sorted(missing))}")
+    if max_results is not None:
+        missions = [
+            mission.model_copy(update={"max_results": min(mission.max_results, max_results)})
+            for mission in missions
+        ]
+    return missions
 
 
 async def run_benchmark(
@@ -51,9 +75,35 @@ async def run_benchmark(
                     fetch_probes.append(await firecrawl.fetch(urls))
             tavily_runs.append(await tavily.run(mission))
 
+    mission_by_key = {(mission.mission_id, mission.version): mission for mission in missions}
+    exa_assessments = [
+        assess_run_against_mission(
+            mission_by_key[(run.mission_id, run.mission_version)],
+            run,
+        )
+        for run in exa_runs
+    ]
+    tavily_assessments = [
+        assess_run_against_mission(
+            mission_by_key[(run.mission_id, run.mission_version)],
+            run,
+        )
+        for run in tavily_runs
+    ]
+
     return {
         "schema_version": "1",
         "mission_count": len(missions),
+        "benchmark_parameters": {
+            "fetch_limit": fetch_limit,
+            "mission_max_results": {
+                mission.mission_id: mission.max_results for mission in missions
+            },
+            "query_seed_policy": (
+                "provider v1 adapters currently execute the first mission query seed only; "
+                "full multi-variant query strategy is a separate D2 hardening gate"
+            ),
+        },
         "providers": {
             "semantic_search": exa.descriptor.model_dump(mode="json"),
             "independent_fetch": firecrawl.descriptor.model_dump(mode="json"),
@@ -64,6 +114,14 @@ async def run_benchmark(
             "firecrawl_fetch": [probe.model_dump(mode="json") for probe in fetch_probes],
             "tavily_search_fetch": [run.model_dump(mode="json") for run in tavily_runs],
         },
+        "assessments": {
+            "exa_search": [
+                assessment.model_dump(mode="json") for assessment in exa_assessments
+            ],
+            "tavily_search_fetch": [
+                assessment.model_dump(mode="json") for assessment in tavily_assessments
+            ],
+        },
         "secret_policy": "provider keys are read from server-side environment only and are never serialized",
     }
 
@@ -73,6 +131,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--mission", action="append", dest="mission_ids")
     parser.add_argument("--fetch-limit", type=int, default=5)
+    parser.add_argument(
+        "--max-results",
+        type=int,
+        help="Cap each selected Mission result budget without editing the versioned manifest.",
+    )
     parser.add_argument("--output", type=Path)
     return parser.parse_args()
 
@@ -81,13 +144,13 @@ async def _async_main() -> int:
     args = _parse_args()
     if args.fetch_limit < 1:
         raise ValueError("--fetch-limit must be >= 1")
-    missions = load_missions(args.manifest)
-    if args.mission_ids:
-        selected = set(args.mission_ids)
-        missions = [mission for mission in missions if mission.mission_id in selected]
-        missing = selected - {mission.mission_id for mission in missions}
-        if missing:
-            raise ValueError(f"unknown mission ids: {', '.join(sorted(missing))}")
+    if args.max_results is not None and not 1 <= args.max_results <= 100:
+        raise ValueError("--max-results must be between 1 and 100")
+    missions = select_missions(
+        load_missions(args.manifest),
+        args.mission_ids,
+        max_results=args.max_results,
+    )
     result = await run_benchmark(missions, fetch_limit=args.fetch_limit)
     rendered = json.dumps(result, ensure_ascii=False, indent=2)
     if args.output:
