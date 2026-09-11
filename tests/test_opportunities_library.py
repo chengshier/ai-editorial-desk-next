@@ -45,23 +45,23 @@ def test_opportunities_library_does_not_fake_unavailable_actions() -> None:
     assert "Attention" in library
 
 
-def test_current_state_records_s4_engineering_complete() -> None:
+def test_current_state_records_s4_complete_and_phase_0_5b_active() -> None:
     state = STATE.read_text(encoding="utf-8")
 
-    assert "S2 Today / Opportunity Inspector       COMPLETE" in state
-    assert "S3 Opportunities Library               COMPLETE" in state
+    assert "PHASE_0_5B_ACQUISITION_PROVIDER_SPIKE_IN_PROGRESS" in state
     assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE" in state
-    assert "S4-N1 Product Shell Foundation           COMPLETE / CI PASS" in state
-    assert "S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS" in state
-    assert "S4-N3 Research Runtime Adapter           COMPLETE / CI PASS" in state
-    assert "S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS" in state
-    assert "N4-A exact-pin audit + Contract        COMPLETE" in state
-    assert "N4-B Manual Run vertical slice         COMPLETE / CI PASS" in state
-    assert "N4-C Durable Task / Run model          COMPLETE / CI PASS" in state
-    assert "N4-D Interval / Schedule trigger       COMPLETE / CI PASS" in state
-    assert "N4-E Retry / Catch-up / History        COMPLETE / CI PASS" in state
-    assert "N4-F Event trigger + Product status UI COMPLETE / CI PASS" in state
-    assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in state
-    assert "Windows final local smoke                PASS" in state
+    assert "PR #16" in state and "MERGED" in state
+    assert "S4-N1 Product Shell Foundation" in state and "COMPLETE / CI PASS" in state
+    assert "S4-N2 Today / Opportunities Migration" in state
+    assert "S4-N3 Research Runtime Adapter" in state
+    assert "S4-N4 Scheduler / Headless Orchestration" in state
+    assert "N4-A exact-pin audit + Contract" in state
+    assert "N4-B Manual Run vertical slice" in state
+    assert "N4-C Durable Task / Run model" in state
+    assert "N4-D Interval / Schedule trigger" in state
+    assert "N4-E Retry / Catch-up / History" in state
+    assert "N4-F Event trigger + Product status UI" in state
+    assert "S4-N5 Web Shell Retirement" in state
+    assert "Windows final local smoke" in state and "PASS" in state
     assert "Transitional data boundary" in state
     assert "deterministic / in-memory Spike fixture" in state
