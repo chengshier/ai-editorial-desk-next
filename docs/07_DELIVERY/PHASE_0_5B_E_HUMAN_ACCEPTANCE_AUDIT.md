@@ -2,7 +2,7 @@
 
 ## 状态
 
-`IN_PROGRESS / MULTICHANNEL_REAL_RUN_COMPLETE / BLIND_REVIEW_NEXT`
+`IN_PROGRESS / MULTICHANNEL_BLIND_REVIEW_COMPLETE / PLATFORM_GAP_NEXT`
 
 本文件记录 Phase 0.5-B-E 的真实人工编辑反馈。只有 `context_sufficient=true` 的判断才进入最终 Human Acceptance Gate；上下文不足的暂定反馈用于改进 acceptance packet，不计入最终 Editorial Discovery Yield。
 
@@ -154,32 +154,99 @@ Tavily integrated
 
 详细审计：`PHASE_0_5B_D4_MULTICHANNEL_ZH_CN_RUN_AUDIT.md`。
 
-## 7. 当前 Human Acceptance Gate
+## 7. Provider-blind Multi-channel Review
 
-旧版 `Momentum 5 + Potential 5 + Community 5 + Control 5` 不再机械地作为唯一验收序列。
+本轮采用 5 对、共 10 条样本，人工决定前不展示 Provider 身份。
 
-下一轮优先进行真正的 Provider-blind multi-channel review：
+### 7.1 人工反馈
+
+| 样本 | 判断 | 点击意愿 | 投入 | 深度 | 栏目 | 补证 | 上下文 | 关键理由 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| M1-A | 观察 | 会 | 高 | 深度 | 每日信息差 | 要 | 不足 | 反转张力强，但二手自媒体定性过重，缺原始订单/录音/平台仲裁 |
+| M1-B | 观察 | 会 | 低 | 快报 | 每日信息差 | 要 | 不足 | 饭圈造型口水战，只有搜索摘要，低信息密度 |
+| M2-A | 值得做 | 会 | 中 | 快报 | 人物社会 | 不要 | 够 | 监控、救助、校服止血、好心人洗衣、老人出院，事实链闭环 |
+| M2-B | 观察 | 可能会 | 低 | 快报 | 人物社会 | 要 | 不足 | 雨中避雨摘要过于空泛，缺时间地点人物和完整细节 |
+| M3-A | 值得做 | 会 | 中 | 快报 | 每日信息差 | 不要 | 够 | 家长群诈骗有金额、强反差、校方与警方支撑，兼具防骗与传播性 |
+| M3-B | 观察 | 会 | 高 | 深度 | 人物社会 | 要 | 够 | “本地反诈日报”更像方法论/专栏特稿，不适合短平快 |
+| M4-A | 观察 | 会 | 低 | 快报 | 娱乐回应 | 不要 | 够 | 用户未补充文字理由；保留字段结论，不替代推断 |
+| M4-B | 观察 | 会 | 中 | 快报 | 每日信息差 | 要 | 不足 | 明星下场对线有传播性，但需双方原始博文与互动截图 |
+| M5-A | 观察 | 不一定 | 低 | 快报 | 严谨科普 | 不要 | 够 | 可信但老生常谈，缺短视频前三秒反差，适合储备 |
+| M5-B | 观察 | 不一定 | 低 | 快报 | 严谨科普 | 要 | 不足 | 常识题且仅有模糊摘要；理由中明确写“建议直接淘汰” |
+
+注意：M5-B 的结构化判断写的是“观察”，但文字理由写的是“建议直接淘汰”。本审计不擅自把它改写成 `DROP`；在最终统计中保留为 **decision=观察 / rationale倾向淘汰**，如需严格 DO/MAYBE/DROP 统计，应在最终 Gate 前确认一次。
+
+### 7.2 揭盲
+
+blind label 的真实映射是：
 
 ```text
-M1-A / M1-B   信息差 / 反转
-M2-A / M2-B   普通人物 / 社会反差
-M3-A / M3-B   诈骗 / 风险
-M4-A / M4-B   娱乐 / 文化回应
-M5-A / M5-B   常识 / 事实纠偏
+A = Exa Search → Firecrawl Fetch
+B = Tavily integrated Search+Fetch
 ```
 
-人工只看候选事实上下文，不看 Provider 身份，并用中文回答：
+这是 packet builder 的固定配对方式：每个 Mission 先取 Exa→Firecrawl 样本作为 A，再取 Tavily 样本作为 B；人工决定期间未展示该映射。
+
+### 7.3 Context-sufficient 结果
+
+只有 `context_sufficient=true` 的样本进入当前可解释统计。
 
 ```text
-是否值得做
-是否会点开
-投入优先级
-制作深度
-适配栏目（可多选）
-适配内容形态
-是否需要补证
-上下文是否充分
-理由
+Exa → Firecrawl (A)
+context sufficient: 4 / 5
+值得做:             2 / 4
+观察:               2 / 4
+明确淘汰:           0 / 4
+
+Tavily (B)
+context sufficient: 1 / 5
+值得做:             0 / 1
+观察:               1 / 1
+明确淘汰:           0 / 1
 ```
 
-完成该轮后，再回头补足 Momentum / Community 对 Platform capability 的判断，随后才能进入 0.5B-F Provider Decision + ADR。
+因此本轮不能把“10 条中 2 条值得做”直接当成 Provider 总体 Editorial Yield；真正有意义的是 **可判断率 + 在可判断样本中的编辑接受度**。
+
+阶段性结论：
+
+```text
+Exa → Firecrawl
+→ human-review context sufficiency 明显更高
+→ 本轮唯一两条“值得做”都来自该链路
+→ human-surprise / scam-risk 的选题与材料完整度尤其强
+
+Tavily
+→ 仍能发现可用候选
+→ 但本轮多数 top candidate 上下文不足，导致人工无法完成强判断
+→ 保留 comparator / fallback 的结论不变
+```
+
+本结果仍不是最终 Provider Winner，因为它只覆盖中文公开 Web，不覆盖平台原帖、原评论、传播速度和平台内素材。
+
+## 8. 本轮对编辑方法论的额外确认
+
+人工反馈进一步验证：
+
+1. **“值得发现”与“值得马上制作”不是一回事。** M1-A 有很强编辑张力，但因证据风险只能进入补证流。
+2. **高投入并不等于高优先级短视频。** M3-B 值得深挖，但适合方法论/专栏，而不是快报。
+3. **证据完整的内容也可能只值得储备。** M5-A 可信度高，但编辑新鲜度与 Hook 弱。
+4. **上下文不足必须允许阻断决策。** M1-B / M2-B / M4-B / M5-B 都不能因为 Provider 返回了 URL 就强行评价成低价值。
+5. **风险与民生类最容易同时满足“实用价值 + 信息差 + 传播钩子”。** M3-A 是当前多栏目 corpus 中最接近目标栏目的一类。
+
+## 9. 下一 Gate
+
+本轮已经完成中文 Web 多栏目 blind review。进入 0.5B-F 前仍需正式收口两个能力问题：
+
+```text
+A. Platform / Community gap
+- 原始微博 / 抖音 / 小红书帖子
+- 评论区与神评 provenance
+- 点赞 / 评论 / 转发速度
+- 同城榜 / 热搜榜 / 平台内传播路径
+- 原视频 / 原始截图素材
+
+B. Momentum context gap
+- Trend signal 只说明“在升温”，不能单独支撑编辑判断
+- 必须把 trend candidate 与 Search/Fetch/Research 上下文拼起来再评
+```
+
+因此下一步不是直接宣布某个 Provider 全局胜出，而是先完成 Platform / Community capability decision，再形成 0.5B-F Provider Decision + ADR。
