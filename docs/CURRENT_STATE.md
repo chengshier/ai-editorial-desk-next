@@ -2,7 +2,7 @@
 
 ## 状态
 
-`S4_HARNESS_NATIVE_PRODUCT_SHELL_IN_PROGRESS`
+`S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE`
 
 截至 PR #15 已合并到 `main`：
 
@@ -28,23 +28,28 @@ S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
   N4-D Interval / Schedule trigger       COMPLETE / CI PASS
   N4-E Retry / Catch-up / History        COMPLETE / CI PASS
   N4-F Event trigger + Product status UI COMPLETE / CI PASS
-S4-N5 Web Shell Retirement               IN_PROGRESS
+S4-N5 Web Shell Retirement               COMPLETE / CI PASS
+S4 Engineering                           COMPLETE / CI PASS
+Windows final local smoke                PENDING
 ```
 
 N3 收口 head：`5fcc37dd1800087f564abb0dea5a70d8dbf9662a`。  
 N4-B 收口 head：`6dc7a883cec849e25509cbc5f085ac351e3383de`。  
 N4-D 收口 head：`ead02f8c3f3623f90c5ab7d51b1599d0d78fa497`。  
 N4-E 收口验证 head：`ecb15704372767cc267a3834d6c03d7370f25b41`。  
-N4-F / N4 完整收口验证 head：`06ca19f629d22b39f28948c11ac10744feafa04b`。
+N4-F / N4 完整收口验证 head：`06ca19f629d22b39f28948c11ac10744feafa04b`。  
+N5 / S4 工程收口验证 head：`280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6`。
 
-N4-F / N4 收口验证 head 的四套 workflow 全绿：
+N5 / S4 工程收口验证 head 的四套 workflow 全绿：
 
 ```text
-CI                         #254 PASS
-Harness Spike              #208 PASS
-Harness Editorial Shell    #116 PASS
-Harness Native Shell Spike #122 PASS
+CI                         #268 PASS
+Harness Spike              #222 PASS
+Harness Editorial Shell    #130 PASS
+Harness Native Shell Spike #136 PASS
 ```
+
+因此 S4 的仓库级工程 Gate 已完成。PR #16 继续保持 Draft，合并前仍需一次 Windows 本地最终 smoke；该 smoke 不重复 CI，而只验证本机启动、Product Shell 可见、Product ↔ stock Harness 切换、Research/Scheduler 状态与无明显插件启动异常。
 
 ---
 
@@ -250,9 +255,9 @@ research.completed
 
 ---
 
-## 当前 Gate：S4-N5 Web Shell Retirement
+## 已完成 Gate：S4-N5 Web Shell Retirement
 
-**状态：IN_PROGRESS**
+**状态：COMPLETE / CI PASS**
 
 审计文档：`docs/07_DELIVERY/S4_N5_WEB_SHELL_RETIREMENT_AUDIT.md`。
 
@@ -262,9 +267,9 @@ research.completed
 - 已被 N3 正式 Runtime Adapter supersede 的旧 `HarnessSurfaceHost` Research 宿主；
 - Programming / Creation / Publication / Performance / Knowledge / Management 等 placeholder 路由。
 
-因此当前没有只存在于 standalone Web Shell、却会阻塞生产宿主退役的独占正式业务能力。
+因此没有只存在于 standalone Web Shell、却会阻塞生产宿主退役的独占正式业务能力。
 
-N5 当前执行方式：
+N5 最终状态：
 
 ```text
 apps/web = RETIRED_AS_PRODUCTION_HOST
@@ -272,13 +277,17 @@ apps/web = MIGRATION_REFERENCE_ONLY
 formal product host = DeepSeek Harness Product Shell
 ```
 
-已开始：
+已验证：
 
 - `apps/web/README.md` 明确 reference-only；
 - package metadata 明确 retired production host；
 - standalone 页面启动后显示 legacy migration reference notice；
-- 保留 build 仅作为 migration/regression reference，不作为 production Product acceptance；
-- 下一 Gate 为文档/测试/CI 一致性与 formal Harness Product Shell 回归。
+- legacy Web 仍可 build，但只作为 migration/regression reference；
+- architecture / delivery / tests 均保持单一 production host 不变量；
+- formal Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担；
+- head `280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6` 四套 workflow 全部 PASS。
+
+物理删除 `apps/web` 不属于本 PR 的必需条件；后续在不再需要视觉/交互对照时，可独立 cleanup PR 删除。
 
 ---
 
@@ -289,6 +298,23 @@ PR #14 的 iframe / `embedded` transport / `surface_url` 路线已经 superseded
 已吸收：Research Case ↔ Session runtime binding、Session 丢失后 rehydrate、公开 outward API、bootstrap/rebind 幂等、runtime failure 不等于业务对象丢失。
 
 明确废弃：iframe Harness、`embedded` transport、`surface_url` 正式 Product UI seam、`editorial_embed` / `editorial_launch` URL host 模式、外部 `apps/web` 最终生产 Shell。
+
+---
+
+## 合并前人工 Gate
+
+S4 工程 Gate 已完成，但 PR #16 暂不直接合并。最后只保留一次 Windows 本地 smoke：
+
+```text
+启动 Editorial API + pinned Harness Web
+→ AI Editorial Desk Product Shell 可见
+→ Today / Opportunities 可用
+→ Product Shell ↔ stock Harness 双向切换
+→ Research Case / Scheduler 状态可见
+→ 无白屏、持续 Failed to load plugins 或明显 runtime 启动异常
+```
+
+本地 smoke PASS 后，PR #16 才可从 Draft 转 Ready 并进入合并确认。
 
 ---
 
