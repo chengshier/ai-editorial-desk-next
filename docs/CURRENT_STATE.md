@@ -76,6 +76,8 @@ spike/phase-0.5b-acquisition-providers
 - `docs/07_DELIVERY/PHASE_0_5B_ACQUISITION_EXECUTION.md`
 - `docs/07_DELIVERY/PHASE_0_5B_REAL_RUN_PROTOCOL.md`
 - `docs/07_DELIVERY/PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md`
 - `docs/03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`
 - `docs/04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`
 - `docs/ADR/ADR-0006-mission-driven-acquisition.md`
@@ -90,15 +92,36 @@ spike/phase-0.5b-acquisition-providers
   D1 no-key live runner                          COMPLETE / CI PASS
   D1 HN local real run + audit                   COMPLETE / PASS WITH LIMITATIONS
   D1 RSS/Atom configured live baseline           NOT_RUN / NON-BLOCKING
-  D2-A Exa vs Tavily keyed real run              NEXT
-  D2-B Firecrawl independent fetch               DEFERRED UNTIL D2-A
+  D2-A Exa vs Tavily keyed real run              COMPLETE / PASS WITH LIMITATIONS
+  D2-B Firecrawl independent fetch               NEXT
 0.5B-E Human Editorial Acceptance                NOT_STARTED
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
-0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过；D1 no-key live runner + SourceRole coverage assessment 已在 CI #341 验证通过。
+0.5B-C 已在 exact head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 的 CI #323 验证通过；D1 no-key live runner + SourceRole coverage assessment 已在 CI #341 验证通过；D2-A multi-query / bounded runner hardening 已在 head `3ac62150ea35e5d4e5e35968a9c20d9a51915c81` 的 CI #357 验证通过。
 
 D1 HN 真实运行已审计：17 个 Mission 中 7 个 transport success、10 个 explicit unsupported；只有 Ambient Mission 满足 required SourceRole。6 个 Momentum Mission 均缺 `TREND_SIGNAL`，其中 emerging-tech 还缺 `EVIDENCE_SOURCE`。7 个成功 run 共 70 个 candidate occurrence，但实际只有 10 个唯一 HN item，因此进入 Opportunity conversion 前必须跨 Mission 去重。该结果证明 HN 适合作为 Community/Audience/Ambient discovery baseline，但不能冒充 semantic Potential search、Trend velocity 或 Evidence provider。
+
+D2-A 已完成真实 bounded comparison：4 个 Potential Mission，每 Mission `max_results=3`，Exa 与 Tavily 均执行两个 query seeds 并保留 `query_variant` provenance。
+
+```text
+Exa
+4 / 4 success
+12 / 12 retrieved
+avg latency ~2889 ms
+observed cost $0.056
+search-only
+
+Tavily
+4 / 4 success
+12 / 12 retrieved
+9 / 12 raw content available
+avg latency ~5287 ms
+16 credits
+integrated search+fetch
+```
+
+人工审计显示：Exa 在 everyday-why、protective-scam、open-curiosity 三类 Mission 上给出更具体、更适合后续 Research 的候选，因此 Search-only seam 已证明值得保留进入 D2-B；Tavily 的 integrated Search+Fetch 仍保留为对照，因为其正文一体化能减少一次独立 Fetch，但 discovery precision 更杂，raw content availability 也不能自动等于 fetch correctness / Evidence。
 
 已建立：
 
@@ -116,9 +139,11 @@ D1 HN 真实运行已审计：17 个 Mission 中 7 个 transport success、10 �
 - server-side key boundary + missing-key `UNAVAILABLE`；
 - keyed Search/Fetch benchmark runner；
 - no-key live baseline runner；
+- bounded Search budget；
+- multi-query seed allocation、query provenance 与 URL 去重；
 - Mission required SourceRole 与实际候选 SourceRole 的覆盖评估，避免把 provider success 冒充 mission success。
 
-当前尚未产生任何 Provider 胜负结论。下一 Gate 是 D2-A：先真实比较 Exa semantic Search 与 Tavily integrated Search+Fetch；只有 Exa Search 本身值得保留时，才进入 D2-B Firecrawl independent Fetch。
+当前尚未产生最终 Provider 胜负结论。下一 Gate 是 D2-B：比较 `Exa Search → Firecrawl Fetch` 与 Tavily integrated Search+Fetch；D2-B 通过后进入 0.5B-E Human Editorial Acceptance。
 
 ---
 
@@ -143,6 +168,7 @@ Mission-driven Discovery
 - `Trend unavailable` 不等于 `Editorial Value low`；
 - Provider rank / score / trend number 不能直接升级为 Editorial Value；
 - Provider transport 成功不等于 Mission 所需 SourceRole 已满足；
+- Fetch/raw content 成功不自动升级为 `EVIDENCE_SOURCE` / `PRIMARY_SOURCE`；
 - 非官方来源可以是 Discovery / Audience / Trend Signal，但不能自动成为 Confirmed Evidence；
 - Community-first Discovery 必须验证是否能追到可靠 Evidence / Primary Source；
 - HumanSubmission 是产品自身的一等 Acquisition ingress，不参加外部 Provider 比较；
