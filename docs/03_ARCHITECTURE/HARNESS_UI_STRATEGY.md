@@ -153,10 +153,12 @@ S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
   N4-D Interval / Schedule trigger       COMPLETE
   N4-E Retry / Catch-up / History        COMPLETE
   N4-F Event trigger + Product status UI COMPLETE
-S4-N5 Web Shell Retirement               IN_PROGRESS
+S4-N5 Web Shell Retirement               COMPLETE / CI PASS
+S4 Engineering                           COMPLETE / CI PASS
+Windows final local smoke                PENDING
 ```
 
-N4 已在 head `06ca19f629d22b39f28948c11ac10744feafa04b` 完成四套 Gate。N5 当前只处理宿主退役和 reference quarantine，不重新讨论 Product Shell 宿主，也不把旧 Web Shell placeholder 路由误认为独占正式业务能力。
+N4 已在 head `06ca19f629d22b39f28948c11ac10744feafa04b` 完成四套 Gate；N5 / S4 工程收口已在 head `280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6` 完成 CI #268、Harness Spike #222、Harness Editorial Shell #130、Harness Native Shell Spike #136 四套 Gate。
 
 `apps/web` 当前定义为：
 
@@ -165,7 +167,7 @@ RETIRED_AS_PRODUCTION_HOST
 MIGRATION_REFERENCE_ONLY
 ```
 
-正式 Product acceptance 继续由 exact-pin Harness Editorial Shell browser Gate 承担。
+正式 Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担。PR #16 合并前只剩一次 Windows 本地最终 smoke，不重新打开 S4 架构决策。
 
 ## 10. 依据
 
