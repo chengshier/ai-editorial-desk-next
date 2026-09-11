@@ -36,12 +36,12 @@ S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
   N4-F Event trigger + Product status UI COMPLETE / CI PASS
 S4-N5 Web Shell Retirement               COMPLETE / CI PASS
 S4 Engineering                           COMPLETE / CI PASS
-Windows final local smoke                PENDING
+Windows final local smoke                PASS
 ```
 
-N4 完整收口验证 head：`06ca19f629d22b39f28948c11ac10744feafa04b`，对应 CI #254、Harness Spike #208、Harness Editorial Shell #116、Harness Native Shell Spike #122 全部 PASS。
+最终自动化验证 head：`a56b7b9bbe8844df88fed7071f2827dcc0b672b5`，对应 CI #289、Harness Spike #243、Harness Editorial Shell #151、Harness Native Shell Spike #157 全部 PASS。
 
-N5 / S4 工程收口验证 head：`280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6`，对应 CI #268、Harness Spike #222、Harness Editorial Shell #130、Harness Native Shell Spike #136 全部 PASS。
+Windows final local smoke 也已 PASS：正式 Product Shell 在 `:3080` 正常；Today / Opportunities / Inspector 可用；fresh-profile native picker fallback 正常；Workspace / Session 自动 bootstrap；Research Case 进入 `Runtime Ready`；Product Shell ↔ stock Harness 双向切换与两边 F5 状态保持正常。
 
 ## 不变边界
 
@@ -81,7 +81,7 @@ Product Shell Research Case
 → durable Harness Tool Result / replay
 ```
 
-已完成 runtime binding/rebind/bootstrap-complete、public `IWorkspaces` fresh-profile bootstrap、自动 `Session.prompt()`、只读 canonical Research Tool，以及 runtime failure 不删除业务 Research Case。
+已完成 runtime binding/rebind/bootstrap-complete、public `IWorkspaces` fresh-profile bootstrap、Windows native picker fallback、自动 `Session.prompt()`、只读 canonical Research Tool，以及 runtime failure 不删除业务 Research Case。
 
 ## S4-N4 — Scheduler / Headless Orchestration
 
@@ -128,7 +128,7 @@ formal product host = DeepSeek Harness Product Shell
 
 PR #14 的 iframe / `embedded` / `surface_url` 路线已由 ADR-0010 supersede，不得作为正式架构合并。仅保留其中已被当前实现吸收的 Session rebind/bootstrap/rehydrate/business-ID invariants。
 
-## S4 工程 Gate
+## S4 Gate
 
 以下均已通过：
 
@@ -143,25 +143,18 @@ formal Product Shell browser Gate
 Harness native-shell regression
 business ID invariants
 fresh-profile behavior
+Windows native picker fallback
+Research Runtime Ready / replay
+Product Shell ↔ stock Harness round-trip
+Editorial / Harness mode F5 persistence
 no upstream core patch
 ```
 
-最终自动化验证 head：`280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6`。
+最终自动化验证 head：`a56b7b9bbe8844df88fed7071f2827dcc0b672b5`。
 
-## 合并前最后一步
+## 合并状态
 
-S4 仓库级工程实现已完成，但 PR #16 暂时保持 Draft。合并前仍需一次 Windows 本地最终 smoke，仅验证 CI 难以替代的环境相关路径：
-
-```text
-Editorial API + pinned Harness Web 启动
-→ AI Editorial Desk Product Shell 可见
-→ Today / Opportunities 可用
-→ Product Shell ↔ stock Harness 双向切换
-→ Research Case / Scheduler 状态可见
-→ 无持续白屏 / Failed to load plugins / runtime 启动异常
-```
-
-本地 smoke PASS 后，再把 PR #16 转 Ready 并进入合并确认。
+S4 仓库级工程 Gate 与 Windows 本地最终 smoke 均已完成。PR #16 已具备从 Draft 转 Ready 的条件；合并动作仍需用户明确确认。
 
 ## 当前未被 S4 自动解决的事项
 
