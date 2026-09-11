@@ -31,12 +31,12 @@ def test_n5_docs_keep_single_production_host_invariant() -> None:
     assert "S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS" in state
     assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in state
     assert "S4 Engineering                           COMPLETE / CI PASS" in state
-    assert "Windows final local smoke                PENDING" in state
+    assert "Windows final local smoke                PASS" in state
     assert "apps/web = RETIRED_AS_PRODUCTION_HOST" in state
     assert "apps/web = MIGRATION_REFERENCE_ONLY" in state
     assert "RETIRED_AS_PRODUCTION_HOST" in audit
     assert "MIGRATION_REFERENCE_ONLY" in audit
-    assert "COMPLETE / CI PASS" in audit
+    assert "WINDOWS SMOKE PASS" in audit
     assert "formal product host = DeepSeek Harness Product Shell" in state
     assert "把 `apps/web` 恢复为第二个 production Product Shell" in strategy
-    assert "280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6" in audit
+    assert "a56b7b9bbe8844df88fed7071f2827dcc0b672b5" in audit
