@@ -75,7 +75,7 @@ class HackerNewsProvider:
             response.raise_for_status()
             raw_ids = response.json()
             if not isinstance(raw_ids, list):
-                raise ValueError("Hacker News list response must be an array")
+                raise TypeError("Hacker News list response must be an array")
 
             candidates: list[AcquisitionCandidate] = []
             fetch_failures = 0
