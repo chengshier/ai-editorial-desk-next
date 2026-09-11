@@ -139,6 +139,8 @@ fresh profile + native capability
 → Research Case runtime binding
 ```
 
+该路径已在 PR #16 Windows 最终本地 smoke 中验证通过：native picker 正常弹出，Workspace / Session 自动完成 bootstrap，Research Case 进入 `Runtime Ready` 并保留结构化 Tool Result replay。
+
 因此“无需手工准备 Workspace”的含义是：用户不需要先切到 stock Harness 建 Workspace，也不需要知道 Harness 的 Workspace 配置流程。native-only Host 允许 Product Shell 在首次 Research 时主动弹出一次系统目录选择器；取消选择必须显式失败，并保留已经创建的 Research Case。
 
 不得为绕过 native/browse 差异而硬编码本机路径、访问 Harness private API、使用 DOM 自动化或修改 upstream core。
@@ -172,12 +174,12 @@ S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
   N4-F Event trigger + Product status UI COMPLETE
 S4-N5 Web Shell Retirement               COMPLETE / CI PASS
 S4 Engineering                           COMPLETE / CI PASS
-Windows final local smoke                PENDING
+Windows final local smoke                PASS
 ```
 
-N4 已在 head `06ca19f629d22b39f28948c11ac10744feafa04b` 完成四套 Gate；N5 / S4 工程收口已在 head `280e7c9b2ba3a9bf7019b94b85e4acf0d4c213f6` 完成 CI #268、Harness Spike #222、Harness Editorial Shell #130、Harness Native Shell Spike #136 四套 Gate。
+最终自动化验证 head `a56b7b9bbe8844df88fed7071f2827dcc0b672b5` 已完成 CI #289、Harness Spike #243、Harness Editorial Shell #151、Harness Native Shell Spike #157 四套 Gate。
 
-Windows final smoke 随后发现 fresh profile 在 native directory-picker composition 下仍错误调用 browse-only `listDirectory()`，现已作为 S4 合并前兼容性修复处理；S4 架构决策本身不重开，最终 smoke 在该修复通过 CI 后继续。
+Windows final smoke 已验证 Product Shell、Today / Opportunities、fresh-profile native picker fallback、Research Runtime Ready、Product Shell ↔ stock Harness 双向切换，以及两种模式 F5 状态保持。
 
 `apps/web` 当前定义为：
 
@@ -186,7 +188,7 @@ RETIRED_AS_PRODUCTION_HOST
 MIGRATION_REFERENCE_ONLY
 ```
 
-正式 Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担。PR #16 合并前仍需完成 Windows 本地最终 smoke。
+正式 Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担。PR #16 已具备 Ready 条件，合并仍需用户明确确认。
 
 ## 10. 依据
 
