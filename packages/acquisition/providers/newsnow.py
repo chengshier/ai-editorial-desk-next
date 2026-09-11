@@ -29,7 +29,7 @@ class NewsNowHotlistProvider:
         client: httpx.AsyncClient,
         *,
         platform_id: str,
-        api_base: str = "https://newsnow.busiyi.world/api/s",
+        api_base: str = "http://127.0.0.1:4444/api/s",
     ) -> None:
         platform_id = platform_id.strip()
         if not platform_id:
