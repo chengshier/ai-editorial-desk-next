@@ -30,6 +30,17 @@ Provider B 获取 80 条资料   → 12 个可进入 Opportunity 的素材 = 15%
 
 避免某个 Provider 只靠追热点取得高总分，却漏掉 Evergreen/Curiosity/Story 内容。
 
+另外必须区分：
+
+```text
+Provider request SUCCESS
+!= Mission contract satisfied
+!= Editorial Opportunity
+!= Confirmed Evidence
+```
+
+真实 run 要额外记录 Mission 所需 `required_source_roles` 与候选实际提供的 `source_roles`。例如 HN ranked snapshot 可以成功返回社区排名，但在没有跨时间历史时仍不能满足 `TREND_SIGNAL`。
+
 ## 3. 测试任务
 
 从已有人类标注样本和新的真实开放素材中设计 12~20 个 Discovery Mission，至少覆盖：
@@ -102,6 +113,8 @@ Research 能否再找到更可靠的 Evidence/Primary Source
 - discovery lane：ambient / potential / momentum / research；
 - provider/version；
 - source role(s)；
+- Mission required source roles；
+- observed source roles / missing required source roles；
 - query variants；
 - retrieved/fetched count；
 - duplicate count；
