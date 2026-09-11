@@ -95,8 +95,8 @@ def test_product_query_state_is_namespaced_and_refresh_safe() -> None:
     assert "inspector" in opportunities
 
 
-def test_s4_engineering_status_is_closed_before_local_smoke() -> None:
+def test_s4_engineering_and_windows_smoke_are_complete() -> None:
     current = CURRENT_STATE.read_text(encoding="utf-8")
     assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE" in current
     assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in current
-    assert "Windows final local smoke                PENDING" in current
+    assert "Windows final local smoke                PASS" in current
