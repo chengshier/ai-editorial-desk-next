@@ -25,7 +25,7 @@ S4 Engineering                           COMPLETE / CI PASS
 Windows final local smoke                PASS
 ```
 
-S4 最终自动化与 Windows acceptance 已验证：Harness Product Shell `:3080`、Today / Opportunities / Opportunity Inspector、native directory picker fallback、Workspace / Session bootstrap、Research Case → Runtime Ready、durable Tool Result replay、Product Shell ↔ stock Harness 双向切换与两种模式 F5 均正常，无持续白屏或 `Failed to load plugins`。
+S4 最终自动化与 Windows acceptance 已验证：Harness Product Shell `:3080`、Today / Opportunities / Opportunity Inspector、native directory picker fallback、Workspace / Session bootstrap、Research Case → Runtime Ready、durable Harness Tool Result replay、Product Shell ↔ stock Harness 双向切换与两种模式 F5 均正常，无持续白屏或 `Failed to load plugins`。
 
 ---
 
@@ -74,6 +74,8 @@ spike/phase-0.5b-acquisition-providers
 - `docs/07_DELIVERY/PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md`
 - `docs/07_DELIVERY/PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md`
 - `docs/07_DELIVERY/PHASE_0_5B_D2B_FIRECRAWL_RUN_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_D3_GOOGLE_TRENDS_RUN_AUDIT.md`
+- `docs/07_DELIVERY/PHASE_0_5B_E_HUMAN_ACCEPTANCE_PROTOCOL.md`
 - `docs/03_ARCHITECTURE/ACQUISITION_ARCHITECTURE.md`
 - `docs/04_CONTRACTS/ACQUISITION_PROVIDER_CONTRACT.md`
 - `docs/ADR/ADR-0006-mission-driven-acquisition.md`
@@ -84,13 +86,13 @@ spike/phase-0.5b-acquisition-providers
 0.5B-A Benchmark Contract + Mission Corpus       COMPLETE / CI PASS
 0.5B-B No-key Baselines                          COMPLETE / CI PASS
 0.5B-C Key-gated Search / Fetch Adapters         COMPLETE / CI PASS
-0.5B-D Real Provider Runs                        IN_PROGRESS
+0.5B-D Real Provider Runs                        COMPLETE / PASS WITH LIMITATIONS
   D1 HN no-key live baseline                     COMPLETE / PASS WITH LIMITATIONS
   D1 RSS/Atom configured live baseline           NOT_RUN / NON-BLOCKING
   D2-A Exa vs Tavily keyed real run              COMPLETE / PASS WITH LIMITATIONS
   D2-B Exa → Firecrawl vs Tavily                 COMPLETE / PASS WITH LIMITATIONS
-  D3 Google Trends Momentum baseline             IN_PROGRESS
-0.5B-E Human Editorial Acceptance                NOT_STARTED
+  D3 Google Trends Momentum baseline             COMPLETE / PASS WITH LIMITATIONS
+0.5B-E Human Editorial Acceptance                IN_PROGRESS
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
@@ -134,25 +136,29 @@ final provider winner    NOT DECIDED
 
 Firecrawl v1 旧 artifact 在 open-curiosity 出现 2 个失败 URL，但只保留 failure count。adapter 已开始硬化为保存不含 secret 的 `url / error_kind / http_status` 失败摘要；usage/cost 未观测到时继续保持 unavailable，不用 0 代替。
 
-Phase 0.5-B 仍不能结束 0.5B-D，因为正式 Spike Gate 要同时验证 Potential 与 Momentum。D3 已新增：
+D3 Google Trends 真实 no-key baseline 已完成：
 
 ```text
-GoogleTrendsRssProvider
-→ public Google Trends Trending Now RSS/export baseline
-→ generic ATTENTION_SURGE only
-→ TREND_SIGNAL + DISCOVERY_SIGNAL
-→ unsupported mission shapes explicit UNSUPPORTED
+Momentum missions              6
+transport success              1
+explicit unsupported           5
+ATTENTION_SURGE retrieved      10
+required SourceRole PASS       1 / 6
 ```
 
-并新增：
+`momentum-search-attention-surge` 真实产生 `TREND_SIGNAL + DISCOVERY_SIGNAL`，因此 Potential 与 Momentum 两条最低真实 Gate 均已具备输入。其余 community acceleration / cross-platform spread / culture breakout / resurfacing / emerging-tech evidence 等能力继续显式 `UNSUPPORTED`，不伪装成 0 或 success。
+
+D3 还暴露并修复了一个 provenance 问题：Google Trends RSS `pubDate` 是 trend observation / feed time，不是 related-news source publication time；adapter 现在把它保存为 `provider_metadata.trend_observed_at`，不再错误写入 `AcquisitionCandidate.published_at`。
+
+因此 0.5B-D 已结束，当前 Gate 正式进入 0.5B-E。已新增：
 
 ```text
-benchmarks/acquisition/run_momentum_baseline.py
+benchmarks/acquisition/build_human_acceptance_packet.py
 ```
 
-D3 不需要 API key。Google trend inclusion / approximate traffic 只作为 Attention Feature，不直接等于 Editorial Value；related news 也不自动成为 Confirmed Evidence。
+用于从 D1 / D2-B / D3 真实 artifact 构建 20 条平衡人工样本：Momentum 5、Potential 5、Community 5、Control 5。采样信号只负责平衡样本，不作为编辑分数；最终必须由人类填写 Do / Maybe / Drop、would-read、would-make、placement、rationale 与 Evidence follow-up。
 
-当前尚未产生最终 Provider 胜负结论。下一 Gate 是 D3 Google Trends Momentum real run；D3 通过后再进入完整 0.5B-E Human Editorial Acceptance。
+当前尚未产生最终 Provider 胜负结论。下一 Gate 是完成 0.5B-E Human Editorial Acceptance；只有 E 完成后才进入 0.5B-F Provider Decision + ADR。
 
 ---
 
