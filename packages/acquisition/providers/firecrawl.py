@@ -10,8 +10,8 @@ from uuid import uuid4
 import httpx
 
 from packages.acquisition.spike import (
-    FetchProbeRecord,
     FetchedDocument,
+    FetchProbeRecord,
     ProviderCapability,
     ProviderDescriptor,
     ProviderRunStatus,
