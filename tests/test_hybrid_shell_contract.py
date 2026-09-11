@@ -78,14 +78,17 @@ def test_active_architecture_rejects_formal_iframe_launch_host() -> None:
     assert "Product Shell Plugin" in topology
 
 
-def test_ui_strategy_and_current_state_close_n4_and_start_n5() -> None:
+def test_ui_strategy_and_current_state_close_s4_engineering() -> None:
     strategy = UI_STRATEGY.read_text(encoding="utf-8")
     state = CURRENT_STATE.read_text(encoding="utf-8")
 
     assert "S4-N3 Research Runtime Adapter           COMPLETE" in strategy
     assert "S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS" in strategy
     assert "N4-F Event trigger + Product status UI COMPLETE" in strategy
-    assert "S4-N5 Web Shell Retirement               IN_PROGRESS" in strategy
+    assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in strategy
+    assert "S4 Engineering                           COMPLETE / CI PASS" in strategy
+    assert "Windows final local smoke                PENDING" in strategy
+    assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE" in state
     assert "S4-N3 Research Runtime Adapter           COMPLETE / CI PASS" in state
     assert "S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS" in state
     assert "N4-A exact-pin audit + Contract        COMPLETE" in state
@@ -94,6 +97,6 @@ def test_ui_strategy_and_current_state_close_n4_and_start_n5() -> None:
     assert "N4-D Interval / Schedule trigger       COMPLETE / CI PASS" in state
     assert "N4-E Retry / Catch-up / History        COMPLETE / CI PASS" in state
     assert "N4-F Event trigger + Product status UI COMPLETE / CI PASS" in state
-    assert "S4-N5 Web Shell Retirement               IN_PROGRESS" in state
+    assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in state
     assert "ai-editorial-desk-runtime" in state
     assert "IWorkspaces" in state
