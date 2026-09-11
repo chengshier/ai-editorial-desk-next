@@ -104,7 +104,7 @@ start Editorial API + pinned Harness Web
 → no persistent blank page / Failed to load plugins / obvious runtime boot failure
 ```
 
-No production provider/content-quality claim depends on this smoke.
+This smoke is the only remaining S4 acceptance item before PR #16 may move from Draft to Ready. It does not add a new architecture requirement and does not claim production provider/content quality.
 
 ## Follow-up cleanup after PR #16
 
