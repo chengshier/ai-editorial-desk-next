@@ -64,6 +64,8 @@ async def test_google_trends_rss_normalizes_search_surge_without_claiming_editor
     assert candidate.url == "https://example.com/news"
     assert candidate.source_roles == [SourceRole.TREND_SIGNAL, SourceRole.DISCOVERY_SIGNAL]
     assert candidate.provider_score is None
+    assert candidate.published_at is None
+    assert candidate.provider_metadata["trend_observed_at"] == "2026-09-10T12:00:00+00:00"
     assert candidate.provider_metadata["approx_traffic"] == "200,000+"
     assert candidate.provider_metadata["approx_traffic_value"] == 200000
     assert candidate.provider_metadata["related_news"][0]["source"] == "Example News"
