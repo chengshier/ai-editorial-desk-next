@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
@@ -8,6 +10,7 @@ from packages.acquisition.providers import (
     FirecrawlFetchProvider,
     TavilySearchFetchProvider,
 )
+from packages.acquisition.providers.base import allocate_query_budgets
 from packages.acquisition.spike import (
     DiscoveryLane,
     DiscoveryMission,
@@ -61,7 +64,8 @@ async def test_exa_search_normalizes_results_and_keeps_relevance_separate_from_e
     assert run.cost_usd == pytest.approx(0.007)
     assert run.candidates[0].source_roles == [SourceRole.DISCOVERY_SIGNAL]
     assert run.candidates[0].provider_score is None
-    assert run.provider_metadata["request_id"] == "exa-request-1"
+    assert run.provider_metadata["request_ids"] == ["exa-request-1"]
+    assert run.provider_metadata["query_count"] == 1
 
 
 @pytest.mark.asyncio
@@ -98,6 +102,58 @@ async def test_tavily_integrated_search_fetch_tracks_raw_content_without_promoti
     assert run.candidates[0].provider_score == pytest.approx(0.91)
     assert run.candidates[0].source_roles == [SourceRole.DISCOVERY_SIGNAL]
     assert run.provider_metadata["credits_used"] == 2
+    assert run.provider_metadata["request_ids"] == ["tavily-request-1"]
+
+
+@pytest.mark.asyncio
+async def test_exa_query_variants_share_mission_budget_and_keep_provenance() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.read().decode())
+        seen_payloads.append(payload)
+        query = payload["query"]
+        if query == "first variant":
+            results = [
+                {"id": "a", "url": "https://example.com/a", "title": "A"},
+                {"id": "shared", "url": "https://example.com/shared", "title": "Shared"},
+            ]
+        else:
+            results = [
+                {"id": "b", "url": "https://example.com/b", "title": "B"},
+            ]
+        return httpx.Response(
+            200,
+            json={
+                "requestId": f"req-{len(seen_payloads)}",
+                "resolvedSearchType": "neural",
+                "costDollars": {"total": 0.001},
+                "results": results,
+            },
+        )
+
+    mission = DiscoveryMission(
+        mission_id="multi-query",
+        version="1",
+        lane="potential",
+        mission_type="TEST",
+        objective="test variants",
+        query_seeds=["first variant", "second variant"],
+        max_results=3,
+    )
+    assert allocate_query_budgets(mission) == [("first variant", 2), ("second variant", 1)]
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        run = await ExaSearchProvider(client, api_key="exa-test").run(mission)
+
+    assert [payload["numResults"] for payload in seen_payloads] == [2, 1]
+    assert run.retrieved_count == 3
+    assert run.cost_usd == pytest.approx(0.002)
+    assert run.provider_metadata["query_count"] == 2
+    assert {candidate.query_variant for candidate in run.candidates} == {
+        "first variant",
+        "second variant",
+    }
 
 
 @pytest.mark.asyncio
