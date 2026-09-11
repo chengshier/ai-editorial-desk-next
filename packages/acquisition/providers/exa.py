@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -77,9 +77,8 @@ class ExaSearchProvider:
             "contents": {"text": False, "highlights": False},
         }
         if mission.recency_days is not None:
-            payload["startPublishedDate"] = (
-                datetime.now(UTC).date()
-            ).isoformat()  # benchmark runner may override with a frozen date later
+            start = datetime.now(UTC) - timedelta(days=mission.recency_days)
+            payload["startPublishedDate"] = start.isoformat()
 
         try:
             response = await self._client.post(
