@@ -1,169 +1,201 @@
-# Harness UI Strategy v1
+# Harness UI Strategy v2
 
-## 1. 最终决定
+## 1. 当前最终决定
 
-Harness UI Gate 已由 PR #5–#9 完成。
+PR #15 的 exact-pin CI 与 Windows 本地验收证明，AI Editorial Desk 可以不修改 DeepSeek Harness upstream core，直接以 out-of-tree Product Shell Plugin 的方式承载完整结构化产品工作台。
 
-最终形态冻结为：
-
-```text
-HYBRID_WEB_HARNESS
-```
-
-即：
+因此当前正式 UI 宿主冻结为：
 
 ```text
-AI Editorial Desk Web Shell
-├─ Today / Opportunities
-├─ Programming / Creation / Publication
-├─ Performance / Knowledge
-├─ Management / Configuration
-├─ Global Inspector / Search / Human Submission
-└─ Harness-powered Agent / Research surface
-
-DeepSeek Harness
-├─ Agent Conversation / Session / Replay
-├─ Editorial Tools / ToolViews
-├─ Background Jobs
-└─ Research Workspace
+HARNESS_NATIVE_EDITORIAL_PRODUCT_SHELL
 ```
 
-详细决策见：
-
-- `../ADR/ADR-0009-hybrid-web-shell-harness.md`
-- `../04_CONTRACTS/HYBRID_SHELL_CONTRACT.md`
-
-## 2. Spike 事实
-
-Pinned exact baseline：
+对应拓扑：
 
 ```text
-DeepSeek Harness 99f6f02fecdb7dff40c3fbc9470f5907c29f74ca
-release dsh@0.1.0-rc.7
+DeepSeek Harness Web
+├─ AI Editorial Desk Product Shell
+└─ stock Harness workbench
 ```
 
-已验证：
+ADR-0009 的 `HYBRID_WEB_HARNESS` 是 PR #5–#9 阶段基于当时证据作出的历史 Gate 结论，已由 ADR-0010 supersede。
 
-- Agent Runtime / Tool / Job / Session Replay；
-- stable business ID continuity；
-- Opportunity / Research custom ToolView；
-- Research Result / Evidence / Unknown durable replay；
-- `conversation.view` 无侵入承载三栏 Research Workspace；
-- refresh / Harness cold restart 后 Research Workspace 可重建；
-- Agent Conversation 与 Research Workspace 可共存。
+## 2. 为什么决策发生变化
 
-同时确认：
+PR #5–#9 当时确认：
 
-- root `sidebar / conversation / details` 是 replacement seat；
-- `conversation.view` 是 additive whole-page seam，但 scope 是 Session；
-- stock sidebar 缺少适合“今日 / 机会 / 研究 / 编排 / 创作 / 发布 / 表现 / 知识”的 additive primary-navigation seam；
-- Programming / Publishing / Performance 若放入 `conversation.view` 会错误依赖某个 Agent Session；
-- exact-pin 没有需要的公开 global router + cross-plugin page navigation seam。
+- `conversation.view` 可承载 Session-scoped Research Workspace；
+- stock sidebar 缺少适合整个编辑产品一级导航的 additive seam；
+- 不允许为了全局 IA 使用 private store / DOM hack / upstream patch。
 
-因此 Full Harness Workbench 不再作为 V1 目标。
+所以当时选择外部 Web Shell 是合理的。
 
-## 3. Harness 必须优先承担的交互
+PR #15 随后验证了不同的公开 seam：
 
-- Agent 对话与任务编排；
-- Editorial Tools 调用；
-- Opportunity / Evidence / Research 的结构化 Tool Card；
-- Background Research Job；
-- Approval / guarded action；
-- Session replay / trajectory；
-- Research Workspace；
-- 需要 Agent 解释、比较、继续研究的交互。
+- pinned Harness `root` 是 replacement Slot；
+- out-of-tree plugin 可以在 editorial mode 下以更高优先级/稳定优先级替换 stock AppFrame；
+- Harness mode 仍保留 stock AppFrame；
+- `sidebar.footer.action` 等 additive slot 可以承载双向工作台切换；
+- 整个方案无需 fork/patch upstream core。
 
-## 4. Web Shell 必须承担的交互
+这条新证据消除了 ADR-0009 当时最大的宿主限制。
 
-- 全局产品 Router / Primary Navigation；
+## 3. Product Shell 必须承担的交互
+
+- Global IA / Primary Navigation；
 - Today / Editorial Radar；
 - Opportunities Library；
+- Opportunity Inspector；
+- Research business entry / status；
+- Scheduler / Headless Task/Run status；
 - Programming / Slate；
 - Creation / Draft Studio；
 - Publication Center；
 - Performance & Learning；
 - Knowledge / Management；
-- Global Opportunity Inspector；
-- Human Submission 全局入口；
-- Shell ↔ Harness launch / return orchestration。
+- Global Search / Human Submission；
+- structured Product Commands。
 
-## 5. Research Workspace 特殊边界
+这些模块属于跨 Session 的长期业务工作台，不能把 active Harness Session 当成它们的唯一生命周期。
 
-P03 Research 在产品信息架构中仍是一级业务页面，但其 Agent-heavy inner surface 可以由 Harness 提供：
+## 4. stock Harness workbench 必须保留
+
+stock Harness 继续承担：
+
+- 自由 Agent 对话；
+- Session / Replay / Trajectory；
+- Tool / ToolView；
+- Background Job；
+- Approval / guarded action；
+- 调试和非结构化 Agent 任务。
+
+Product Shell 与 stock workbench 是同一 Harness Web 下的两个一等表面，不是互相 iframe。
+
+## 5. Research 特殊边界
+
+Research 的业务身份仍是：
 
 ```text
-Web Shell
-→ owns /research/:research_case_id product route + entry/return
-
-Harness
-→ owns Agent session / tools / replay / Research Workspace interaction
-
-Editorial API
-→ owns Research Case / Evidence / Unknown canonical state
+research_case_id
 ```
 
-因此不需要把 Research UI 在 Shell 中重新实现一份，也不需要让 Harness 接管全局产品 Shell。
+Harness 负责 runtime interaction：
+
+```text
+Harness Session
+Tool / Job
+Session.prompt()
+durable Tool Result / replay
+```
+
+Editorial API / PostgreSQL 负责：
+
+```text
+Research Case
+Evidence
+Unknown
+Conclusion / canonical result
+Scheduler Task / Run / Attempt
+```
+
+Product Shell 通过 `HarnessRuntimeAdapter` 把两层连接起来；Scheduler 状态由 Editorial API 的只读投影提供，不从 Harness transcript 推断。
 
 ## 6. Conversation View 使用边界
 
-`conversation.view` 适合：
+`conversation.view` 仍然是有效的 Session-scoped UI seam，适合：
 
-- Chat；
-- Trajectory；
-- Research Workspace；
-- 其他明确属于当前 Agent Session 的完整 view。
+- Research replay；
+- Agent trajectory；
+- 明确属于当前 Session 的复杂视图。
 
-不适合：
+但它不再被用来决定整个产品是否能够运行在 Harness 内。全局 Product Shell 由 root Slot replacement seam 承载。
 
-- Programming；
-- Today；
-- Opportunities corpus；
-- Publication queue；
-- Performance Dashboard；
+## 7. Fresh profile UX
 
-因为这些对象必须跨 Session 长期存在。
+用户首次打开一个完全新的 Harness profile 时，不应被要求先进入 stock workbench 手工创建 Workspace。
 
-## 7. Tool Card / durable result 使用边界
+Research Runtime Adapter 只使用 exact-pin Harness 的公开 `IWorkspaces` outward API，但必须尊重 Host 实际组合的目录选择能力。`browse` 与 `native` 是互斥能力，不能假设所有 Host 都支持 `listDirectory()` / `createDirectory()`。
 
-Tool canonical value 与 UI presentation 分离：
+优先自动路径：
 
-- canonical value 返回稳定结构化 JSON；
-- presentation/render 负责用户可读卡片；
-- Agent 不从自然语言结果反解析业务 id；
-- replay source 可以使用 Harness 标准 durable Tool Result；
-- backend business truth 仍由 Editorial API / PostgreSQL 提供。
+```text
+fresh profile + browse capability
+→ Host home
+→ ai-editorial-desk-runtime directory
+→ Workspace registration
+→ Session
+→ Research Case runtime binding
+```
+
+Windows 等只组合 native picker 的 Host：
+
+```text
+fresh profile + native capability
+→ browse API 返回 directory-picker-unavailable
+→ Product Shell 调用公开 pickDirectory()
+→ 用户在系统目录选择器中选择一个已有目录
+→ Workspace registration
+→ Session
+→ Research Case runtime binding
+```
+
+该路径已在 PR #16 Windows 最终本地 smoke 中验证通过：native picker 正常弹出，Workspace / Session 自动完成 bootstrap，Research Case 进入 `Runtime Ready` 并保留结构化 Tool Result replay。
+
+因此“无需手工准备 Workspace”的含义是：用户不需要先切到 stock Harness 建 Workspace，也不需要知道 Harness 的 Workspace 配置流程。native-only Host 允许 Product Shell 在首次 Research 时主动弹出一次系统目录选择器；取消选择必须显式失败，并保留已经创建的 Research Case。
+
+不得为绕过 native/browse 差异而硬编码本机路径、访问 Harness private API、使用 DOM 自动化或修改 upstream core。
 
 ## 8. 禁止项
 
-- 为全局导航 patch/fork Harness core；
-- 通过 `document.querySelector(...).click()` 实现跨模块导航；
-- 直接访问私有 Harness store action；
-- 用 Harness Session ID 代替 `opportunity_id / research_case_id`；
-- 把 Candidate / Programming / Decision / Publication 真相写进 Harness Session；
-- 在 Shell 与 Harness 中各实现一套相同业务规则。
+- iframe 作为正式 Product Shell Host；
+- `surface_url` / `embedded` transport 作为正式 UI seam；
+- `editorial_embed` / `editorial_launch` URL 宿主模式；
+- `document.querySelector(...).click()` 跨模块导航；
+- 直接访问 Harness private store；
+- 为 Product Shell fork/patch Harness upstream core；
+- 用 Harness Session ID 替代业务 ID；
+- 把 Candidate / Decision / Draft / Publication 真相只写进 Session；
+- 用 browser/localStorage/Harness transcript 作为 Scheduler Task / Run truth；
+- 在没有 durable Scheduler 状态时伪造后台执行结果；
+- 把 `apps/web` 恢复为第二个 production Product Shell。
 
-## 9. Browser transport
-
-Harness surface 未来可以通过 reverse proxy / embedded / same-tab / separate-tab 等方式接入。
-
-Transport 是 integration detail，不允许改变：
-
-- product route；
-- business ID；
-- ownership；
-- Tool/API contract；
-- PostgreSQL source-of-truth。
-
-## 10. 后续 Gate
-
-Harness UI 的 Full-vs-Hybrid Gate 已关闭。
-
-后续需要验证的是 **Hybrid integration transport**，不是重新争论产品 ownership：
+## 9. 当前 Gate
 
 ```text
-Shell foundation
-→ Harness launch adapter
-→ /research/:research_case_id integration
+S4-N1 Product Shell Foundation           COMPLETE
+S4-N2 Today / Opportunities Migration    COMPLETE
+S4-N3 Research Runtime Adapter           COMPLETE
+S4-N4 Scheduler / Headless Orchestration COMPLETE / CI PASS
+  N4-A exact-pin audit + Contract        COMPLETE
+  N4-B Manual Run vertical slice         COMPLETE
+  N4-C Durable Task / Run model          COMPLETE
+  N4-D Interval / Schedule trigger       COMPLETE
+  N4-E Retry / Catch-up / History        COMPLETE
+  N4-F Event trigger + Product status UI COMPLETE
+S4-N5 Web Shell Retirement               COMPLETE / CI PASS
+S4 Engineering                           COMPLETE / CI PASS
+Windows final local smoke                PASS
 ```
 
-任何 Harness 升级仍需重跑 exact-pin compatibility CI，但不重新打开 Full Harness Workbench 假设，除非未来正式 ADR 明确改变架构。
+最终自动化验证 head `a56b7b9bbe8844df88fed7071f2827dcc0b672b5` 已完成 CI #289、Harness Spike #243、Harness Editorial Shell #151、Harness Native Shell Spike #157 四套 Gate。
+
+Windows final smoke 已验证 Product Shell、Today / Opportunities、fresh-profile native picker fallback、Research Runtime Ready、Product Shell ↔ stock Harness 双向切换，以及两种模式 F5 状态保持。
+
+`apps/web` 当前定义为：
+
+```text
+RETIRED_AS_PRODUCTION_HOST
+MIGRATION_REFERENCE_ONLY
+```
+
+正式 Product acceptance 继续由 exact-pin Harness Product Shell browser / native-shell Gate 承担。PR #16 已具备 Ready 条件，合并仍需用户明确确认。
+
+## 10. 依据
+
+- `../ADR/ADR-0010-harness-native-product-shell.md`
+- `../04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
+- `../04_CONTRACTS/SCHEDULER_ORCHESTRATION_CONTRACT.md`
+- `../07_DELIVERY/S4_HARNESS_NATIVE_PRODUCT_SHELL_MIGRATION.md`
+- `../07_DELIVERY/S4_N5_WEB_SHELL_RETIREMENT_AUDIT.md`
+- `HARNESS_INTEGRATION.md`
+- `HARNESS_RUNTIME_TOPOLOGY.md`

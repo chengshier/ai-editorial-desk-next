@@ -27,7 +27,7 @@ def test_web_shell_owns_frozen_product_routes() -> None:
         assert route in app
 
 
-def test_research_navigation_has_global_hub_and_case_workspace() -> None:
+def test_research_navigation_has_global_hub_and_case_workspace_reference() -> None:
     app = APP.read_text(encoding="utf-8")
 
     top_nav = (WEB / "components" / "shell" / "TopNav.tsx").read_text(encoding="utf-8")
@@ -35,7 +35,9 @@ def test_research_navigation_has_global_hub_and_case_workspace() -> None:
     assert "['/research', '研究']" in top_nav
     assert "['/research', '正在研究', FolderKanban]" in sidebar
     assert "ResearchIndexPage" in app
-    assert "Research Hub → Research Case → Harness Workspace" in app
+    assert "Legacy migration reference only" in app
+    assert "正式 Research 产品入口已迁入 Harness-native Product Shell" in app
+    assert "DeepSeek Harness Web → AI Editorial Desk Product Shell" in app
     assert "primary-nav__item--disabled" not in app
 
 
@@ -62,6 +64,9 @@ def test_shell_does_not_claim_future_integrations_are_complete() -> None:
     top_nav = (WEB / "components" / "shell" / "TopNav.tsx").read_text(encoding="utf-8")
     assert "S5 接入 HumanSubmission API 后才会真正提交" in modal
     assert "S4 接入 Harness Agent" in top_nav
-    assert "OPPORTUNITIES_LIBRARY_IN_PROGRESS" in state
-    assert "TODAY_OPPORTUNITY_INSPECTOR = COMPLETE" in state
-    assert "不代表生产全量 corpus" in state
+    assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE" in state
+    assert "S2 Today / Opportunity Inspector       COMPLETE" in state
+    assert "S3 Opportunities Library               COMPLETE" in state
+    assert "EXTERNAL_WEB_SHELL_IFRAME_HARNESS = SUPERSEDED" in state
+    assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in state
+    assert "Transitional data boundary" in state

@@ -1,176 +1,186 @@
-# Harness Runtime Topology v1
+# Harness Runtime Topology v2
 
-## 1. 三个独立运行时
+## 1. 当前用户侧拓扑
 
-AI Editorial Desk Next 的 Web Shell、DeepSeek Harness 与 Editorial API 不合并为一个进程。
+AI Editorial Desk Next 当前不再采用“独立 Web Shell + 独立 Harness UI”双浏览器宿主。
+
+正式用户侧宿主为 DeepSeek Harness Web：
 
 ```text
-AI Editorial Desk Web Shell
-Global IA / Router / Product Workspaces
-        │
-        │ HTTPS / JSON
-        ▼
-AI Editorial Desk Next
-Python / FastAPI
-Editorial Intelligence API
-        ▲
-        │ Editorial Tools
-        │ HTTPS / JSON (+ SSE/轮询)
-DeepSeek Harness
-TypeScript / Node
-Agent UI + Session + Jobs + Tools + Research Workspace
+Browser
+  │
+  ▼
+DeepSeek Harness Web :3080
+  ├─ AI Editorial Desk Product Shell Plugin
+  ├─ stock Harness workbench
+  └─ Agent Runtime / Session / Tools / Jobs
+          │
+          │ HTTPS / JSON
+          ▼
+Editorial API / FastAPI :18000
+          │
+          ├─ Domain / Application Services
+          ├─ PostgreSQL
+          ├─ Acquisition Providers
+          └─ WeKnora / Knowledge Providers
 ```
 
-Harness 不 import Python 包；Python 后端不依赖 Harness 内部包；Web Shell 不 import Harness 内部 TypeScript 包。
+Harness 与 Python 后端仍是独立运行时；变化的是浏览器 Product Shell 被迁入 Harness Web，而不是把后端或业务真相合进 Harness。
 
-生产部署可以通过同域反向代理提供统一用户体验，但逻辑边界保持独立。
+## 2. Product Shell 侧组成
 
-## 2. Web Shell 侧组成
+正式包：
 
-Web Shell 计划承载：
+```text
+integrations/harness/editorial-shell-package
+```
 
-- Global IA / Router；
+承载：
+
+- Global IA / Primary Navigation；
 - Today / Opportunities；
+- Opportunity Inspector；
+- Research business surface；
 - Programming / Creation / Publication；
-- Performance / Knowledge；
-- Management / Configuration；
-- Opportunity Inspector / Global Search；
-- Human Submission；
-- Harness launch / return orchestration。
+- Performance / Knowledge / Management；
+- Human Submission / Global Search；
+- Product-level runtime status / actions；
+- Product ↔ stock Harness workbench switching。
 
-Shell 通过 Editorial API 读取/修改业务状态，不直连 PostgreSQL。
+Product Shell 通过 Editorial API 读取和修改业务状态，不直连 PostgreSQL。
 
-## 3. Harness 侧组成
+## 3. Harness runtime 侧组成
 
-`integrations/harness` 承载：
+Harness 提供：
 
-- editorial profile / bundle configuration；
-- model-facing Editorial Tools；
-- API Client / auth / compatibility adapter；
-- Tool Card presentation；
-- Research Job bridge；
-- Research Workspace；
-- Session replay / compatibility；
-- Hybrid launch adapter。
+- Client Slot / Plugin Host；
+- Sessions / Workspaces outward API；
+- Agent / Tool / Job / Approval runtime；
+- Session replay / trajectory；
+- stock Harness workbench；
+- 后续 headless / SDK / JSON-RPC execution seam。
 
-业务规则不得复制到插件中。插件负责“把 Harness 能力映射到 Backend Use Case”。
+`integrations/harness` 维护 compatibility layer，并固定 exact pin。
 
 ## 4. Backend 侧组成
 
-`apps/editorial_api` 是稳定边界：
+`apps/editorial_api` 是稳定业务边界：
 
-- 对 Web Shell / Harness 暴露 use-case oriented API；
-- 做身份、权限、幂等、输入校验；
-- 调用 Domain/Application Service；
-- 返回结构化业务结果；
-- 不把 ORM model 直接作为公开协议。
+- use-case oriented API；
+- runtime binding API；
+- 身份 / 权限 / 风险 / 幂等 / 输入校验；
+- Domain/Application Service；
+- structured business result；
+- PostgreSQL canonical persistence（正式阶段）；
+- Provider / Knowledge gateway。
+
+Harness Plugin 不直接访问数据库或 Provider SDK。
 
 ## 5. 短任务
 
 ```text
-Agent
-→ Harness Tool
-→ HTTP API
+Product Shell or Agent
+→ Editorial API / Harness Tool
 → Domain Service
-→ JSON result
-→ Tool canonical value
-→ Card / Agent context
+→ structured result
+→ Product presentation / Tool Result
 ```
 
-典型：list opportunities、inspect、compare、record decision。
+业务规则必须在 backend use case/domain 层共享，不允许 Product Shell 与 Tool 各复制一套。
 
-Shell 的短交互同样调用对应 Use Case API，不在浏览器复制业务规则。
+## 6. Research 长任务
 
-## 6. 长任务
-
-Research、批量发现、深度资料补全等采用异步任务：
+正式 Research 链路：
 
 ```text
-Harness Tool or Shell action
-→ POST /research-cases
-→ 返回 research_case_id + task handle
-→ Harness Job / UI Progress
-→ GET/SSE task progress
-→ completed result
+Product action
+→ Research Case (canonical business id)
+→ HarnessRuntimeAdapter
+→ runtime Session binding
+→ Agent / Tool / Job
+→ progress / canonical result in Editorial API
+→ durable Harness Tool Result / replay
 ```
 
-长任务必须有稳定业务 id；Harness job id 只代表 Harness runtime task，不代替 backend `research_case_id`。
+`harness_session_id` 与 `harness_job_id` 只表示运行时对象。
 
-## 7. Session 与业务真相
+## 7. Fresh profile bootstrap
 
-Harness Session Event / Tool Result 用于：
+isolated / fresh Harness profile 可能没有任何 Workspace。
 
-- replayable interaction；
-- tool call/result；
-- research presentation；
-- approval/action interaction；
-- Agent trajectory。
+正式 Product Shell 不依赖人工准备环境：
 
-PostgreSQL 用于：
+```text
+IWorkspaces.listDirectory()
+→ Host home
+→ create/reuse ai-editorial-desk-runtime
+→ IWorkspaces.create({path})
+→ connectWorkspace()
+→ Session
+```
+
+只允许通过 Harness 公开 Host/outward API 获取和创建路径，不在 browser 侧硬编码操作系统目录。
+
+## 8. Session 与业务真相
+
+Session Event / Tool Result 用于：
+
+- runtime trajectory；
+- Tool call/result；
+- Agent completion；
+- replay continuity。
+
+PostgreSQL / Editorial API 用于：
 
 - Subject / Discovery / Opportunity；
-- Evaluation / Evidence / Decision；
-- Research Case canonical state；
-- Candidate / Programming；
+- Evaluation / Evidence / Unknown；
+- Research Case；
+- Candidate / Programming / Decision；
 - Draft / Publication / Performance。
 
-Web Shell 的 URL / local state 只保存产品导航与非 canonical UI state。
+Session 丢失只触发 runtime rebind / rehydrate，不得删除业务对象。
 
-打开新 Harness Session 时，业务页面/Research context 必须能通过 API 重建，不能假设旧 Session 是唯一数据来源。
+## 9. Product state
 
-## 8. Shell ↔ Harness launch
+当前 Product Shell 使用 `ed_*` namespaced browser state 保存非 canonical UI 导航/筛选/Inspector 状态。
 
-Web Shell 不直接解析 Harness 内部 route/store。
+业务定位依赖业务 ID，不依赖 Harness private route 或 Session URL。
 
-```text
-Shell product route
-→ Editorial integration launch contract
-→ opaque Harness surface URL / Session association
-→ Harness resolves business context by opportunity_id / research_case_id
-```
+旧的 `/research/:research_case_id` 外部 Web Shell route 语义只属于迁移参考，不再构成最终 Harness-native 浏览器宿主 Contract。
 
-产品 canonical URL 始终以业务 route / business id 为中心，例如：
+## 10. Scheduler / Headless（下一 Gate）
+
+S4-N4 需要建立：
 
 ```text
-/research/:research_case_id
+Schedule / Event / Manual Product Command
+→ Editorial Scheduler / Orchestrator
+→ Harness SDK / JSON-RPC / Runtime Adapter
+→ Agent / Tool / Job
+→ Editorial API / PostgreSQL
+→ Product Shell
 ```
 
-而不是：
+至少支持 enable/disable、schedule/interval、event/manual trigger、Catch-up、retry、Last Run、Next Run、run history。
+
+## 11. `apps/web` 状态
+
+S4-N5 之前：
 
 ```text
-/harness/session/:id   ← 不能成为产品业务真相定位
+apps/web = migration reference + regression baseline
 ```
 
-详细 contract：
+它不是最终生产入口。Product Shell 达到功能等价后必须删除或明确降级为开发预览壳，避免双生产入口。
 
-`../04_CONTRACTS/HYBRID_SHELL_CONTRACT.md`
+## 12. 兼容隔离
 
-## 9. 兼容隔离
+- pin Harness commit/release；
+- breaking changes 收敛在 `integrations/harness`；
+- no upstream core patch by default；
+- Domain/API Contract 不追随 Harness private internals；
+- Harness 升级不得自动触发业务 schema 迁移。
 
-Harness 当前为 Developer Preview，因此：
+详细 Contract：
 
-- pin upstream version/commit；
-- `integrations/harness` 维护 compatibility layer；
-- Domain API contract 不跟随 Harness 内部事件/类型变化；
-- Harness breaking change 不应触发 PostgreSQL schema migration；
-- Harness breaking change 不应迫使 Web Shell product route 跟随变化。
-
-## 10. 部署形态
-
-开发期分别启动：
-
-- Web Shell：独立 dev server；
-- Editorial API：如 `127.0.0.1:18000`；
-- Harness Web：如 `127.0.0.1:3080`；
-- PostgreSQL / WeKnora / Provider services 独立。
-
-生产部署可采用：
-
-```text
-same-origin reverse proxy
-+ Web Shell main product URL
-+ Harness internal surface path/origin
-+ Editorial API path
-```
-
-具体 browser transport 可演化，但 ownership / business IDs / API semantics 不变。
+`../04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`

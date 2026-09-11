@@ -4,48 +4,111 @@
 
 ## Phase 0 — Architecture + Functional Baseline
 
-已冻结：
-- Product Vision / Functional Spec / User Journeys / Workbench UX；
-- Domain / Editorial Value / State / Provenance；
-- Harness Runtime / API / UI Strategy；
-- Mission-driven Acquisition / Provider Contract；
-- Human Acquisition / HumanSubmission；
-- WeKnora / Knowledge boundary；
-- Legacy reuse map；
-- ADR / AGENTS / Acceptance / project skeleton。
+已冻结：Product / Domain / Editorial Value / Provenance / Acquisition / HumanSubmission / Harness / WeKnora / Legacy reuse 基线。
 
 **状态：COMPLETE / MERGED（PR #1）。**
 
 ## Phase 0.5 — Validation Spikes
 
-在业务模型大规模实现前先验证两个高风险外部边界。
+### 0.5-A Harness Integration / UI Host Gate
 
-### 0.5-A Harness Integration Spike
-验证：Tool → FastAPI、Opportunity Card、Research Job/Conversation Node、复杂全局 UI 扩展能力。
+历史过程分两步：
 
-输出必须选择：
-- `HARNESS_FULL_WORKBENCH`；或
-- `HYBRID_WEB_HARNESS`。
+1. PR #2、#5–#9 先证明 Agent Runtime / Tool / Job / Replay / Research Workspace，并基于当时 UI seam 选择 `HYBRID_WEB_HARNESS`；
+2. PR #15 继续验证 pinned Harness public root Slot replacement seam，证明 out-of-tree Product Shell 可以承载整个结构化工作台且无需 upstream patch。
 
-Harness Developer Preview 不允许无限阻塞产品。若 Full Workbench 所需扩展点无法在明确时间盒内稳定验证，应保留 Harness Agent Runtime，并采用 Hybrid Web Workbench 继续 MVP。
+因此最终宿主由 ADR-0010 冻结为：
+
+```text
+HARNESS_NATIVE_EDITORIAL_PRODUCT_SHELL
+```
+
+`HYBRID_WEB_HARNESS` 与其 iframe / `surface_url` launch contract 保留为历史决策证据，不再指导当前实现。
 
 ### 0.5-B Acquisition Provider Spike
-使用真实 Discovery Missions 比较 Platform-first、Search-first、Search+Fetch、Feed/Ambient、Community/Trend 等组合。
 
-必须同时验证：
+**仍未关闭，独立推进。**
+
+必须使用真实 Discovery Missions 比较 Platform-first、Search-first、Search+Fetch、Feed/Ambient、Community/Trend 等组合，并同时验证：
+
 - high-momentum discovery；
 - low/no-momentum but high-potential discovery；
 - community/non-official first discovery → reliable evidence follow-up。
 
 核心指标是 Editorial Discovery Yield、Source Quality、Cost、Latency、Maintainability，而不是抓取条数。
 
-输出 V1 Provider 组合与 fallback strategy。
+HumanSubmission 不属于外部 Provider 竞争项；它是产品自身的一等 Acquisition ingress。
 
-HumanSubmission 不属于外部 Provider 竞争项；它是产品自身的一等 Acquisition ingress，并在 MVP 中直接复用选定的 Fetch/Research Provider。
+## S4 — Harness-native Product Shell Migration
+
+这是当前 UI/runtime 主线：
+
+```text
+S4-N1 Product Shell Foundation           COMPLETE / CI PASS
+S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
+S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
+S4-N4 Scheduler / Headless Orchestration NEXT
+S4-N5 Web Shell Retirement               NOT_STARTED
+```
+
+### S4-N1
+
+- 正式 `@ai-editorial-desk/harness-editorial-shell`；
+- public root Slot Product Shell；
+- stock Harness workbench 保留；
+- 双工作台切换；
+- exact-pin typecheck / bundle / isolated profile / browser Gate。
+
+### S4-N2
+
+- Today / Opportunities 迁入 Product Shell；
+- Search / Filter / Sort / card/compact list；
+- 五 Tab Opportunity Inspector；
+- Research Case 创建/复用；
+- `ed_*` namespaced Product state。
+
+### S4-N3
+
+- Research Case ↔ Harness Session runtime binding；
+- Session reuse / rebind / bootstrap；
+- `Session.prompt()` 主动驱动，不要求人工 Chat prompt；
+- `get_editorial_research_result` 只读取既有 Research Case；
+- durable Tool Result / replay；
+- fresh profile 无 Workspace 时，通过 public `IWorkspaces.listDirectory/createDirectory/create/connectWorkspace` 自举 `ai-editorial-desk-runtime` Workspace。
+
+### S4-N4 — NEXT
+
+建立 Editorial Scheduler / Orchestrator，使标准业务动作不依赖用户在 Chat 中手工触发。
+
+最低 Contract：
+
+```text
+Schedule / Event / Manual Product Command
+→ Scheduler / Orchestrator
+→ Harness SDK / JSON-RPC / Runtime Adapter
+→ Agent / Tool / Job
+→ Editorial API / PostgreSQL
+```
+
+至少支持：
+
+- enable / disable；
+- schedule / interval；
+- event trigger；
+- manual run now；
+- Catch-up；
+- retry/backoff；
+- Last Run / Next Run；
+- run history；
+- idempotency / duplicate-run protection；
+- explicit failure reason；
+- no provider secret in Product browser state。
+
+### S4-N5
+
+Product Shell 达到所需功能等价后，删除 `apps/web` 或明确降级为 dev-preview/reference 壳，禁止形成两套生产入口。
 
 ## MVP v0.1 — Discovery Desk Vertical Slice
-
-两个 Spike 给出足够结论后，不等待完整 Phase 1→7 全部独立完成，优先做一条真实可用纵向闭环。
 
 最低入口：
 
@@ -71,91 +134,63 @@ RawSignal
 → Adopt / Watch / Drop
 ```
 
-MVP Workbench 至少提供：
-- Today / Radar；
-- Emerging / Momentum；
-- Potential / Worth a Look；
-- Human Submission 入口；
-- Opportunity Detail；
-- Research；
-- Adopt / Watch / Drop。
+MVP Workbench 至少提供 Today/Radar、Potential/Momentum、Human Submission、Opportunity Detail、Research、Adopt/Watch/Drop。
 
-MVP v0.1 不以 Draft / Publication / Performance / WeKnora / Controlled Evolution 为阻塞条件。
-
-MVP 的核心成功点：系统能在没有预先喂答案的情况下主动发现至少一批用户真实认为“值得看/值得做”的内容，同时能把用户随手投喂的线索转化成可验证、可解释、可决策的 Opportunity。
+MVP v0.1 不以完整 Draft / Publication / Performance / WeKnora / Controlled Evolution 为阻塞条件。
 
 ## Phase 1 — Foundation Contracts
 
-实现纯领域 value objects、枚举、Pydantic schemas、repository ports、provenance/version primitives、migration test fixtures。
-
-重点：HumanSubmission、Subject、Observation、Discovery、Opportunity、Evaluation Contract、EditorialProfile、Research primitives。
-
-此阶段不先实现完整 UI，不让 Provider SDK 进入 Domain。
+实现领域 value objects、枚举、Pydantic schemas、repository ports、provenance/version primitives、migration fixtures。
 
 ## Phase 2 — Persistence & Legacy Bridge
 
-PostgreSQL/Alembic、核心 repository；实现 Legacy RawSignal/Event 只读 bridge 和必要的 import/backfill 工具。
-
-旧 Event 可映射到 `Subject(type=EVENT)`，但不恢复旧主链。
-
-HumanSubmission / RawSignal / source_origin / acquisition_origin 必须可追溯，不得把“用户提交”覆盖成内容原始来源。
+PostgreSQL/Alembic、核心 repository；Legacy RawSignal/Event 只读 bridge；HumanSubmission / RawSignal / source_origin / acquisition_origin 可追溯。
 
 ## Phase 3 — Acquisition Network
 
-实现 Provider seams 与 Spike 选定的 V1 Provider：
-- Feed/Ambient Sensor；
-- Discovery Scout；
-- SearchProvider；
-- FetchProvider；
-- Targeted PlatformProvider；
-- TrendProvider minimum；
-- HumanSubmission ingress；
-- coverage / budget / risk / provenance。
-
-迁移旧版可复用 Source/RawSignal/Checkpoint/Budget/Risk Guard 能力，但不复制 Platform-first 产品逻辑。
+实现 0.5-B 选定的 Feed/Ambient、Discovery Scout、Search、Fetch、Targeted Platform、Trend minimum 与 HumanSubmission ingress。
 
 ## Phase 4 — Opportunity Intelligence
 
-Discovery generation、Angle/Theme/Audience Promise generation、Value Evaluation v1、Research Gap、Editorial Advantage、pairwise comparison。建立可 replay 的 evaluation runner。
+Discovery generation、Angle/Theme/Audience Promise、Value Evaluation v1、Research Gap、Editorial Advantage、pairwise comparison、replayable evaluation runner。
 
 ## Phase 5 — Evidence & Research
 
-迁移 Evidence 语义并 generalize；ResearchCase、KnowledgeGateway、WeKnora Provider、外部检索/知识库 provenance。
-
-Research 可以按 Gap 再次调用 Acquisition Provider，形成“发现/投喂 → 判断 → 定向补证 → 重新评价”闭环。
+ResearchCase、Evidence/Unknown、KnowledgeGateway、WeKnora Provider、外部检索与 provenance；围绕已知 Opportunity 定向补证。
 
 ## Phase 6 — Candidate & Programming
 
 CandidateV2、ProgrammingContext、Series Fit、Today Slate、Evergreen、HumanDecisionV2。
 
-不建立一个永久全局 TOP 榜作为唯一工作流。
-
-HumanSubmission 本身不得作为 Candidate 或偏好标签；后续 Decision + reason 才进入 Calibration 数据。
-
 ## Phase 7 — Product Workbench
 
-根据 Phase 0.5-A ADR 落地：
+宿主选择已经结束，不再二选一 Full vs Hybrid。
 
-- Harness Full Workbench；或
-- Hybrid Web + Harness Workspace。
+当前实现必须基于：
 
-必须打通：Today/Radar、Human Submission、Opportunity Detail、Research、Pairwise Compare、Programming、Decision。
+```text
+Harness-native AI Editorial Desk Product Shell
++
+retained stock Harness workbench
+```
+
+需要最终打通 Today/Radar、Human Submission、Opportunity Detail、Research、Pairwise Compare、Programming、Decision。
 
 ## Phase 8 — Draft / Publication / Performance
 
-迁移旧版成熟的 citation/risk/version/provenance；打通真实 Draft version chain、Publication 与 Performance snapshot。
+迁移 citation/risk/version/provenance；打通真实 Draft version chain、Publication、Performance snapshot。
 
 ## Phase 9 — Calibration & Controlled Evolution
 
 Gold Set、replay A/B、policy proposal、human approval、promotion gates；禁止 silent self-mutation。
-
-HumanSubmission → Evaluation → HumanDecision + reason 可作为重要 Calibration trajectory，但 Submission 本身不能被当作 positive label。
 
 ## 每个 Phase 的通用要求
 
 - 独立分支/PR；
 - 先更新对应 Domain/Contract/ADR 再改语义；
 - exact-head CI；
+- Harness 相关改动重跑 exact-pin compatibility/browser Gate；
 - 明确真实验证与未验证项；
 - 不把 provider smoke 当作产品价值验收；
-- 保持所有 AI/Decision/Publication provenance 可重建。
+- 保持 AI / Decision / Publication provenance 可重建；
+- 不把 transitional deterministic/in-memory fixture 宣称为 production persistence。

@@ -1,0 +1,8 @@
+# Applied on top of the stock DeepSeek Harness web profile.
+- id: tools
+  config:
+    mode: !!js process.env.DSH_TOOLS_MODE
+
+- insert:
+    - id: ai-editorial-desk-product-shell
+      name: '@ai-editorial-desk/harness-editorial-shell'

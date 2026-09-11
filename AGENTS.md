@@ -9,14 +9,19 @@
 1. `docs/00_START_HERE.md`
 2. `docs/CURRENT_STATE.md`
 3. `docs/DECISIONS.md`
-4. `docs/01_PRODUCT/FUNCTIONAL_SPEC.md`
-5. `docs/01_PRODUCT/WORKBENCH_UX_SPEC.md`
-6. 当前任务涉及的 Domain / Architecture / Contract 文档
-7. 对应 ADR / Spike Spec
+4. `docs/ADR/ADR-0010-harness-native-product-shell.md`
+5. `docs/04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
+6. `docs/07_DELIVERY/S4_HARNESS_NATIVE_PRODUCT_SHELL_MIGRATION.md`
+7. `docs/01_PRODUCT/FUNCTIONAL_SPEC.md`
+8. `docs/01_PRODUCT/WORKBENCH_UX_SPEC.md`
+9. 当前任务涉及的 Domain / Architecture / Contract 文档
+10. 对应 ADR / Spike / Delivery 文档
 
-如果文档之间冲突，以顺序为：**ADR / DECISIONS > Contracts > Domain > Architecture > Functional Spec > Roadmap > 代码现状**。发现冲突时不得自行选择，应先更新文档或提出阻塞。
+如果文档之间冲突，以顺序为：**当前 Accepted ADR / DECISIONS > Active Contracts > CURRENT_STATE > Domain > Architecture > Functional Spec > Roadmap > 代码现状**。
 
-## 2. 核心边界
+标记为 `SUPERSEDED / HISTORICAL` 的 ADR/Contract 只能用于理解历史，不能覆盖活动 Contract。
+
+## 2. 核心业务边界
 
 - 不恢复旧版 `Event → Trend → Score → DailyCandidate` 为 V1 主链。
 - Event 只是 Subject 的一种 Legacy / specialized representation。
@@ -42,48 +47,100 @@
 - **Human Acquisition 是一等发现入口。** 正式 ingress 对象为 `HumanSubmission`，不得另建第二套 `HumanSignal` 事实体系。
 - HumanSubmission 首版最低支持 URL + Text；Question / Idea / Observation 属于同一入口语义。
 - HumanSubmission 只表示“值得系统看一眼”，不得自动视为 Confirmed Fact、正偏好标签、Opportunity、Candidate 或 Adopt。
-- 必须区分 `source_origin` 与 `acquisition_origin`；用户提交 Reddit URL 时 source 仍是 Reddit，acquisition origin 才是 `HUMAN_SUBMISSION`。
+- 必须区分 `source_origin` 与 `acquisition_origin`；用户提交第三方 URL 时原始 source 仍是第三方。
 - 用户直接 assertion 且无外部来源时必须保持 unverified，并进入正常 Research/Evidence 流程。
 - HumanSubmission 与机器采集共享同一个 RawSignal / Subject / Discovery / Evidence 主链与风险规则。
-- Legacy MediaCrawler/custom connector 只能作为 PlatformProvider/Adapter，不得决定新 Domain。
+- Legacy crawler 只能作为 PlatformProvider/Adapter，不得决定新 Domain。
 - Provider rank / trend velocity / fetched count 不等于 Editorial Value。
-- Provider Spike 前不得把具体 Search/Fetch/Trend/Community 供应商写死为不可替换依赖。
+- Phase 0.5-B 未关闭前不得把具体 Search/Fetch/Trend/Community Provider 写死为不可替换依赖。
 
-## 4. 技术边界
+## 4. 当前 Harness / Product Shell 技术边界
+
+当前正式架构是：
+
+```text
+DeepSeek Harness Web
+├─ AI Editorial Desk Product Shell Plugin
+├─ stock Harness workbench
+└─ Agent Runtime / Session / Tool / Job
+
+Editorial API / PostgreSQL
+└─ canonical business truth
+```
+
+强制规则：
 
 - PostgreSQL 为 System of Record。
-- WeKnora 只通过本仓库 Knowledge Gateway / Provider 接入，不直接成为业务状态数据库。
-- DeepSeek Harness 通过 profile / plugin / tool / capability seam 接入；默认不 fork、不修改 upstream core。
-- Harness 当前属于 Developer Preview，必须隔离 compatibility layer，禁止把业务模型耦合进其内部实现。
-- Harness 与 Editorial API 维持独立运行时；Harness Tool 通过稳定 API 调用 Domain Use Case，不直连数据库。
-- 如果 Harness Full Workbench 无法在 Spike 时间盒内稳定验证，允许采用 Hybrid Web + Harness Runtime；不得为了 Full Workbench 无限 patch upstream。
-- Legacy 仓库只作为迁移来源与参考，不允许新代码运行时 import 旧仓库。
+- WeKnora 只通过 Knowledge Gateway / Provider 接入，不直接成为业务状态数据库。
+- 正式 Product Shell 是 `integrations/harness/editorial-shell-package`，通过公开 Harness plugin/Slot/runtime seam 接入。
+- stock Harness workbench 必须保留为自由 Agent / Session 工作台。
+- DeepSeek Harness upstream core 默认禁止 fork/patch。
+- 禁止 private Harness store / DOM click/query hack。
+- 禁止把 iframe、`surface_url`、`embedded`、`editorial_embed` / `editorial_launch` 恢复为正式 Product Shell host。
+- `apps/web` 只在 S4-N5 前作为 migration reference/regression baseline。
+- Harness Tool / Product Shell 都调用稳定 Editorial API，不直连数据库。
+- `opportunity_id / research_case_id / candidate_id / draft_id / publication_id` 是 canonical business IDs。
+- Harness Session / Job / Workspace ID 只是 runtime metadata。
+- Session 丢失不得导致业务对象丢失；必须允许 rebind / rehydrate。
+- fresh Harness profile 无 Workspace 时，technical runtime Workspace 必须通过公开 `IWorkspaces` outward API 自动 bootstrap，不要求用户手工准备。
+- 标准业务动作不得要求用户进入 stock Harness Chat 手工 prompt。
+
+历史 ADR-0009 / `HYBRID_SHELL_CONTRACT.md` 已 superseded，不得作为当前宿主依据。
 
 ## 5. 开发流程
 
-- 每个实现批次独立分支、独立 PR。
+- 每个实现批次独立分支、独立 PR；当前 S4-N1→N5 统一在已存在的 PR #16 分支内按 Gate 推进，不另起同一批次重复分支，除非 `CURRENT_STATE.md` 明确改变计划。
 - PR 必须说明：目的、文档依据、数据模型变化、风险、测试、未完成项。
 - Domain / Contract 变化必须先更新对应文档和 ADR，再写代码。
 - 版本化对象（rubric/schema/policy/tool contract）不得无痕覆盖历史版本。
 - 新增 AI 行为必须保存 model/provider/prompt/schema/policy/input hash/provenance。
 - Spike 是验证，不得为了让结果 PASS 偷偷实现未来正式系统或绕过 Contract。
 - HumanSubmission 相关学习/校准必须使用 `Submission → Evaluation → Decision + reason` 完整 trajectory，禁止把 submission 本身当 positive label。
+- Harness 相关改动必须重跑 exact-pin compatibility / bundle / isolated profile / browser Gate 中适用的部分。
+- 不得把 deterministic/in-memory fixture 冒充 production persistence。
 
-## 6. 当前阶段限制
+## 6. 当前阶段与 Gate
 
-Architecture + Functional Baseline v1 已合并。当前阶段是 **Phase 0.5 Validation Spikes**，并为 MVP v0.1 补充 Human Acquisition baseline。
+当前 S4 状态：
 
-允许：
-- Harness Integration Spike 所需 mock/adapter/profile/compatibility code；
-- Acquisition Provider Spike 所需 adapter/benchmark harness/真实 Mission 采样；
-- HumanSubmission 的文档、契约、最小接口设计；
-- 为 MVP Vertical Slice 实现必要的最小 Foundation Contracts。
+```text
+S4-N1 Product Shell Foundation           COMPLETE / CI PASS
+S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS
+S4-N3 Research Runtime Adapter           COMPLETE / CI PASS
+S4-N4 Scheduler / Headless Orchestration NEXT
+S4-N5 Web Shell Retirement               NOT_STARTED
+```
 
-禁止：
-- 把 Spike mock 冒充正式业务实现；
-- 为 Spike 建立不可逆正式业务表；
-- 在 Harness Spike 结论前假定复杂 Dashboard 一定能由 Harness 完整承担；
-- 在 Acquisition Spike 前假定某个 Provider 组合已经胜出；
-- 为了赶 MVP 跳过 source/acquisition provenance、Evidence 或 Human Decision append-only 规则。
+当前只进入 **S4-N4**。
 
-除非 `CURRENT_STATE.md` 已明确切换阶段，否则不得越过 Gate。
+N4 开始前必须先审计 exact-pinned DeepSeek Harness 的公开 SDK / JSON-RPC / ACP / headless execution seam，不得从 private implementation 猜接口。
+
+N4 允许：
+
+- Scheduler / Orchestrator Contract；
+- durable task/run model；
+- Manual Run Now vertical slice；
+- Schedule / interval / event trigger；
+- retry / Catch-up / run history / Last Run / Next Run；
+- Harness SDK / JSON-RPC / public headless adapter；
+- 与 Product Shell 的运行状态 UI；
+- 为 N4 所需的最小 backend persistence / API contract。
+
+N4 禁止：
+
+- 重新打开 iframe / Hybrid browser transport 设计；
+- 把 runtime Session ID 变成 SchedulerTask/业务对象主键；
+- 让用户 Chat prompt 成为 scheduled task 的执行机制；
+- 未审计 upstream 就依赖 private Harness RPC；
+- 借 N4 宣称 Phase 0.5-B Acquisition Provider 已完成；
+- 未经用户明确要求合并 PR #16。
+
+## 7. 并行未关闭工作流
+
+Phase 0.5-B Acquisition Provider Spike 仍独立开放，必须验证：
+
+- high-momentum discovery；
+- low/no-momentum but high-potential discovery；
+- community/non-official first discovery → reliable evidence follow-up。
+
+除非 `CURRENT_STATE.md` 明确切换 Gate，否则不得把该 Provider 选型当作已冻结事实。

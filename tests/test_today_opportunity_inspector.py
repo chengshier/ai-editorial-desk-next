@@ -46,10 +46,12 @@ def test_dev_server_proxies_editorial_api_without_browser_cors_hack() -> None:
     assert "http://127.0.0.1:18000" in vite
 
 
-def test_s2_state_does_not_claim_spike_fixture_is_production_truth() -> None:
+def test_s2_state_stays_complete_without_claiming_fixture_is_production_truth() -> None:
     state = CURRENT_STATE.read_text(encoding="utf-8")
 
-    assert "TODAY_OPPORTUNITY_INSPECTOR = COMPLETE" in state
-    assert "OPPORTUNITIES_LIBRARY_IN_PROGRESS" in state
-    assert "Harness Spike" in state or "transitional integration adapter" in state
-    assert "不代表生产全量 corpus" in state
+    assert "S2 Today / Opportunity Inspector       COMPLETE" in state
+    assert "S3 Opportunities Library               COMPLETE" in state
+    assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE" in state
+    assert "Transitional data boundary" in state
+    assert "deterministic mock 是 production research result" in state
+    assert "真实外部 Acquisition 已完成" in state

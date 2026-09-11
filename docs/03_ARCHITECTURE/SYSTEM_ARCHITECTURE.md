@@ -1,62 +1,91 @@
-# System Architecture v1
+# System Architecture v2
+
+## 总体拓扑
 
 ```text
-                 AI Editorial Desk Web Shell
-          Global IA / Router / Product Workspaces
-                         │
-              ┌──────────┴──────────┐
-              │                     │
-              ▼                     ▼
-      Editorial Intelligence API   Harness-powered
-              │                    Agent / Research Workbench
-              │                     │ Editorial Tools
-              │                     └──────────┐
-              │                                │ HTTPS / JSON
-              └────────────────────────────────┘
-                         │
-        ┌────────────────┼───────────────────┐
-        ▼                ▼                   ▼
- Editorial Core    Knowledge Gateway     AI Gateway
- Subject/Discovery Provider abstraction  model/budget
- Opportunity        │
- Value/Research     └── WeKnora
- Programming
+Browser
+  │
+  ▼
+DeepSeek Harness Web
+├─ AI Editorial Desk Product Shell Plugin
+├─ stock Harness workbench
+└─ Agent Runtime / Session / Tool / Job / Replay
         │
-        ├──────── Acquisition Network
-        │           ├─ Feed / Ambient Sensing
-        │           ├─ Discovery Scouts
-        │           ├─ SearchProvider
-        │           ├─ FetchProvider
-        │           └─ PlatformProvider
-        │
+        │ HTTPS / JSON
         ▼
-     PostgreSQL
-   System of Record
+Editorial Intelligence API / FastAPI
         │
- Draft / Publication / Performance
+        ├─ Editorial Core
+        │   Subject / Discovery / Opportunity / Value / Research / Programming
         │
- Evaluation / Calibration / Controlled Evolution
+        ├─ Acquisition Network
+        │   Feed / Ambient / Potential / Momentum / Search / Fetch / Platform / Human
+        │
+        ├─ Knowledge Gateway
+        │   └─ WeKnora Provider
+        │
+        ├─ AI Gateway
+        │   model / provider / budget / policy
+        │
+        └─ PostgreSQL
+            System of Record
+            Draft / Publication / Performance / Provenance / Decisions
 ```
 
 ## 物理边界
 
-### Web Shell（planned `apps/web` or equivalent）
+### DeepSeek Harness Web
 
-正式产品的全局 UI Shell：
+当前正式浏览器宿主。
 
-- Product Router / Primary Navigation；
+其中存在两个一等 UI surface：
+
+```text
+AI Editorial Desk Product Shell
+↔
+stock Harness workbench
+```
+
+Product Shell 是 out-of-tree plugin，不修改 upstream core。
+
+### AI Editorial Desk Product Shell
+
+正式包：
+
+`integrations/harness/editorial-shell-package`
+
+负责：
+
+- Global IA / Primary Navigation；
 - Today / Opportunities；
+- Opportunity Inspector；
+- Research business surface；
 - Programming / Creation / Publication；
 - Performance / Knowledge；
 - Management / Configuration；
-- Global Inspector / Search / Human Submission；
-- Harness launch / return orchestration。
+- Global Search / Human Submission；
+- structured Product Commands；
+- Product ↔ stock Harness workbench switching。
 
-Web Shell 是 Editorial API 的客户端，不持有 Domain 真相，也不 import Harness 内部包。
+Product Shell 是 Editorial API 客户端，不持有 Domain 真相。
+
+### stock Harness workbench
+
+负责自由 Agent / Session / Tool / Job / Replay / Approval 工作。
+
+它不是 Product canonical business database，也不是 Programming / Draft / Publication 等全局业务对象的生命周期 owner。
 
 ### `apps/editorial_api`
 
-唯一稳定的业务 API 入口；对 Web Shell、Harness、自动化、内部工具暴露 use-case API。Harness 与 Backend 通过 HTTPS/JSON 连接，长任务允许 SSE/轮询。
+唯一稳定业务 API 入口；对 Product Shell、Harness Tool、Scheduler/Orchestrator 与内部工具暴露 use-case API。
+
+负责：
+
+- validation / auth / risk / idempotency；
+- Domain/Application Service；
+- runtime binding；
+- structured response；
+- persistence / provider gateway。
 
 ### `packages/editorial_core`
 
@@ -68,7 +97,7 @@ Subject / Observation / Discovery / Opportunity 的领域模型与服务。
 
 ### `packages/acquisition`
 
-Mission-driven Acquisition provider contracts、coverage、normalization、provenance；迁移旧版可复用 connector/runtime/raw signal 能力，但不让 Legacy crawler 成为核心架构。
+Mission-driven Acquisition provider contracts、coverage、normalization、provenance；Legacy crawler 只作为 Adapter/Provider。
 
 ### `packages/knowledge`
 
@@ -76,85 +105,142 @@ Knowledge Gateway 与 Provider contract；WeKnora 只是 provider。
 
 ### `integrations/harness`
 
-Harness profile/plugins/tools/compatibility / launch adapter，不放业务真相，不直接访问数据库/WeKnora/provider SDK。
+保存 Product Shell、Harness tools、profile/plugin、compatibility、runtime adapter 与 Spike evidence。
 
-Harness 负责：
+不放 canonical business truth，不直接访问 PostgreSQL / WeKnora / Provider SDK。
 
-- Agent Conversation / Session / Replay；
-- Editorial Tools / ToolViews；
-- Background Jobs；
-- Research Workspace；
-- Agent-driven structured interaction。
+## Harness-native Product Shell 原则
 
-它不负责整个产品的 Global Router / Primary Navigation。
-
-## Acquisition 原则
-
-Next 不采用“固定平台每天抓 N 条”作为主要发现模型。核心组合为：
+当前活动决策：
 
 ```text
-Ambient Feed Sensing
-+ Mission-driven Discovery Scout
-+ Search-first Discovery
-+ Targeted Fetch
-+ Targeted Platform Research
+HARNESS_NATIVE_EDITORIAL_PRODUCT_SHELL
 ```
 
-具体 Provider 供应商通过 Spike 决定。详见 `ACQUISITION_ARCHITECTURE.md`。
+PR #15 证明 pinned Harness public root Slot replacement seam 可以承载结构化 Product Shell，同时 Harness mode 保留 stock AppFrame，无需 upstream patch。
 
-## Harness / Web Shell UI 原则
-
-Harness UI Spike PR #5–#9 已完成，最终采用：
+因此历史：
 
 ```text
 HYBRID_WEB_HARNESS
+apps/web -> iframe/embedded Harness
+surface_url launch descriptor
 ```
 
-原因：Harness 已证明适合 Agent / Tool / Research / Replay 与 Session-scoped complex workbench，但 exact-pin 缺少适合全局业务 Router / Primary Navigation 的 additive shell seam，Programming 等全局模块不应绑定 Agent Session 生命周期。
+已经 superseded，不再作为正式架构。
 
-详见：
+活动依据：
 
+- `../ADR/ADR-0010-harness-native-product-shell.md`
+- `../04_CONTRACTS/HARNESS_NATIVE_PRODUCT_SHELL_CONTRACT.md`
 - `HARNESS_INTEGRATION.md`
 - `HARNESS_RUNTIME_TOPOLOGY.md`
 - `HARNESS_UI_STRATEGY.md`
-- `../ADR/ADR-0009-hybrid-web-shell-harness.md`
-- `../04_CONTRACTS/HYBRID_SHELL_CONTRACT.md`
+
+## Research Runtime
+
+```text
+Product Shell
+→ canonical Research Case
+→ HarnessRuntimeAdapter
+→ runtime Session binding
+→ public ctx.sessions / ctx.workspaces
+→ Session.prompt()
+→ Editorial Tool / API
+→ durable Tool Result / replay
+```
+
+`research_case_id` 是业务身份，`harness_session_id` 是 runtime metadata。
+
+fresh Harness profile 没有 Workspace 时，通过公开 `IWorkspaces` Host/directory API 自动建立 `ai-editorial-desk-runtime` Workspace。
+
+## Scheduler / Orchestrator
+
+当前下一 Gate S4-N4：
+
+```text
+Schedule / Event / Manual Product Command
+→ Editorial Scheduler / Orchestrator
+→ Harness SDK / JSON-RPC / Runtime Adapter
+→ Agent / Tool / Job
+→ Editorial API / PostgreSQL
+→ Product Shell
+```
+
+这层负责主动执行，不让标准业务流程依赖人工 Chat prompt。
+
+## Acquisition 原则
+
+Next 不采用“固定平台每天抓 N 条”作为主要发现模型。
+
+```text
+Ambient Feed Sensing
++ Potential Scouts
++ Momentum Radar
++ Search-first Discovery
++ Targeted Fetch
++ Targeted Platform Research
++ Human Submission
+```
+
+具体 Provider 组合仍由 Phase 0.5-B 决定。
 
 ## 技术基线
 
-后端骨架继续采用 Python + FastAPI + SQLAlchemy + PostgreSQL，以降低旧能力迁移成本。
+- Backend：Python + FastAPI + SQLAlchemy + PostgreSQL；
+- Harness：TypeScript/npm 生态，exact-pin compatibility；
+- Product Shell：Harness out-of-tree Client Plugin；
+- Knowledge：Provider/Gateway；
+- Browser Product host：Harness Web；
+- `apps/web`：S4-N5 前 migration reference/regression baseline。
 
-Harness 保持其 TypeScript/npm 生态并通过稳定边界集成。
-
-Web Shell 作为独立前端运行时/构建产物存在；具体前端框架在 Shell Foundation PR 中冻结，但不得改变 Domain/API/Harness ownership。
-
-三个 UI/API 运行时不硬合成一个进程：
+逻辑运行时依旧分离：
 
 ```text
-Web Shell
-Harness Web / Agent Runtime
+Harness Web / Client Runtime
 Editorial API
+PostgreSQL / Provider services
 ```
 
-生产部署可以通过同域 reverse proxy 统一体验，逻辑边界保持独立。
+并不因为 Product Shell 迁入 Harness Web 就把 Python/backend 合并进 Node 进程。
 
-## Product route / runtime identity
+## Product / runtime identity
 
-产品 canonical route 使用业务页面与业务 ID，例如：
+Canonical business IDs：
 
 ```text
-/today
-/opportunities
-/research/:research_case_id
-/programming
+opportunity_id
+research_case_id
+candidate_id
+draft_id
+publication_id
+human_submission_id
 ```
 
-Harness Session ID / Job ID 只是 runtime metadata，不得成为业务页面唯一定位依据。
+Runtime IDs：
 
-Shell ↔ Harness 通过 compatibility / launch contract 关联，不访问 Harness private store / DOM / session files。
+```text
+harness_session_id
+harness_job_id
+harness_workspace_id
+```
+
+Runtime ID 不得成为唯一业务定位依据。Product Shell 的非 canonical UI 状态使用 `ed_*` namespaced browser state。
 
 ## Source of Truth
 
-PostgreSQL 保存 canonical business state；WeKnora 保存可检索知识；Harness Session 保存 agent/runtime trajectory；Web Shell 保存非 canonical UI state。
+```text
+PostgreSQL / Editorial API
+→ canonical business state
+
+WeKnora
+→ searchable knowledge/reference
+
+Harness Session
+→ agent/runtime trajectory + replay
+
+Product Shell browser state
+→ non-canonical UI state
+```
 
 四者职责不可互换。
