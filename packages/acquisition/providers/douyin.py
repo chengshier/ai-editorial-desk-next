@@ -201,8 +201,10 @@ class DouyinVideoSearchProvider:
                         value = raw.get(key)
                         if value is not None:
                             metadata[key] = value
+                    source_roles = [SourceRole.DISCOVERY_SIGNAL, SourceRole.MATERIAL_SOURCE]
                     if isinstance(digg_count, int | float):
                         metadata["digg_count"] = digg_count
+                        source_roles.insert(1, SourceRole.AUDIENCE_SIGNAL)
 
                     candidates.append(
                         AcquisitionCandidate(
@@ -213,11 +215,7 @@ class DouyinVideoSearchProvider:
                             snippet=snippet,
                             published_at=_timestamp(raw.get("create_time")),
                             source=urlparse(url).netloc or "www.douyin.com",
-                            source_roles=[
-                                SourceRole.DISCOVERY_SIGNAL,
-                                SourceRole.AUDIENCE_SIGNAL,
-                                SourceRole.MATERIAL_SOURCE,
-                            ],
+                            source_roles=source_roles,
                             query_variant=query,
                             rank=len(candidates) + 1,
                             provider_metadata=metadata,
