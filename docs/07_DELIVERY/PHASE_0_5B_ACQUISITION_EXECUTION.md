@@ -41,13 +41,13 @@ Mission-driven Discovery
 0.5B-A Benchmark Contract + Mission Corpus       COMPLETE / CI PASS
 0.5B-B No-key Baselines                          COMPLETE / CI PASS
 0.5B-C Key-gated Search / Fetch Adapters         COMPLETE / CI PASS
-0.5B-D Real Provider Runs                        IN_PROGRESS
+0.5B-D Real Provider Runs                        COMPLETE / PASS WITH LIMITATIONS
   D1 HN no-key live baseline                     COMPLETE / PASS WITH LIMITATIONS
   D1 RSS/Atom configured live baseline           NOT_RUN / NON-BLOCKING
   D2-A Exa vs Tavily keyed real run              COMPLETE / PASS WITH LIMITATIONS
   D2-B Exa → Firecrawl vs Tavily                 COMPLETE / PASS WITH LIMITATIONS
-  D3 Google Trends Momentum baseline             IN_PROGRESS
-0.5B-E Human Editorial Acceptance                NOT_STARTED
+  D3 Google Trends Momentum baseline             COMPLETE / PASS WITH LIMITATIONS
+0.5B-E Human Editorial Acceptance                IN_PROGRESS
 0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
 
@@ -152,42 +152,63 @@ Tavily integrated seam   RETAIN AS COMPARATOR/FALLBACK
 final provider winner    NOT DECIDED
 ```
 
-D2-B 还暴露两个工程项：
-
-- Firecrawl v1 旧 artifact 只有 `failure_count`，没有每 URL 失败原因；adapter 已开始硬化为保存 non-secret `url/error_kind/http_status`；
-- Firecrawl usage/cost 本轮为 unavailable，必须保持 null，不能当 0。
+D2-B 暴露的工程项已进入 adapter hardening：per-URL non-secret failure provenance；Firecrawl usage/cost 未观测到时保持 null，不伪装成 0。
 
 审计摘要见 `PHASE_0_5B_D2B_FIRECRAWL_RUN_AUDIT.md`。
 
 #### D3 — Momentum real baseline
 
-原始 Spike Gate 明确要求同时验证“正在快速获得注意力”与“低/无 Momentum 但高 Potential”。D1 已证明 HN rank 不是 velocity，因此 D2-B 完成后仍不能直接结束 0.5B-D。
-
-下一步增加 no-key Google Trends public RSS/Trending Now baseline：
+Google Trends public RSS real run 已完成：
 
 ```text
-Google Trends recent search surge
-→ TREND_SIGNAL + DISCOVERY_SIGNAL
-→ generic ATTENTION_SURGE only
-→ other momentum mission shapes explicit UNSUPPORTED
+provider                   google-trends-rss-us
+geo                        US
+momentum missions          6
+transport success          1
+explicit unsupported       5
+retrieved                  10
+required SourceRole PASS   1 / 6
 ```
 
-已新增 `GoogleTrendsRssProvider` 与 `run_momentum_baseline.py`。该 Provider 只把 Google 报告的近期搜索 surge 作为 trend feature；approx traffic、rank 与 related news 都不等于 Editorial Value / Confirmed Evidence。
+`momentum-search-attention-surge` 真实返回 10 条候选并满足：
+
+```text
+TREND_SIGNAL + DISCOVERY_SIGNAL
+```
+
+其余 5 个 Momentum mission shape 因单 snapshot 无法证明 community acceleration / cross-platform spread / culture-only breakout / resurfacing history / emerging-tech evidence coverage，保持 explicit `UNSUPPORTED`。
+
+D3 还暴露 `geo=US` 仍可能出现语言/地域噪声，说明 Trend Provider 只能提供 attention feature，仍需要 Human Acceptance 判断真正编辑价值。
+
+同时修复 provenance：Google Trends RSS `pubDate` 是 trend observation time，不再写入 candidate source `published_at`，而是保存在 `provider_metadata.trend_observed_at`。
+
+审计摘要见 `PHASE_0_5B_D3_GOOGLE_TRENDS_RUN_AUDIT.md`。
+
+至此 0.5B-D 最低真实 Gate 完成：Potential、Search/Fetch、Community baseline 与至少一个真实 `TREND_SIGNAL` seam 均已有 artifact。
 
 ### 0.5B-E — Human Editorial Acceptance
 
-至少抽取：
+当前正式进入人工验收。固定抽取：
 
 ```text
-5 个高 Momentum Discovery
-5 个低/无 Momentum 但高 Potential Discovery
-5 个 Community/Non-official first Discovery
-5 个普通/失败 Discovery 负样本
+5 Momentum Discovery
+5 low/no-Momentum Potential Discovery
+5 Community/Non-official-first Discovery
+5 Control / ordinary / lower-precision samples
 ```
 
-人工验收回答：是否想看、是否会做、推荐去向、为什么，以及 community-first 是否能追到可靠 Evidence。
+已新增 `benchmarks/acquisition/build_human_acceptance_packet.py`，从 D1 / D2-B / D3 本地 artifact 构建 20 条去重平衡样本。每条必须由人类填写：
 
-D2 的 Potential 候选已经足够进入 acceptance input；完整 E 仍需等待 D3 产生真实 Momentum 样本。
+```text
+DO / MAYBE / DROP
+would_read
+would_make
+placement
+rationale
+evidence_followup_needed
+```
+
+采样信号只用于平衡 packet，不是 Editorial Value。完整协议见 `PHASE_0_5B_E_HUMAN_ACCEPTANCE_PROTOCOL.md`。
 
 ### 0.5B-F — Provider Decision + ADR
 
@@ -209,14 +230,17 @@ benchmarks/acquisition/mission_templates.v1.json
 benchmarks/acquisition/run_keyed_search_fetch.py
 benchmarks/acquisition/run_no_key_baselines.py
 benchmarks/acquisition/run_momentum_baseline.py
+benchmarks/acquisition/build_human_acceptance_packet.py
 docs/07_DELIVERY/PHASE_0_5B_D1_NO_KEY_RUN_AUDIT.md
 docs/07_DELIVERY/PHASE_0_5B_D2A_KEYED_SMOKE_AUDIT.md
 docs/07_DELIVERY/PHASE_0_5B_D2A_BOUNDED_RUN_AUDIT.md
 docs/07_DELIVERY/PHASE_0_5B_D2B_FIRECRAWL_RUN_AUDIT.md
+docs/07_DELIVERY/PHASE_0_5B_D3_GOOGLE_TRENDS_RUN_AUDIT.md
+docs/07_DELIVERY/PHASE_0_5B_E_HUMAN_ACCEPTANCE_PROTOCOL.md
 ```
 
 以及对应 contract / runner / adapter tests。
 
-## 当前 Real Run Gate
+## 当前 Gate
 
-下一 Gate 是 D3：先让 Google Trends public RSS baseline 在 `momentum-search-attention-surge` 上产生真实、可审计的 `TREND_SIGNAL` artifact；其他它不能证明的 Momentum Mission 必须明确 `UNSUPPORTED`。D3 通过后才进入完整 0.5B-E Human Editorial Acceptance。
+当前 Gate 是 0.5B-E：从三份真实本地 artifact 构建 20 条 Human Editorial Acceptance packet，并完成人工 Do / Maybe / Drop 与理由标注。人工验收完成后，才进入 0.5B-F Provider Decision + ADR。
