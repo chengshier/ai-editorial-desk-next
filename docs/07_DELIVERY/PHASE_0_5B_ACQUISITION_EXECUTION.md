@@ -38,23 +38,25 @@ Mission-driven Discovery
 ## 执行批次
 
 ```text
-0.5B-A Benchmark Contract + Mission Corpus       IN_PROGRESS
-0.5B-B No-key Baselines                           IN_PROGRESS
-0.5B-C Key-gated Search / Fetch Adapters          NOT_STARTED
-0.5B-D Real Provider Runs                         NOT_STARTED
-0.5B-E Human Editorial Acceptance                 NOT_STARTED
-0.5B-F Provider Decision + ADR                    NOT_STARTED
+0.5B-A Benchmark Contract + Mission Corpus       COMPLETE / CI PASS
+0.5B-B No-key Baselines                          COMPLETE / CI PASS
+0.5B-C Key-gated Search / Fetch Adapters         COMPLETE / CI PASS
+0.5B-D Real Provider Runs                        IN_PROGRESS
+0.5B-E Human Editorial Acceptance                NOT_STARTED
+0.5B-F Provider Decision + ADR                   NOT_STARTED
 ```
+
+0.5B-C exact-head `23a7c6e61c30558f7e2c733c2e6796763cad38b1` 已由 CI #323 验证通过。
 
 ### 0.5B-A — Benchmark Contract + Mission Corpus
 
-当前已建立：
+已建立：
 
 - provider-agnostic `DiscoveryMission` / `ProviderRunRecord` / `ProviderBenchmarkSummary`；
 - `ambient / potential / momentum / research` discovery lane；
 - SourceRole / ProviderCapability / explicit unsupported-unavailable semantics；
 - Editorial Discovery Yield、Potential Discovery Yield、Momentum Discovery Yield 独立统计；
-- 12–20 条 mission corpus 的版本化 manifest；
+- 17 条 mission corpus 的版本化 manifest；
 - community-first → reliable evidence follow-up 的结构要求；
 - deterministic mechanical tests。
 
@@ -62,29 +64,28 @@ Mission-driven Discovery
 
 ### 0.5B-B — No-key Baselines
 
-优先实现无需用户提供 secret 的基线：
+已实现：
 
 1. RSS/Atom Ambient baseline；
-2. Hacker News official public API community/ranked snapshot baseline；
-3. Legacy Platform-first controlled baseline（只读/受控样本，若可复用）。
+2. Hacker News official public API community/ranked snapshot baseline。
 
 HN ranked list 只代表某一时点的社区排名快照；在没有跨时间快照历史前，不得伪装成 velocity / Trend feature。
 
 ### 0.5B-C — Key-gated Search / Fetch Adapters
 
-计划按统一 Contract 增加：
+已实现统一 Contract 下的候选：
 
-- semantic Search candidate；
-- independent Fetch candidate；
-- Search+Fetch integrated candidate。
+- Exa semantic Search candidate；
+- Firecrawl independent Fetch candidate；
+- Tavily integrated Search+Fetch candidate。
 
-API key 仅通过 server-side environment 注入，不能进入 Product browser state、benchmark fixture 或 Git 历史。单元测试使用 mock transport，不要求 secret。
+API key 仅通过 server-side environment 注入，不进入 Product browser state、benchmark fixture 或 Git 历史；缺 key 时显式 `UNAVAILABLE`。单元测试使用 mock transport，不要求 secret。
 
-真实 Provider 候选与价格/访问条件是时效信息，必须在进入真实 benchmark 前重新核对官方资料；候选实现不是冻结选型。
+候选实现只代表进入真实 benchmark 的工程资格，不代表 Provider 已选定。
 
 ### 0.5B-D — Real Provider Runs
 
-必须真实执行可比预算的 missions，并保存 run 级记录：
+当前进行中。必须真实执行可比预算的 missions，并保存 run 级记录：
 
 ```text
 mission/version
@@ -98,6 +99,18 @@ candidate provenance
 Opportunity conversion
 human 做 / 可能做 / 不做
 ```
+
+本批新增两个关键约束：
+
+1. Provider request 成功不等于 Mission 成功；必须把 Mission `required_source_roles` 与候选实际 `source_roles` 分开记录；
+2. HN rank snapshot 即使请求成功，也不能自动满足 `TREND_SIGNAL`，除非后续有跨时间历史证明 velocity。
+
+已加入：
+
+- `MissionRunAssessment` / `assess_run_against_mission()`；
+- `benchmarks/acquisition/run_no_key_baselines.py`；
+- no-key live artifact 中的 source-role coverage 与缺失角色记录；
+- `benchmarks/acquisition/run_keyed_search_fetch.py` 作为 keyed candidate runner。
 
 `unsupported / unavailable / insufficient history` 必须原样记录，不能改成 0 分或空成功。
 
@@ -125,7 +138,7 @@ human 做 / 可能做 / 不做
 - Community/Trend 合规边界；
 - ADR。
 
-## 当前已完成工程内容
+## 当前工程内容
 
 分支已加入：
 
@@ -134,22 +147,36 @@ packages/acquisition/spike.py
 packages/acquisition/providers/base.py
 packages/acquisition/providers/rss.py
 packages/acquisition/providers/hackernews.py
+packages/acquisition/providers/exa.py
+packages/acquisition/providers/firecrawl.py
+packages/acquisition/providers/tavily.py
 benchmarks/acquisition/mission_templates.v1.json
+benchmarks/acquisition/run_keyed_search_fetch.py
+benchmarks/acquisition/run_no_key_baselines.py
 tests/test_acquisition_provider_spike.py
 tests/test_acquisition_baseline_providers.py
+tests/test_acquisition_keyed_providers.py
+tests/test_acquisition_benchmark_runner.py
+tests/test_acquisition_no_key_real_runner.py
 ```
 
-其中 RSS/HN 仅是 baseline adapter，不代表最终 Provider 选择。
+这些 adapter / runner 都是 Spike 证据基础，不代表最终 Provider 选择。
 
-## 下一 Gate
+## 当前 Real Run Gate
 
-当前先完成：
+先完成两层真实数据：
 
 ```text
-0.5B-A/B exact-head CI
-→ 修正 contract / lint / test 问题
-→ 打开 Draft PR
-→ 再进入 key-gated adapters
+D1 no-key live baseline
+→ HN ranked community snapshot
+→ 配置的 RSS/Atom feeds
+→ 保存 run + source-role assessment artifact
+
+D2 keyed Search/Fetch live benchmark
+→ Exa Search
+→ Exa → Firecrawl independent fetch
+→ Tavily Search+Fetch
+→ 可比 Mission / result limit / provenance / latency / cost
 ```
 
-当真实 Search / Fetch benchmark 已准备好时，才需要用户提供对应 Provider API key。Google Trends/Reddit 等 access-gated capability 不作为整个 Spike 的阻塞项；没有合法访问条件时必须记为 `unavailable/access-gated`。
+D1 不需要用户 secret；D2 才需要合法 Provider API key。真实 benchmark artifact 产生以后才能进入 0.5B-E 人工编辑验收，不能在此之前根据返回数量宣告胜负。
