@@ -99,5 +99,6 @@ def test_ui_strategy_and_current_state_close_s4_engineering() -> None:
     assert "N4-F Event trigger + Product status UI COMPLETE / CI PASS" in state
     assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in state
     assert "Windows final local smoke                PENDING" in state
-    assert "ai-editorial-desk-runtime" in state
-    assert "IWorkspaces" in state
+    # Runtime workspace details remain architecture facts, not completion-status text.
+    assert "ai-editorial-desk-runtime" in strategy
+    assert "IWorkspaces" in strategy
