@@ -2,9 +2,9 @@
 
 ## 状态
 
-`IN_PROGRESS / MOMENTUM_CONTEXT_BLOCKED / POTENTIAL_ROUND_REVIEWED / D4_READY_FOR_REAL_RUN`
+`IN_PROGRESS / MULTICHANNEL_REAL_RUN_COMPLETE / BLIND_REVIEW_NEXT`
 
-本文件记录 Phase 0.5-B-E 的真实人工编辑反馈。只有 `context_sufficient=true` 的判断才进入最终 Gate；上下文不足的暂定反馈用于改进 acceptance packet，不计入最终 Editorial Discovery Yield。
+本文件记录 Phase 0.5-B-E 的真实人工编辑反馈。只有 `context_sufficient=true` 的判断才进入最终 Human Acceptance Gate；上下文不足的暂定反馈用于改进 acceptance packet，不计入最终 Editorial Discovery Yield。
 
 ## 1. 第一轮 Momentum 暂定反馈
 
@@ -73,34 +73,13 @@ production_depth
 
 其中本轮 5 条均倾向 `COLUMN + DEEP_DIVE`，但 #2/#3/#5 的投入优先级高于 #1/#4。
 
-## 4. 内容形态偏差
+## 4. 内容形态偏差与多栏目语义
 
-人工编辑指出，本轮 5 个 Potential 候选整体明显偏：
+人工编辑指出，本轮 5 个 Potential 候选整体明显偏：严谨、科普、研究解释、证据型内容。额外参考短视频则强调信息差快报、多条短故事、反转/澄清、社会小事件、诈骗提醒、娱乐回应和高密度口播。
 
-```text
-严谨
-科普
-研究解释
-证据型内容
-```
+两者都属于产品目标，不能互相替代。
 
-这类内容并非不需要，但如果只用这类样本完成 Provider Decision，会导致 benchmark corpus 对真实目标内容分布失真。
-
-额外提供的短视频参考样本显示，目标内容风格还包含明显不同的一类：
-
-```text
-信息差快报 / 多条短故事
-事实核对与反转
-社会生活小事件
-诈骗 / 风险提醒
-历史或常识纠偏
-娱乐 / 人物回应
-高密度口播 + 截图证据 + meme/影视梗切片
-```
-
-该参考视频约 79 秒，核心不是“论文解读”，而是把数条真实信息压缩成“发生了什么 → 有什么反转/信息差 → 给证据截图 → 一句评论/梗 → 下一条”的高节奏栏目。
-
-因此 Phase 0.5-B-E 在进入最终 Provider Decision 前，必须确认 Mission corpus 不只代表 science/knowledge explainer，还能覆盖至少以下编辑形态：
+后续 Human Acceptance 必须覆盖：
 
 ```text
 DEEP_EXPLAINER
@@ -112,78 +91,95 @@ EVERYDAY WHY
 CULTURE / ENTERTAINMENT RESPONSE
 ```
 
-这些是“内容形态 / editorial mode”，与 Momentum/Potential/Community lane 是正交维度：
+这些是“内容形态 / editorial mode”，与 Momentum/Potential/Community discovery lane 正交：
 
 ```text
 Momentum/Potential/Community = 为什么发现它
 Editorial Mode               = 最后适合怎么讲
+Series                        = 最终在哪个长期栏目运营
 ```
 
-Provider rank / academic source preference 不能替代这层编辑路由。
+因此不能把全局 Editorial Value 改成固定的“Drama / Hook / Comments 百分比”；短视频信息差应通过独立 Series Profile / Draft Style 表达，而不是污染所有频道。
 
-## 5. 已采取的工程修复
+## 5. Acceptance packet 修复
 
-原 acceptance packet 已增加 `review_context` 与 `context_sufficient` Gate：
+第一版 packet 已增加 `review_context`，但 D4 进一步证明仅把 description 当 summary 仍可能退化成“标题换一种写法”。
 
-- Momentum 优先带 related news 标题 / 来源；
-- Potential 优先把 Exa candidate 对应的 Firecrawl fetched description / content excerpt 合并；
-- Control 优先带 Tavily integrated content excerpt；
-- Community 若仍只有标题/信号，必须允许 `context_sufficient=false`；
-- `context_sufficient=false` 不计入最终 Gate。
+因此 multichannel packet 已升级为 v2：
 
-本轮人工反馈进一步要求后续 human-review contract 能表达：
+- 同时保留 `provider_snippet` 与 `content_excerpt`；
+- Fetch 成功时优先尝试从文章标题之后截取正文，而不是直接取页面最前面的站点导航；
+- 增加 `context_sufficient_hint`，但它只是机器提示，最终仍由人填写 `context_sufficient`；
+- 增加 `published_at` temporal note，明确页面发布时间不等于事件发生时间；
+- human-facing packet 中移除 `provider_id`，避免“声称盲审但 JSON 里仍暴露 Provider”的伪盲审；
+- `human_review` 增加 `investment_priority / production_depth / series_fit / editorial_mode_fit`。
 
-- 投入优先级；
-- 内容深度；
-- 固定栏目 / 快报 / 深度解读等内容形态；
-- 同一个候选“值得发现”与“适合哪种生产方式”必须分开判断。
+## 6. D4 中文多栏目真实运行
 
-因此新增多栏目扩展：
-
-- `benchmarks/acquisition/mission_templates.multichannel.zh-CN.v1.json`
-- `benchmarks/acquisition/build_multichannel_acceptance_packet.py`
-- `tests/test_acquisition_multichannel_acceptance.py`
-- `docs/07_DELIVERY/PHASE_0_5B_E_MULTICHANNEL_REAL_RUN_PROTOCOL.md`
-
-多栏目扩展固定验证：
+已完成 5 个中文 Mission 的真实 Search/Fetch：
 
 ```text
-信息差 / 反转 / 澄清
-普通人物 / 社会反差
-诈骗 / 风险提醒
-娱乐 / 文化回应
-常识 / 历史纠偏
+Exa Search
+5 / 5 mission success
+14 candidates
+~2888 ms average search latency
+$0.070 observed search cost
+
+Exa → Firecrawl
+14 requested
+13 fetched
+1 HTTP 403 failure
+92.9% fetch coverage
+~22463 ms average probe latency
+
+Tavily integrated
+5 / 5 mission success
+14 candidates
+8 / 14 raw content available
+57.1% content coverage
+~9325 ms average latency
+20 credits
 ```
 
-Human Review 在旧字段之外新增：
+关键结果：
+
+1. 中文 Web Search 已能找到非科普型素材；
+2. “葫芦娃爷爷”人物故事被真实命中，和人工参考方向高度一致；
+3. “班级群收款 / 家长群诈骗”被真实命中，和参考的风险提醒方向高度一致；
+4. 信息差 / 官方澄清 Mission 能找到出入境新规误读澄清等材料；
+5. 娱乐回应能找到素材，但出现旧事件以新页面日期重发，暴露 event-time integrity 缺口；
+6. 同一学生救人事件出现两个不同 URL，暴露 event-level dedupe 缺口；
+7. 自媒体 / SEO 聚合页可以用于 Discovery，但不能直接承担 Evidence；
+8. 搜索网页仍无法替代原始评论区、平台传播速度、原视频和同城/热榜信号。
+
+详细审计：`PHASE_0_5B_D4_MULTICHANNEL_ZH_CN_RUN_AUDIT.md`。
+
+## 7. 当前 Human Acceptance Gate
+
+旧版 `Momentum 5 + Potential 5 + Community 5 + Control 5` 不再机械地作为唯一验收序列。
+
+下一轮优先进行真正的 Provider-blind multi-channel review：
 
 ```text
-investment_priority
-production_depth
-series_fit
-editorial_mode_fit
+M1-A / M1-B   信息差 / 反转
+M2-A / M2-B   普通人物 / 社会反差
+M3-A / M3-B   诈骗 / 风险
+M4-A / M4-B   娱乐 / 文化回应
+M5-A / M5-B   常识 / 事实纠偏
 ```
 
-并采用 Provider-blind 的 `M1-A / M1-B ... M5-A / M5-B` 配对方式，避免人工在决定前看到 Exa / Tavily 名称。
-
-## 6. D4 的定位
-
-D4 不是“假装已经接入国内社交平台”。它只回答当前 Search/Fetch 组合在 **中文公开 Web** 上能做到什么。
-
-如果真实运行只能找到新闻转载、SEO 页面或缺少评论 / 原帖 / 现场素材，则应明确得出：
+人工只看候选事实上下文，不看 Provider 身份，并用中文回答：
 
 ```text
-Web Search / Fetch = 背景与补证层
-Platform / Community = 仍有正式能力缺口
+是否值得做
+是否会点开
+投入优先级
+制作深度
+适配栏目（可多选）
+适配内容形态
+是否需要补证
+上下文是否充分
+理由
 ```
 
-如果开放网页本身就无法稳定发现这些栏目需要的候选，则更不能把 D2-B 英文解释型结果外推成 V1 全局 Provider 结论。
-
-## 7. 下一步
-
-1. exact-head CI 通过后运行 D4 中文多栏目 Search/Fetch；
-2. 审计 Exa → Firecrawl 与 Tavily 在 5 个多栏目 Mission 上的真实候选；
-3. 构建 10 条 Provider-blind Multi-channel Human Acceptance；
-4. 根据真实缺口决定是否必须进入 PlatformProvider / 国内趋势与社区 Provider Spike；
-5. 再完成 Community / Control 与 Momentum 补上下文；
-6. 只有代表性覆盖充分后才进入 0.5B-F Provider Decision + ADR。
+完成该轮后，再回头补足 Momentum / Community 对 Platform capability 的判断，随后才能进入 0.5B-F Provider Decision + ADR。
