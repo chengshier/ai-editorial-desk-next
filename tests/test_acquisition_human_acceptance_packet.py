@@ -26,6 +26,17 @@ def _candidate(
     }
 
 
+def _fetched_document(name: str, description: str) -> dict[str, object]:
+    return {
+        "provider_result_id": name,
+        "url": f"https://example.com/{name}",
+        "canonical_url": f"https://example.com/{name}",
+        "title": name,
+        "content": f"# {name}\n\nLong fetched body that should not be required when a description exists.",
+        "provider_metadata": {"description": description, "status_code": 200},
+    }
+
+
 def test_build_human_acceptance_packet_balances_buckets_and_deduplicates() -> None:
     d3 = {
         "runs": [
@@ -58,6 +69,15 @@ def test_build_human_acceptance_packet_balances_buckets_and_deduplicates() -> No
                     "candidates": [_candidate("exa-b1"), _candidate("exa-b2", rank=2)],
                 },
             ],
+            "firecrawl_fetch": [
+                {
+                    "status": "success",
+                    "documents": [
+                        _fetched_document("exa-a1", "Context for Exa A1"),
+                        _fetched_document("exa-b1", "Context for Exa B1"),
+                    ],
+                }
+            ],
             "tavily_search_fetch": [
                 {
                     "status": "success",
@@ -83,6 +103,7 @@ def test_build_human_acceptance_packet_balances_buckets_and_deduplicates() -> No
                         "community-1",
                         roles=["DISCOVERY_SIGNAL", "AUDIENCE_SIGNAL"],
                         rank=1,
+                        metadata={"score": 100, "descendants": 40},
                     ),
                     _candidate(
                         "community-2",
@@ -101,6 +122,7 @@ def test_build_human_acceptance_packet_balances_buckets_and_deduplicates() -> No
 
     packet = build_packet(d1, d2b, d3, bucket_size=2)
 
+    assert packet["schema_version"] == "2"
     assert packet["status"] == "PENDING_HUMAN_REVIEW"
     assert packet["sample_count"] == 8
     samples = packet["samples"]
@@ -118,16 +140,21 @@ def test_build_human_acceptance_packet_balances_buckets_and_deduplicates() -> No
     assert samples[1]["title"] == "trend-mid"
     assert samples[2]["mission_id"] == "potential-a"
     assert samples[3]["mission_id"] == "potential-b"
+    assert samples[2]["review_context"]["quality"] == "FETCHED_DESCRIPTION"
+    assert samples[2]["review_context"]["summary"] == "Context for Exa A1"
+    assert samples[3]["review_context"]["summary"] == "Context for Exa B1"
     assert samples[4]["source_roles"] == ["DISCOVERY_SIGNAL", "AUDIENCE_SIGNAL"]
+    assert samples[4]["review_context"]["quality"] == "TITLE_PLUS_SIGNALS"
     urls = [sample["canonical_url"] for sample in samples]
     assert len(urls) == len(set(urls))
     assert all(sample["human_review"]["decision"] is None for sample in samples)
     assert all(sample["human_review"]["rationale"] is None for sample in samples)
+    assert all(sample["human_review"]["context_sufficient"] is None for sample in samples)
 
 
 def test_build_human_acceptance_packet_rejects_incomplete_bucket() -> None:
     d3 = {"runs": []}
-    d2b = {"runs": {"exa_search": [], "tavily_search_fetch": []}}
+    d2b = {"runs": {"exa_search": [], "firecrawl_fetch": [], "tavily_search_fetch": []}}
     d1 = {"runs": []}
 
     with pytest.raises(ValueError, match="not enough distinct candidates"):
