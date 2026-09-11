@@ -2,6 +2,18 @@
   "schema_version": "1",
   "missions": [
     {
+      "mission_id": "ambient-known-source-updates",
+      "version": "1",
+      "lane": "ambient",
+      "mission_type": "AMBIENT_KNOWN_SOURCE_UPDATES",
+      "objective": "从配置的稳定 Feed/API 来源观察最近新增内容，作为低成本 coverage 基线，不在采集阶段判断最终编辑价值。",
+      "query_seeds": ["configured feed scope"],
+      "source_preferences": ["rss", "atom", "official-feed", "newsletter"],
+      "required_source_roles": ["DISCOVERY_SIGNAL"],
+      "recency_days": 7,
+      "max_results": 20
+    },
+    {
       "mission_id": "potential-common-belief-contradiction",
       "version": "1",
       "lane": "potential",
