@@ -79,6 +79,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+function isDirectoryPickerUnavailable(reason: unknown): boolean {
+  if (!isRecord(reason) || !isRecord(reason.rpcError)) return false
+  return reason.rpcError.code === 'directory-picker-unavailable'
+}
+
 async function requestJson<T>(apiBase: string, path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     ...init,
@@ -212,34 +217,58 @@ async function markBootstrapComplete(
   )
 }
 
+async function browseRuntimePath(workspaceService: IWorkspaces): Promise<string> {
+  const home = await workspaceService.listDirectory()
+  const existing = home.entries.find(entry => entry.name === EDITORIAL_RUNTIME_DIRECTORY)?.path
+  if (existing !== undefined) return existing
+
+  try {
+    return await workspaceService.createDirectory(home.path, EDITORIAL_RUNTIME_DIRECTORY)
+  } catch (reason) {
+    // If the Host capability composition changed while this request was in
+    // flight, let the caller take the native-picker fallback instead of
+    // converting the capability error into a generic create race.
+    if (isDirectoryPickerUnavailable(reason)) throw reason
+
+    // Another Product Shell instance may have created the directory after our
+    // listing. Re-list through the same public Host contract and reuse it if it
+    // is now present; otherwise preserve the original failure.
+    const refreshed = await workspaceService.listDirectory(home.path)
+    const recovered = refreshed.entries.find(entry => entry.name === EDITORIAL_RUNTIME_DIRECTORY)
+    if (recovered === undefined) throw reason
+    return recovered.path
+  }
+}
+
 async function ensureRuntimeWorkspace(
   workspaceService: IWorkspaces,
   workspaces: WorkspaceListState,
+  onNativePicker?: () => void,
 ) {
   const existingWorkspaceId = workspaces.recentWorkspaceId ?? workspaces.items[0]?.workspaceId
   if (existingWorkspaceId !== undefined) return existingWorkspaceId
 
-  // A formal Product Shell must also work in a completely fresh Harness
-  // profile. Use only the pinned Harness outward workspace/directory contract:
-  // ask the Host for its home path, create/reuse a dedicated runtime directory,
-  // then idempotently register that existing directory as a Workspace. Never
-  // manufacture a host path in the browser and never require a prior visit to
-  // the stock Harness workbench.
-  const home = await workspaceService.listDirectory()
-  let runtimePath = home.entries.find(entry => entry.name === EDITORIAL_RUNTIME_DIRECTORY)?.path
-  if (runtimePath === undefined) {
-    try {
-      runtimePath = await workspaceService.createDirectory(home.path, EDITORIAL_RUNTIME_DIRECTORY)
-    } catch (reason) {
-      // Another Product Shell instance may have created the directory after
-      // our listing. Re-list through the same public Host contract and reuse
-      // it if it is now present; otherwise preserve the original failure.
-      const refreshed = await workspaceService.listDirectory(home.path)
-      const recovered = refreshed.entries.find(entry => entry.name === EDITORIAL_RUNTIME_DIRECTORY)
-      if (recovered === undefined) throw reason
-      runtimePath = recovered.path
+  // Fresh profiles have no Workspace. The exact-pinned Harness exposes two
+  // mutually exclusive directory-picker capabilities through the same public
+  // IWorkspaces face. Browse-capable hosts can create/reuse our dedicated
+  // runtime directory automatically. Native-picker hosts (notably the Windows
+  // composition found by local smoke) intentionally reject listDirectory(), so
+  // fall back to the public OS picker and register the selected existing path.
+  // No private Host API, hard-coded path, or prior stock-workbench setup is
+  // required in either path.
+  let runtimePath: string
+  try {
+    runtimePath = await browseRuntimePath(workspaceService)
+  } catch (reason) {
+    if (!isDirectoryPickerUnavailable(reason)) throw reason
+    onNativePicker?.()
+    const selectedPath = await workspaceService.pickDirectory()
+    if (selectedPath === null) {
+      throw new Error('Harness runtime directory selection was cancelled; Research Case remains available')
     }
+    runtimePath = selectedPath
   }
+
   const runtimeWorkspace = await workspaceService.create({ path: runtimePath })
   return runtimeWorkspace.workspaceId
 }
@@ -249,6 +278,7 @@ async function resolveSession(
   apiBase: string,
   target: ResearchRuntimeTarget,
   initial: ResearchBindingWire,
+  onStatus?: (status: ResearchRuntimeStatus) => void,
 ): Promise<{ binding: ResearchBindingWire; sessionId: SessionId }> {
   const sessionService = sessionsOf(ctx)
   const workspaceService = workspacesOf(ctx)
@@ -273,7 +303,12 @@ async function resolveSession(
     15_000,
     'Harness workspace baseline',
   )
-  const workspaceId = await ensureRuntimeWorkspace(workspaceService, workspaces)
+  const workspaceId = await ensureRuntimeWorkspace(workspaceService, workspaces, () => {
+    onStatus?.({
+      phase: 'opening-session',
+      message: '当前 Harness Host 使用原生目录选择器；请选择一个用于 Research Runtime 的本地目录…',
+    })
+  })
   const sessionId = await workspaceService.connectWorkspace(workspaceId)
   sessionService.open(sessionId)
   const rebound = await bindSession(apiBase, target.researchCaseId, sessionId)
@@ -294,7 +329,7 @@ async function ensureResearchRuntime(
   }
 
   publish({ phase: 'opening-session', message: '正在恢复或创建 Harness Session…' })
-  const resolved = await resolveSession(ctx, apiBase, target, binding)
+  const resolved = await resolveSession(ctx, apiBase, target, binding, onStatus)
   binding = resolved.binding
   const sessionId = resolved.sessionId
 
