@@ -45,12 +45,12 @@ def test_opportunities_library_does_not_fake_unavailable_actions() -> None:
     assert "Attention" in library
 
 
-def test_current_state_records_s3_complete_and_s4_native_migration() -> None:
+def test_current_state_records_s4_engineering_complete() -> None:
     state = STATE.read_text(encoding="utf-8")
 
     assert "S2 Today / Opportunity Inspector       COMPLETE" in state
     assert "S3 Opportunities Library               COMPLETE" in state
-    assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_IN_PROGRESS" in state
+    assert "S4_HARNESS_NATIVE_PRODUCT_SHELL_ENGINEERING_COMPLETE" in state
     assert "S4-N1 Product Shell Foundation           COMPLETE / CI PASS" in state
     assert "S4-N2 Today / Opportunities Migration    COMPLETE / CI PASS" in state
     assert "S4-N3 Research Runtime Adapter           COMPLETE / CI PASS" in state
@@ -61,6 +61,7 @@ def test_current_state_records_s3_complete_and_s4_native_migration() -> None:
     assert "N4-D Interval / Schedule trigger       COMPLETE / CI PASS" in state
     assert "N4-E Retry / Catch-up / History        COMPLETE / CI PASS" in state
     assert "N4-F Event trigger + Product status UI COMPLETE / CI PASS" in state
-    assert "S4-N5 Web Shell Retirement               IN_PROGRESS" in state
+    assert "S4-N5 Web Shell Retirement               COMPLETE / CI PASS" in state
+    assert "Windows final local smoke                PENDING" in state
     assert "Transitional data boundary" in state
     assert "deterministic / in-memory Spike fixture" in state
