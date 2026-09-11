@@ -77,6 +77,7 @@ class ExaSearchProvider:
         total_cost = 0.0
         cost_observed = False
         query_failures = 0
+        duplicate_count = 0
         allocations = allocate_query_budgets(mission)
 
         for query, result_budget in allocations:
@@ -123,6 +124,7 @@ class ExaSearchProvider:
                     if not isinstance(url, str) or not url or not isinstance(title, str) or not title:
                         continue
                     if url in seen_urls:
+                        duplicate_count += 1
                         continue
                     seen_urls.add(url)
                     result_id = raw.get("id")
@@ -166,7 +168,7 @@ class ExaSearchProvider:
             started_at=started,
             finished_at=datetime.now(UTC),
             retrieved_count=len(candidates),
-            duplicate_count=sum(budget for _, budget in allocations) - len(candidates),
+            duplicate_count=duplicate_count,
             latency_ms=int((time.perf_counter() - tick) * 1000),
             cost_usd=total_cost if cost_observed else None,
             failure_reason=failure_reason,
